@@ -1,0 +1,44 @@
+
+* make sure UTF-8 support is correctly handled
+
+	Is Cassandra all UTF-8 or are some types not?  Is there anything we need
+	to do for it to work?
+
+* connect the cass_log_set_callback with the Tcl async handler
+
+	This involves the Tcl async stuff.  There is a wrinkle I think that the
+	callback can happen from any thread,  I didn't really understand it.  
+	There is some sort of log queue within Cassandra so getting stuff off the
+	queue shouldn't be too hard.
+
+* create a demonstration that uses SSL for the connection to the cassandra cluster (the Tcl/C interface has interfaces to their slightly lame SSL setup calls.  Use them to create the demo.)
+
+	The interfaces are there but they take the arguments as strings.  It'll need some scaffolding to get files from the right plances into the right calls.  A demo will show connecting over SSL to a cluster and document that.
+
+* allow where the cassandra cpp-driver library is located to be specified rather than assuming it is in /usr/local/include and /usr/local/lib
+
+* maybe detect if tcl isn't built with threads and stop because cassandra doesn't work with threads
+
+* support the following data types in casstcl_cass_value_to_tcl_obj:
+	* custom
+	* decimal
+	* inet
+	* varint
+	* timeuuid
+
+* support batches, probably with a batch method and suboptions
+	$cass batch start
+	$cass batch add $statement
+	$cass batch add $statement
+	$cass batch exec
+	$cass batch drop
+
+  on the other hand batches can be done entirely through CQL.
+
+  also if supported there is some argument about how securely
+  for the write to have been completed for it to be considered
+  complete.
+
+* see if the way we get column names and data types in select is inefficient and if so then only get the that info once and keep a copy of it during the select, freeing it afterwards
+
+* Figure out what's going on with https://groups.google.com/a/lists.datastax.com/forum/#!topic/cpp-driver-user/qswjKhATEKU
