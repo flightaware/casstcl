@@ -57,7 +57,11 @@ Methods of cassandra cluster interface object
 
 * $cassdb exec $statement
 
-Perform the requested CQL statement.  Either it works or you get a Tcl error.
+Perform the requested CQL statement.  Waits for it to complete. Either it works or you get a Tcl error.
+
+* $cassdb async $statement
+
+Perform the requested CQL statement.  Does not wait.  Creates a future object that you can use the methods of to find out the status of your statement. Allows for considerable performance gains over exec at the cost of greater code complexity.  See also the future object.
 
 * $cassdb select ?-pagesize n? $statement array code
 
@@ -180,6 +184,44 @@ This sets the client-side private key.  This is by the server to authenticate th
 This sets the verification that the client will perform on the peer's certificate.  "none" selects that no verification will be performed, while "verify_peer_certificate" will verify that a certificate is present and valid.
 
 Finally, "verify_peer_identity" will match the IP address to the certificate's common name or one of its subject alternative names.  This implies that the certificate is also present.
+
+Future Objects
+---
+
+Future objects are created when casstcl's async method is invoked.  It is up to the user to ensure that the objects returned by the async method have their own methods invoked to enquire as to the status and ultimate disposition of their requests.  After you're finished with a future object, you should delete it.
+
+	set future [$cassObj async "select * from wx_metar where airport = 'KHOU' order by time desc limit 1"]
+
+	# see if the request was successful
+	if {[$future isready]} {
+		if {[$future error_code] != "CASS_OK"} {
+			set errorString [$future error_message]
+		}
+	}
+
+* $future isready
+
+Returns 1 if the future (query result) is ready, else 0.
+
+* $future wait ?us?
+
+Waits for the request to complete.  If the optional argument us is specified, times out after that number of microseconds.
+
+* $future foreach rowArray code
+
+Iterate through the query results, filling the named array with the columns of the row and their values and executing code thereupon.
+
+* future error_code
+
+Return the cassandra error code converted back to a string, like CASS_OK and CASS_ERROR_SSL_NO_PEER_CERT and whatnot.
+
+* future error_message
+
+Return the cassandra error message for the future, empty string if none.
+
+* $future delete
+
+Delete the future.  Care should be taken to delete these when done with them to avoid leaking memory.
 
 Casstcl library functions
 ---

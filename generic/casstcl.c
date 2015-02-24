@@ -41,6 +41,32 @@ casstcl_cassObjectDelete (ClientData clientData)
 /*
  *--------------------------------------------------------------
  *
+ * casstcl_futureObjectDelete -- command deletion callback routine.
+ *
+ * Results:
+ *      ...destroys the future object.
+ *      ...frees memory.
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+void
+casstcl_futureObjectDelete (ClientData clientData)
+{
+    casstcl_futureClientData *fcd = (casstcl_futureClientData *)clientData;
+
+    assert (fcd->cass_magic == CASS_FUTURE_MAGIC);
+
+	cass_future_free (fcd->future);
+    ckfree((char *)clientData);
+}
+
+
+/*
+ *--------------------------------------------------------------
+ *
  * casstcl_cass_error_to_errorcode_string -- given a CassError
  *   code return a string corresponding to the CassError constant
  *
@@ -1019,7 +1045,140 @@ void print_schema_meta(const CassSchemaMeta* meta, int indent) {
 /*
  *----------------------------------------------------------------------
  *
- * casstcl_cassObjectObjCct --
+ * casstcl_futureObjectObjCmd --
+ *
+ *    dispatches the subcommands of a casstcl future-handling command
+ *
+ * Results:
+ *    stuff
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_futureObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+{
+    int         optIndex;
+	casstcl_futureClientData *fcd = (casstcl_futureClientData *)cData;
+	int resultCode = TCL_OK;
+
+    static CONST char *options[] = {
+        "isready",
+        "wait",
+        "foreach",
+		"error_code",
+		"error_message",
+		"delete",
+        NULL
+    };
+
+    enum options {
+        OPT_ISREADY,
+        OPT_WAIT,
+        OPT_FOREACH,
+		OPT_ERRORCODE,
+		OPT_ERRORMESSAGE,
+		OPT_DELETE
+    };
+
+    /* basic validation of command line arguments */
+    if (objc < 2) {
+        Tcl_WrongNumArgs (interp, 1, objv, "subcommand ?args?");
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIndexFromObj (interp, objv[1], options, "option", TCL_EXACT, &optIndex) != TCL_OK) {
+		return TCL_ERROR;
+    }
+
+    switch ((enum options) optIndex) {
+		case OPT_ISREADY: {
+			Tcl_SetBooleanObj (Tcl_GetObjResult(interp), cass_future_ready (fcd->future));
+			break;
+		}
+
+		case OPT_WAIT: {
+			int microSeconds = 0;
+
+			if (objc > 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "?us?");
+				return TCL_ERROR;
+			}
+
+			if (objc == 3) {
+				if (Tcl_GetIntFromObj (fcd->ct->interp, objv[2], &microSeconds) == TCL_ERROR) {
+					Tcl_AppendResult (interp, " while converting microseconds element", NULL);
+					return TCL_ERROR;
+				}
+				Tcl_SetBooleanObj (Tcl_GetObjResult(interp), cass_future_wait_timed (fcd->future, microSeconds));
+			} else {
+				cass_future_wait (fcd->future);
+			}
+			break;
+		}
+
+		case OPT_FOREACH: {
+			break;
+		}
+
+		case OPT_DELETE: {
+			if (objc != 2) {
+				Tcl_WrongNumArgs (interp, 2, objv, "");
+				return TCL_ERROR;
+			}
+
+			if (Tcl_DeleteCommandFromToken (fcd->ct->interp, fcd->cmdToken) == TCL_ERROR) {
+				resultCode = TCL_ERROR;
+			}
+			break;
+		}
+
+		case OPT_ERRORCODE: {
+			const char *cassErrorCodeString = casstcl_cass_error_to_errorcode_string (cass_future_error_code (fcd->future));
+
+			Tcl_SetObjResult (fcd->ct->interp, Tcl_NewStringObj (cassErrorCodeString, -1));
+			break;
+		}
+
+		case OPT_ERRORMESSAGE: {
+			CassString cassErrorDesc = cass_future_error_message (fcd->future);
+			Tcl_SetStringObj (Tcl_GetObjResult(interp), cassErrorDesc.data, cassErrorDesc.length);
+			break;
+		}
+    }
+    return resultCode;
+}
+
+int
+casstcl_createFutureObjectCommand (casstcl_clientData *ct, CassFuture *future)
+{
+    // allocate one of our cass future objects for Tcl and configure it
+	casstcl_futureClientData *fcd = (casstcl_futureClientData *)ckalloc (sizeof (casstcl_futureClientData));
+
+    fcd->cass_magic = CASS_FUTURE_MAGIC;
+	fcd->ct = ct;
+	fcd->future = future;
+
+	static unsigned long nextAutoCounter = 0;
+	char *commandName;
+	int    baseNameLength;
+
+#define FUTURESTRING "future"
+	baseNameLength = sizeof(FUTURESTRING) + snprintf (NULL, 0, "%lu", nextAutoCounter) + 1;
+	commandName = ckalloc (baseNameLength);
+	snprintf (commandName, baseNameLength, "%s%lu", FUTURESTRING, nextAutoCounter++);
+
+    // create a Tcl command to interface to cass
+    fcd->cmdToken = Tcl_CreateObjCommand (fcd->ct->interp, commandName, casstcl_futureObjectObjCmd, fcd, casstcl_futureObjectDelete);
+    Tcl_SetObjResult (ct->interp, Tcl_NewStringObj (commandName, -1));
+	ckfree(commandName);
+    return TCL_OK;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_cassObjectObjCmd --
  *
  *    dispatches the subcommands of a cass object command
  *
@@ -1036,6 +1195,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 	int resultCode = TCL_OK;
 
     static CONST char *options[] = {
+        "async",
         "select",
         "exec",
         "connect",
@@ -1070,6 +1230,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
     };
 
     enum options {
+        OPT_ASYNC,
         OPT_SELECT,
         OPT_EXEC,
         OPT_CONNECT,
@@ -1187,6 +1348,29 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_future_free (future);
+			cass_statement_free (statement);
+
+			break;
+		}
+
+		case OPT_ASYNC: {
+			CassStatement* statement = NULL;
+			CassFuture *future = NULL;
+			char *query = NULL;
+
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "statement");
+				return TCL_ERROR;
+			}
+
+			query = Tcl_GetString (objv[2]);
+
+			statement = cass_statement_new(cass_string_init(query), 0);
+
+			future = cass_session_execute (ct->session, statement);
+			if (casstcl_createFutureObjectCommand (ct, future) == TCL_ERROR) {
+				resultCode = TCL_ERROR;
+			}
 			cass_statement_free (statement);
 
 			break;
@@ -1650,6 +1834,8 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_session_close (ct->session);
+			Tcl_DeleteCommandFromToken (ct->interp, ct->cmdToken);
+			ckfree(ct);
 			break;
 		}
 
