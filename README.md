@@ -10,7 +10,7 @@ Open source under the permissive Berkeley copyright, see file LICENSE
 
 Requirements
 ---
-Requires the Datastaxx cpp-driver be installed.
+Requires the Datastaxx cpp-driver be installed.  (https://github.com/datastax/cpp-driver)
 
 Building
 ---
@@ -40,6 +40,8 @@ CassTcl provides object creation commands...
 	set cass [::casstcl::cass create #auto]
 
 	$cass exec "insert into foo ..."
+
+...or...
 
 	::casstcl::cass create cass
 
