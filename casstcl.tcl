@@ -158,6 +158,18 @@ proc column_type {schema table column} {
 	return [dict get $schemaDict $schema $table $column]
 }
 
+#
+# table_typemap_to_array - given a schema and table and the name of an array,
+#   fill the array with key-value pairs where the keys are the names of each
+#   column in the table and the values are the cassandra data types of those
+#   columns
+#
+proc table_typemap_to_array {schema table _array} {
+	upvar $_array array
+
+	array set array [dict get $schema $schema $table]
+}
+
 
 
 } ;# namespace ::casstcl

@@ -648,7 +648,7 @@ int casstcl_cass_value_to_tcl_obj (casstcl_clientData *ct, const CassValue *cass
  *----------------------------------------------------------------------
  */
 
-int casstcl_select (casstcl_clientData *ct, char *query, char *arrayName, Tcl_Obj *codeObj) {
+int casstcl_select (casstcl_clientData *ct, char *query, char *arrayName, Tcl_Obj *codeObj, int pagingSize) {
 	CassStatement* statement = NULL;
 	int tclReturn = TCL_OK;
 
@@ -659,7 +659,7 @@ int casstcl_select (casstcl_clientData *ct, char *query, char *arrayName, Tcl_Ob
 	CassError rc = CASS_OK;
 	int columnCount = -1;
 
-	cass_statement_set_paging_size(statement, 100);
+	cass_statement_set_paging_size(statement, pagingSize);
 
 	do {
 		CassIterator* iterator;
@@ -1117,17 +1117,47 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			char *query;
 			char *arrayName;
 			Tcl_Obj *code;
+			int pagingSize = 100;
+			int arg = 2;
+			int      subOptIndex;
 
-			if (objc != 5) {
-				Tcl_WrongNumArgs (interp, 2, objv, "query arrayName code");
+			static CONST char *subOptions[] = {
+				"-pagesize",
+				NULL
+			};
+
+			enum subOptions {
+				SUBOPT_PAGESIZE
+			};
+
+			// if we don't have at least five arguments and an odd number
+			// of arguments at that, it's an error
+			if ((objc < 5) || ((objc & 1) == 0)) {
+				Tcl_WrongNumArgs (interp, 2, objv, "?-pagesize n? query arrayName code");
 				return TCL_ERROR;
 			}
 
-			query = Tcl_GetString (objv[2]);
-			arrayName = Tcl_GetString (objv[3]);
-			code = objv[4];
+			while (arg + 3 < objc) {
+				if (Tcl_GetIndexFromObj (interp, objv[arg++], subOptions, "subOption", TCL_EXACT, &subOptIndex) != TCL_OK) {
+					return TCL_ERROR;
+				}
 
-			return casstcl_select (ct, query, arrayName, code);
+				switch ((enum subOptions) subOptIndex) {
+					case SUBOPT_PAGESIZE: {
+						if (Tcl_GetIntFromObj (interp, objv[arg++], &pagingSize) == TCL_ERROR) {
+							Tcl_AppendResult (interp, " while converting paging size", NULL);
+							return TCL_ERROR;
+						}
+						break;
+					}
+				}
+			}
+
+			query = Tcl_GetString (objv[arg++]);
+			arrayName = Tcl_GetString (objv[arg++]);
+			code = objv[arg++];
+
+			return casstcl_select (ct, query, arrayName, code, pagingSize);
 		}
 
 		case OPT_EXEC: {

@@ -208,4 +208,6 @@ Return a list of all the columns defined in the specified table in the specified
 
 Return the cassandra data type of the specified schema, table and column
 
+* ::casstcl::table_typemap_to_array $schema $table arrayName
 
+Given a schema and table and the name of an array, the array with key-value pairs where the keys are the names of each column in the table and the values are the cassandra data types of those columns
