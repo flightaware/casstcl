@@ -659,6 +659,100 @@ int casstcl_cass_value_to_tcl_obj (casstcl_clientData *ct, const CassValue *cass
 /*
  *----------------------------------------------------------------------
  *
+ * casstcl_iterate_over_future --
+ *
+ *      Given a casstcl client data structure, a cassandra cpp-driver
+ *      CassFuture object, the name of an array and a Tcl object
+ *      containing a code body, populate the array with each row in
+ *      the result in turn and execute the code body
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ * Note that it is up to the caller to free the future.
+ *
+ * Also note that this code bears way too much in common with casstcl_select
+ * but it doesn't quite go to call this from that because that uses paging
+ * through the results
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_iterate_over_future (casstcl_clientData *ct, CassFuture *future, char *arrayName, Tcl_Obj *codeObj)
+{
+	int tclReturn = TCL_OK;
+	const CassResult* result = NULL;
+	CassIterator* iterator;
+	result = cass_future_get_result(future);
+	iterator = cass_iterator_from_result(result);
+
+	int columnCount = cass_result_column_count (result);
+
+	while (cass_iterator_next(iterator)) {
+		CassString cassNameString;
+		int i;
+
+		const CassRow* row = cass_iterator_get_row(iterator);
+
+		// process all the columns into the tcl array
+		for (i = 0; i < columnCount; i++) {
+			Tcl_Obj *newObj = NULL;
+			const char *columnName;
+			const CassValue *columnValue;
+
+			cassNameString = cass_result_column_name (result, i);
+			columnName = cassNameString.data;
+
+			columnValue = cass_row_get_column (row, i);
+
+			if (cass_value_is_null (columnValue)) {
+				Tcl_UnsetVar2 (ct->interp, arrayName, columnName, 0);
+				continue;
+			}
+
+			if (casstcl_cass_value_to_tcl_obj (ct, columnValue, &newObj) == TCL_ERROR) {
+				tclReturn = TCL_ERROR;
+				break;
+			}
+
+			if (newObj == NULL) {
+				Tcl_UnsetVar2 (ct->interp, arrayName, columnName, 0);
+			} else {
+				if (Tcl_SetVar2Ex (ct->interp, arrayName, columnName, newObj, (TCL_LEAVE_ERR_MSG)) == NULL) {
+					tclReturn = TCL_ERROR;
+					break;
+				}
+			}
+		}
+
+		// now execute the code body
+		int evalReturnCode = Tcl_EvalObjEx(ct->interp, codeObj, 0);
+		if ((evalReturnCode != TCL_OK) && (evalReturnCode != TCL_CONTINUE)) {
+			if (evalReturnCode == TCL_BREAK) {
+				tclReturn = TCL_BREAK;
+			}
+
+			if (evalReturnCode == TCL_ERROR) {
+				char        msg[60];
+
+				tclReturn = TCL_ERROR;
+
+				sprintf(msg, "\n    (\"select\" body line %d)",
+						Tcl_GetErrorLine(ct->interp));
+				Tcl_AddErrorInfo(ct->interp, msg);
+			}
+
+			break;
+		}
+	}
+	cass_iterator_free(iterator);
+	return tclReturn;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
  * casstcl_select --
  *
  *      Given a cassandra query, array name and Tcl_Obj pointing to some
@@ -1117,6 +1211,15 @@ casstcl_futureObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_O
 		}
 
 		case OPT_FOREACH: {
+			if (objc != 4) {
+				Tcl_WrongNumArgs (interp, 2, objv, "rowArray codeBody");
+				return TCL_ERROR;
+			}
+
+			char *arrayName = Tcl_GetString (objv[2]);
+			Tcl_Obj *codeObj = objv[3];
+
+			resultCode = casstcl_iterate_over_future (fcd->ct, fcd->future, arrayName, codeObj);
 			break;
 		}
 
