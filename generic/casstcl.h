@@ -27,6 +27,7 @@ typedef struct casstcl_clientData
 	CassSsl *ssl;
     Tcl_Command cmdToken;
 	Tcl_ThreadId threadId;
+	Tcl_Obj *loggingCallbackObj;
 } casstcl_clientData;
 
 typedef struct casstcl_futureClientData
@@ -38,10 +39,17 @@ typedef struct casstcl_futureClientData
 	Tcl_Obj *callbackObj;
 } casstcl_futureClientData;
 
-typedef struct casstcl_Event
+typedef struct casstcl_loggingEvent
+{
+	Tcl_Event event;
+	Tcl_Interp *interp;
+	CassLogMessage message;
+} casstcl_loggingEvent;
+
+typedef struct casstcl_futureEvent
 {
 	Tcl_Event event;
 	casstcl_futureClientData *fcd;
-} casstcl_Event;
+} casstcl_futureEvent;
 
 /* vim: set ts=4 sw=4 sts=4 noet : */

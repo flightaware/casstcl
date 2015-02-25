@@ -9,6 +9,9 @@
 #include "casstcl.h"
 #include <assert.h>
 
+// possibly unfortunately, the cassandra cpp-driver logging stuff is global
+Tcl_Obj *casstcl_loggingCallbackObj = NULL;
+Tcl_ThreadId casstcl_loggingCallbackThreadId = NULL;
 
 /*
  *--------------------------------------------------------------
@@ -34,6 +37,7 @@ casstcl_cassObjectDelete (ClientData clientData)
 	cass_ssl_free (ct->ssl);
     cass_cluster_free (ct->cluster);
     cass_session_free (ct->session);
+
     ckfree((char *)clientData);
 }
 
@@ -304,6 +308,51 @@ casstcl_obj_to_cass_log_level (casstcl_clientData *ct, Tcl_Obj *tclObj, CassLogL
 	}
 
 	return TCL_OK;
+}
+
+
+/*
+ *--------------------------------------------------------------
+ *
+ * casstcl_cass_log_level_to_string -- given a CassLogLevel value,
+ *   return a const char * to a character string of equivalent
+ *   meaning
+ *
+ * Results:
+ *      a string gets returned
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+const char *
+casstcl_cass_log_level_to_string (CassLogLevel severity) {
+	switch (severity) {
+		case CASS_LOG_DISABLED:
+			return "disabled";
+
+		case CASS_LOG_CRITICAL:
+			return "critical";
+
+		case CASS_LOG_ERROR:
+			return "error";
+
+		case CASS_LOG_WARN:
+			return "warn";
+
+		case CASS_LOG_INFO:
+			return "info";
+
+		case CASS_LOG_DEBUG:
+			return "debug";
+
+		case CASS_LOG_TRACE:
+			return "trace";
+
+		default:
+			return "unknown";
+	}
 }
 
 
@@ -1140,6 +1189,102 @@ void print_schema_meta(const CassSchemaMeta* meta, int indent) {
 /*
  *----------------------------------------------------------------------
  *
+ * casstcl_logging_eventProc --
+ *
+ *    this routine is called by the Tcl event handler to process callbacks
+ *    we have set up from logging callbacks we've gotten from Cassandra
+ *    loop is
+ *
+ * Results:
+ *    returns 1 to say we handled the event and the dispatcher can delete it
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_logging_eventProc (Tcl_Event *tevPtr, int flags) {
+printf("casstcl_logging_eventProc invoked\n");
+
+	// we got called with a Tcl_Event pointer but really it's a pointer to
+	// our casstcl_loggingEvent structure that has the Tcl_Event plus a pointer
+	// to casstcl_clientData, which is our key to the kindgdom.
+	// Go get that.
+
+	casstcl_loggingEvent *evPtr = (casstcl_loggingEvent *)tevPtr;
+	int tclReturnCode;
+	Tcl_Interp *interp = evPtr->interp;
+
+#define CASSTCL_LOG_CALLBACK_ARGCOUNT 7
+
+	Tcl_Obj *evalObjv[CASSTCL_LOG_CALLBACK_ARGCOUNT];
+
+	// probably won't happen but if we get a logging callback and have
+	// no callback object, return 1 saying we handled it and let the
+	// dispatcher delete the message NB this isn't exactly cool
+	if (casstcl_loggingCallbackObj == NULL) {
+printf("callback obj is null\n");
+		return 1;
+	}
+
+	// construct an objv we'll pass to eval.
+	// first is the callback command
+	// second is the name of the future object this callback is related to
+	evalObjv[0] = casstcl_loggingCallbackObj;
+	evalObjv[1] = Tcl_NewDoubleObj (evPtr->message.time_ms / 1000.0);
+	evalObjv[2] = Tcl_NewStringObj (casstcl_cass_log_level_to_string (evPtr->message.severity), -1);
+	evalObjv[3] = Tcl_NewStringObj (evPtr->message.file, -1);
+	evalObjv[4] = Tcl_NewIntObj (evPtr->message.line);
+	evalObjv[5] = Tcl_NewStringObj (evPtr->message.function, -1);
+
+	int messageLength = strnlen (evPtr->message.message, CASS_LOG_MAX_MESSAGE_SIZE);
+	evalObjv[6] = Tcl_NewStringObj (evPtr->message.message, messageLength);
+
+	// eval the command.  it should be the callback we were told as the
+	// first argument and the elements we picked out of the CassLogMessage
+	// structure.
+
+	tclReturnCode = Tcl_EvalObjv (interp, CASSTCL_LOG_CALLBACK_ARGCOUNT, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
+
+	if (tclReturnCode == TCL_ERROR) {
+		Tcl_BackgroundException (interp, TCL_ERROR);
+	}
+
+	// tell the dispatcher we handled it.  0 would mean we didn't deal with
+	// it and don't want it removed from the queue
+	return 1;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_logging_callback --
+ *
+ *    this routine is called by the cassandra cpp-driver as a callback
+ *    when a log message has been received and cass_log_set_callback
+ *    has been done to register this callback
+ *
+ * Results:
+ *    an event is queued to the thread that started our conversation with
+ *    cassandra
+ *
+ *----------------------------------------------------------------------
+ */
+void casstcl_logging_callback (const CassLogMessage *message, void *data) {
+	casstcl_loggingEvent *evPtr;
+
+printf("casstcl_logging_callback invoked\n");
+	Tcl_Interp *interp = data;
+	evPtr = ckalloc (sizeof (casstcl_loggingEvent));
+	evPtr->event.proc = casstcl_logging_eventProc;
+	evPtr->interp = interp;
+	evPtr->message = *message; /* structure copy */
+	Tcl_ThreadQueueEvent(casstcl_loggingCallbackThreadId, (Tcl_Event *)evPtr, TCL_QUEUE_TAIL);
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
  * casstcl_futureObjectObjCmd --
  *
  *    dispatches the subcommands of a casstcl future-handling command
@@ -1305,26 +1450,31 @@ casstcl_EventCheckProc (ClientData data, int flags)
 /*
  *----------------------------------------------------------------------
  *
- * casstcl_tcl_eventProc --
+ * casstcl_future_eventProc --
  *
  *    this routine is called by the Tcl event handler to process callbacks
- *    we have set up from stuff we've gotten from Cassandra
- *    loop is
+ *    we have set up from future (result objects) we've gotten from Cassandra
  *
  * Results:
- *    stuff
+ *    The callback routine set when the async method was invoked is
+ *    invoked in the Tcl interpreter with one argument, that being the
+ *    future object that was also created when the async method was
+ *    invoked
+ *
+ *    If an uncaught error occurs when evaluating the command, a Tcl
+ *    background exception is invoked
  *
  *----------------------------------------------------------------------
  */
 int
-casstcl_tcl_eventProc (Tcl_Event *tevPtr, int flags) {
+casstcl_future_eventProc (Tcl_Event *tevPtr, int flags) {
 
 	// we got called with a Tcl_Event pointer but really it's a pointer to
-	// our casstcl_Event structure that has the Tcl_Event plus a pointer
+	// our casstcl_futureEvent structure that has the Tcl_Event plus a pointer
 	// to casstcl_futureClientData, which is our key to the kindgdom.
 	// Go get that.
 
-	casstcl_Event *evPtr = (casstcl_Event *)tevPtr;
+	casstcl_futureEvent *evPtr = (casstcl_futureEvent *)tevPtr;
 	casstcl_futureClientData *fcd = evPtr->fcd;
 	int tclReturnCode;
 	Tcl_Interp *interp = fcd->ct->interp;
@@ -1358,16 +1508,18 @@ casstcl_tcl_eventProc (Tcl_Event *tevPtr, int flags) {
 /*
  *----------------------------------------------------------------------
  *
- * casstcl_cass_callback --
+ * casstcl_future_callback --
  *
  *    this routine is called by the cassandra cpp-driver as a callback
  *    when a callback was set up by us using cass_future_set_callback
  *
- *    it generates a Tcl event and queues it to the thread that issued
+ *    this occurs when the request has completed or errored
+ *
+ *    this generates a Tcl event and queues it to the thread that issued
  *    the command to do an asynchronous cassandra command with callback
  *    in the first place.
  *
- *    when Tcl processes the event, casstcl_tcl_eventProc will be invoked.
+ *    when Tcl processes the event, casstcl_future_eventProc will be invoked.
  *    that guy will do a Tcl eval to invoke the callback
  *
  * Results:
@@ -1375,16 +1527,32 @@ casstcl_tcl_eventProc (Tcl_Event *tevPtr, int flags) {
  *
  *----------------------------------------------------------------------
  */
-void casstcl_cass_callback (CassFuture* future, void* data) {
-	casstcl_Event *evPtr;
+void casstcl_future_callback (CassFuture* future, void* data) {
+	casstcl_futureEvent *evPtr;
 
 	casstcl_futureClientData *fcd = data;
-	evPtr = ckalloc (sizeof (casstcl_Event));
-	evPtr->event.proc = casstcl_tcl_eventProc;
+	evPtr = ckalloc (sizeof (casstcl_futureEvent));
+	evPtr->event.proc = casstcl_future_eventProc;
 	evPtr->fcd = fcd;
 	Tcl_ThreadQueueEvent(fcd->ct->threadId, (Tcl_Event *)evPtr, TCL_QUEUE_TAIL);
 }
 
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_createFutureObjectCommand --
+ *
+ *    given a casstcl_clientData pointer, a pointer to a CassFuture structure
+ *    and a Tcl callback object (containing a function name), this routine
+ *    creates a Tcl command like "future17" that can be invoked with method
+ *    arguments to access, manipulate and destroy cassandra future objects.
+ *
+ * Results:
+ *    A standard Tcl result
+ *
+ *----------------------------------------------------------------------
+ */
 int
 casstcl_createFutureObjectCommand (casstcl_clientData *ct, CassFuture *future, Tcl_Obj *callbackObj)
 {
@@ -1401,7 +1569,7 @@ casstcl_createFutureObjectCommand (casstcl_clientData *ct, CassFuture *future, T
 	fcd->callbackObj = callbackObj;
 
 	if (callbackObj != NULL) {
-		cass_future_set_callback (future, casstcl_cass_callback, fcd);
+		cass_future_set_callback (future, casstcl_future_callback, fcd);
 	}
 
 	static unsigned long nextAutoCounter = 0;
@@ -2179,16 +2347,18 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
 
     static CONST char *options[] = {
         "create",
+        "set_logging_callback",
         NULL
     };
 
     enum options {
-        OPT_CREATE
+        OPT_CREATE,
+		OPT_SET_LOGGING_CALLBACK
     };
 
     // basic command line processing
     if (objc != 3) {
-        Tcl_WrongNumArgs (interp, 1, objv, "create name");
+        Tcl_WrongNumArgs (interp, 1, objv, "option arg");
         return TCL_ERROR;
     }
 
@@ -2198,41 +2368,64 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
         return TCL_ERROR;
     }
 
-    // allocate one of our cass client data objects for Tcl and configure it
-    ct = (casstcl_clientData *)ckalloc (sizeof (casstcl_clientData));
+    switch ((enum options) optIndex) {
+		case OPT_CREATE: {
+			// allocate one of our cass client data objects for Tcl and configure it
+			ct = (casstcl_clientData *)ckalloc (sizeof (casstcl_clientData));
 
-    ct->cass_magic = CASS_MAGIC;
-    ct->interp = interp;
-	ct->session = cass_session_new ();
-    ct->cluster = cass_cluster_new ();
-	ct->ssl = cass_ssl_new ();
+			ct->cass_magic = CASS_MAGIC;
+			ct->interp = interp;
+			ct->session = cass_session_new ();
+			ct->cluster = cass_cluster_new ();
+			ct->ssl = cass_ssl_new ();
 
-	ct->threadId = Tcl_GetCurrentThread();
+			ct->threadId = Tcl_GetCurrentThread();
 
-	Tcl_CreateEventSource (casstcl_EventSetupProc, casstcl_EventCheckProc, NULL);
+			Tcl_CreateEventSource (casstcl_EventSetupProc, casstcl_EventCheckProc, NULL);
 
-    commandName = Tcl_GetString (objv[2]);
+			commandName = Tcl_GetString (objv[2]);
 
-    // if commandName is #auto, generate a unique name for the object
-    autoGeneratedName = 0;
-    if (strcmp (commandName, "#auto") == 0) {
-        static unsigned long nextAutoCounter = 0;
-        char *objName;
-        int    baseNameLength;
+			// if commandName is #auto, generate a unique name for the object
+			autoGeneratedName = 0;
+			if (strcmp (commandName, "#auto") == 0) {
+				static unsigned long nextAutoCounter = 0;
+				char *objName;
+				int    baseNameLength;
 
-        objName = Tcl_GetStringFromObj (objv[0], &baseNameLength);
-        baseNameLength += snprintf (NULL, 0, "%lu", nextAutoCounter) + 1;
-        commandName = ckalloc (baseNameLength);
-        snprintf (commandName, baseNameLength, "%s%lu", objName, nextAutoCounter++);
-        autoGeneratedName = 1;
-    }
+				objName = Tcl_GetStringFromObj (objv[0], &baseNameLength);
+				baseNameLength += snprintf (NULL, 0, "%lu", nextAutoCounter) + 1;
+				commandName = ckalloc (baseNameLength);
+				snprintf (commandName, baseNameLength, "%s%lu", objName, nextAutoCounter++);
+				autoGeneratedName = 1;
+			}
 
-    // create a Tcl command to interface to cass
-    ct->cmdToken = Tcl_CreateObjCommand (interp, commandName, casstcl_cassObjectObjCmd, ct, casstcl_cassObjectDelete);
-    Tcl_SetObjResult (interp, Tcl_NewStringObj (commandName, -1));
-    if (autoGeneratedName == 1) {
-        ckfree(commandName);
-    }
+			// create a Tcl command to interface to cass
+			ct->cmdToken = Tcl_CreateObjCommand (interp, commandName, casstcl_cassObjectObjCmd, ct, casstcl_cassObjectDelete);
+			Tcl_SetObjResult (interp, Tcl_NewStringObj (commandName, -1));
+			if (autoGeneratedName == 1) {
+				ckfree(commandName);
+			}
+			break;
+		}
+
+		case OPT_SET_LOGGING_CALLBACK: {
+			// if it already isn't null it was set to something, decrement
+			// that object's reference count so it will probably be
+			// deleted
+			if (casstcl_loggingCallbackObj != NULL) {
+				Tcl_DecrRefCount (casstcl_loggingCallbackObj);
+			}
+
+			casstcl_loggingCallbackObj = objv[2];
+			Tcl_IncrRefCount (casstcl_loggingCallbackObj);
+
+			casstcl_loggingCallbackThreadId = Tcl_GetCurrentThread();
+
+			cass_log_set_callback (casstcl_logging_callback, interp);
+			break;
+		}
+	}
+
     return TCL_OK;
 }
 

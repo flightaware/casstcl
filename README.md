@@ -23,7 +23,7 @@ Building
 For FreeBSD, something like
 
     ./configure --with-tcl=/usr/local/lib/tcl8.6  --mandir=/usr/local/man --enable-symbols
- 
+
 Accessing from Tcl
 ---
 
@@ -227,6 +227,32 @@ Return the cassandra error message for the future, empty string if none.
 
 Delete the future.  Care should be taken to delete these when done with them to avoid leaking memory.
 
+Casstcl logging callback
+---
+
+The Cassandra cpp-driver supports custom logging callbacks to allow an application to receive logging messages rather than having them go to stderr, which is what happens by default, and casstcl provides Tcl-level support for this capability.
+
+The logging callback is defined like this:
+
+	::casstcl::cass set_logging_callback callbackFunction
+
+When a log message callback occurs from the Cassandra cpp-driver, casstcl will obtain that and invoke the specified callback function with six arguments:
+
+* a floating point epoch clock with millisecond accuracy
+
+* the cassandra log level as a string.  value will be one of "disabled", "critical", "error", "warn", "info", "debug", "trace" or "unknown".
+
+* some file, not sure what it is, maybe the source file of the cpp-driver that is throwing the error
+
+* some line number, not sure what it is, maybe the line number of the source file of the cpp-driver that is throwing the error
+
+* some function, probably the cpp-driver function that is throwing the error
+
+* the error message itself
+
+According to the cpp-driver documentation, logging configuration should be done before calling any other driver function, so if you're going to use this, invoke it after package requiring casstcl and before invoking ::casstcl::cass create.
+
+
 Casstcl library functions
 ---
 
@@ -257,3 +283,5 @@ Return the cassandra data type of the specified schema, table and column
 * ::casstcl::table_typemap_to_array $schema $table arrayName
 
 Given a schema and table and the name of an array, the array with key-value pairs where the keys are the names of each column in the table and the values are the cassandra data types of those columns
+
+
