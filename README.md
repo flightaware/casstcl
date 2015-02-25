@@ -59,9 +59,13 @@ Methods of cassandra cluster interface object
 
 Perform the requested CQL statement.  Waits for it to complete. Either it works or you get a Tcl error.
 
-* $cassdb async $statement
+* $cassdb async ?-callback callbackRoutine? $statement
 
-Perform the requested CQL statement.  Does not wait.  Creates a future object that you can use the methods of to find out the status of your statement. Allows for considerable performance gains over exec at the cost of greater code complexity.  See also the future object.
+Perform the requested CQL statement.  Does not wait.  Creates a future object that you can use the methods of to find out the status of your statement. Allows for considerable performance gains over exec at the cost of greater code complexity.
+
+If the -callback argument is specified then the next argument is a callback routine that will be invoked when the Cassandra request has completed or errored or whatnot.  The callback routine will be invoked with a single argument, which is the name of the future object created (such as ::future17) when the request was made.
+
+See also the future object.
 
 * $cassdb select ?-pagesize n? $statement array code
 

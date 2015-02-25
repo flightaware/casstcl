@@ -26,6 +26,7 @@ typedef struct casstcl_clientData
     CassSession* session;
 	CassSsl *ssl;
     Tcl_Command cmdToken;
+	Tcl_ThreadId threadId;
 } casstcl_clientData;
 
 typedef struct casstcl_futureClientData
@@ -34,6 +35,13 @@ typedef struct casstcl_futureClientData
 	casstcl_clientData *ct;
 	CassFuture *future;
 	Tcl_Command cmdToken;
+	Tcl_Obj *callbackObj;
 } casstcl_futureClientData;
+
+typedef struct casstcl_Event
+{
+	Tcl_Event event;
+	casstcl_futureClientData *fcd;
+} casstcl_Event;
 
 /* vim: set ts=4 sw=4 sts=4 noet : */

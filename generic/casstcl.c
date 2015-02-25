@@ -60,6 +60,7 @@ casstcl_futureObjectDelete (ClientData clientData)
     assert (fcd->cass_magic == CASS_FUTURE_MAGIC);
 
 	cass_future_free (fcd->future);
+	Tcl_DecrRefCount(fcd->callbackObj);
     ckfree((char *)clientData);
 }
 
@@ -310,7 +311,7 @@ casstcl_obj_to_cass_log_level (casstcl_clientData *ct, Tcl_Obj *tclObj, CassLogL
  *--------------------------------------------------------------
  *
  * casstcl_cass_error_to_tcl -- given a CassError code and a field
- *   name, if the error code isn CASS_OK 
+ *   name, if the error code isn CASS_OK
  *
  * Results:
  *      returns a pointer to a const char *
@@ -1251,8 +1252,141 @@ casstcl_futureObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_O
     return resultCode;
 }
 
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_EventSetupProc --
+ *    This routine is a required argument to Tcl_CreateEventSource
+ *
+ *    Normally here an extension that generates events does something
+ *    to make sure the application wakes up when events of the desired
+ *    type occur.
+ *
+ *    We don't need to do anything here because we generate Tcl events
+ *    onto the originating thread via the callbacks invoked from the
+ *    Cassandra cpp-driver library and that's (apparently) all Tcl
+ *    needs to do its thing.
+ *
+ * Results:
+ *    The program compiles.
+ *
+ *----------------------------------------------------------------------
+ */
+void
+casstcl_EventSetupProc (ClientData data, int flags)
+{
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_EventCheckProc --
+ *
+ *    Normally here an extension that generates events would look at its
+ *    tables or whatnot to see what needs to be generated as an event.
+ *
+ *    We don't need to do that because we generate Tcl events
+ *    onto the originating thread via the callbacks invoked from the
+ *    Cassandra cpp-driver library, so we handle it that way.
+ *
+ * Results:
+ *    The program compiles.
+ *
+ *----------------------------------------------------------------------
+ */
+void
+casstcl_EventCheckProc (ClientData data, int flags)
+{
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_tcl_eventProc --
+ *
+ *    this routine is called by the Tcl event handler to process callbacks
+ *    we have set up from stuff we've gotten from Cassandra
+ *    loop is
+ *
+ * Results:
+ *    stuff
+ *
+ *----------------------------------------------------------------------
+ */
 int
-casstcl_createFutureObjectCommand (casstcl_clientData *ct, CassFuture *future)
+casstcl_tcl_eventProc (Tcl_Event *tevPtr, int flags) {
+
+	// we got called with a Tcl_Event pointer but really it's a pointer to
+	// our casstcl_Event structure that has the Tcl_Event plus a pointer
+	// to casstcl_futureClientData, which is our key to the kindgdom.
+	// Go get that.
+
+	casstcl_Event *evPtr = (casstcl_Event *)tevPtr;
+	casstcl_futureClientData *fcd = evPtr->fcd;
+	int tclReturnCode;
+	Tcl_Interp *interp = fcd->ct->interp;
+
+	Tcl_Obj *evalObjv[2];
+
+	// construct an objv we'll pass to eval.
+	// first is the callback command
+	// second is the name of the future object this callback is related to
+	evalObjv[0] = fcd->callbackObj;
+	evalObjv[1] = Tcl_NewObj();
+	Tcl_GetCommandFullName(interp, fcd->cmdToken, evalObjv[1]);
+
+	// eval the command.  it should be the callback we were told as the
+	// first argument and the future object we created, like future0, as
+	// the second.  go ahead and ask for direct, i.e. don't compile into
+	// bytecodes, because our little single two-argument call is ephemeral
+
+	tclReturnCode = Tcl_EvalObjv (interp, 2, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
+
+	if (tclReturnCode == TCL_ERROR) {
+		Tcl_BackgroundException (interp, TCL_ERROR);
+	}
+
+	// tell the dispatcher we handled it.  0 would mean we didn't deal with
+	// it and don't want it removed from the queue
+	return 1;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_cass_callback --
+ *
+ *    this routine is called by the cassandra cpp-driver as a callback
+ *    when a callback was set up by us using cass_future_set_callback
+ *
+ *    it generates a Tcl event and queues it to the thread that issued
+ *    the command to do an asynchronous cassandra command with callback
+ *    in the first place.
+ *
+ *    when Tcl processes the event, casstcl_tcl_eventProc will be invoked.
+ *    that guy will do a Tcl eval to invoke the callback
+ *
+ * Results:
+ *    stuff
+ *
+ *----------------------------------------------------------------------
+ */
+void casstcl_cass_callback (CassFuture* future, void* data) {
+	casstcl_Event *evPtr;
+
+	casstcl_futureClientData *fcd = data;
+	evPtr = ckalloc (sizeof (casstcl_Event));
+	evPtr->event.proc = casstcl_tcl_eventProc;
+	evPtr->fcd = fcd;
+	Tcl_ThreadQueueEvent(fcd->ct->threadId, (Tcl_Event *)evPtr, TCL_QUEUE_TAIL);
+}
+
+int
+casstcl_createFutureObjectCommand (casstcl_clientData *ct, CassFuture *future, Tcl_Obj *callbackObj)
 {
     // allocate one of our cass future objects for Tcl and configure it
 	casstcl_futureClientData *fcd = (casstcl_futureClientData *)ckalloc (sizeof (casstcl_futureClientData));
@@ -1260,6 +1394,15 @@ casstcl_createFutureObjectCommand (casstcl_clientData *ct, CassFuture *future)
     fcd->cass_magic = CASS_FUTURE_MAGIC;
 	fcd->ct = ct;
 	fcd->future = future;
+
+	if (callbackObj != NULL) {
+		Tcl_IncrRefCount(callbackObj);
+	}
+	fcd->callbackObj = callbackObj;
+
+	if (callbackObj != NULL) {
+		cass_future_set_callback (future, casstcl_cass_callback, fcd);
+	}
 
 	static unsigned long nextAutoCounter = 0;
 	char *commandName;
@@ -1460,18 +1603,44 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			CassStatement* statement = NULL;
 			CassFuture *future = NULL;
 			char *query = NULL;
+			int arg = 2;
+			int      subOptIndex;
+			Tcl_Obj *callbackObj = NULL;
 
-			if (objc != 3) {
-				Tcl_WrongNumArgs (interp, 2, objv, "statement");
+			static CONST char *subOptions[] = {
+				"-callback",
+				NULL
+			};
+
+			enum subOptions {
+				SUBOPT_CALLBACK
+			};
+
+			// if we don't have at least three arguments and an odd number
+			// of arguments at that, it's an error
+			if ((objc < 3) || ((objc & 1) == 0)) {
+				Tcl_WrongNumArgs (interp, 2, objv, "?-callback n? statement");
 				return TCL_ERROR;
 			}
 
-			query = Tcl_GetString (objv[2]);
+			while (arg + 1 < objc) {
+				if (Tcl_GetIndexFromObj (interp, objv[arg++], subOptions, "subOption", TCL_EXACT, &subOptIndex) != TCL_OK) {
+					return TCL_ERROR;
+				}
 
+				switch ((enum subOptions) subOptIndex) {
+					case SUBOPT_CALLBACK: {
+						callbackObj = objv[arg++];
+						break;
+					}
+				}
+			}
+
+			query = Tcl_GetString (objv[arg]);
 			statement = cass_statement_new(cass_string_init(query), 0);
-
 			future = cass_session_execute (ct->session, statement);
-			if (casstcl_createFutureObjectCommand (ct, future) == TCL_ERROR) {
+
+			if (casstcl_createFutureObjectCommand (ct, future, callbackObj) == TCL_ERROR) {
 				resultCode = TCL_ERROR;
 			}
 			cass_statement_free (statement);
@@ -2037,6 +2206,10 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
 	ct->session = cass_session_new ();
     ct->cluster = cass_cluster_new ();
 	ct->ssl = cass_ssl_new ();
+
+	ct->threadId = Tcl_GetCurrentThread();
+
+	Tcl_CreateEventSource (casstcl_EventSetupProc, casstcl_EventCheckProc, NULL);
 
     commandName = Tcl_GetString (objv[2]);
 
