@@ -87,7 +87,7 @@ The array is cleared each iteration for you automatically so you don't neeed to 
 
 If the **-pagesize** argument is present then it should be followed by an integer which is the number of query results that should be returned "per pass".  Changing this should transparent to the caller but smaller pagesize numbers should allow greater concurrency in many cases by allowing the application to process some results while the cluster is still producing them.  The default pagesize is 100 rows.
 
-* **$cassdb connect** *?keyspace?*
+* *$cassdb* **connect** *?keyspace?*
 
 Connect to the cassandra cluster.  Use the specified keyspace if the keyspace argument is present.  Alternatively after connecting you can specify the keyspace to use with something like
 
@@ -95,77 +95,77 @@ Connect to the cassandra cluster.  Use the specified keyspace if the keyspace ar
 $cassdb exec "use wx;"
 ```
 
-* **$cassdb prepare $statement**
+* *$cassdb* **prepare** *$statement*
 
 Prepare the specified statement.  Although this command will probably work, the casstcl infrastructure in support of prepared statements including binding values into statements does not (yet) exist.
 
-* **$cassdb set_contact_points $addressList**
+* *$cassdb* **set_contact_points** *$addressList*
 
 Provide a list of one or more addresses to contact the cluster at.
 
 The first call sets the contact points and any subsequent calls appends additional contact points. Passing an empty string will clear the contact points. White space is striped from the contact points.
 
-* **$cassdb set_port $port**
+* *$cassdb* **set_port** *$port*
 
 Specify a port to connect to the cluster on.  Since the cpp-driver uses the native binary CQL protocol, this would normally be 9042.
 
-* **$cassdb set_protocol_version $protocolVersion**
+* *$cassdb* **set_protocol_version** *$protocolVersion*
 
 Sets the protocol version. This will theoretically automatically downgrade to protocol version 1 if necessary.  The default value is 2.
 
-* **$cassdb set_num_threads_io $numThreads**
+* *$cassdb* **set_num_threads_io** *$numThreads*
 
 Set the number of IO threads. This is the number of threads that will handle query requests.  The default is 1.
 
-* **$cassdb set_queue_size_io**
+* *$cassdb* **set_queue_size_io** *$queueSize*
 
 Sets the size of the the fixed size queue that stores pending requests.  The default is 4096.
 
-* **$cassdb set_queue_size_event**
+* *$cassdb* **set_queue_size_event** *$queueSize*
 
 Sets the size of the the fixed size queue that stores pending requests.  The default is 4096.
 
-* **$cassdb set_queue_size_log**
+* *$cassdb* **set_queue_size_log** *$logSize*
 
 Sets the size of the the fixed size queue that stores log messages.  The default is 4096.
 
-* **$cassdb set_core_connections_per_host $numConnections**
+* *$cassdb* **set_core_connections_per_host** *$numConnections*
 
 Sets the number of connections made to each server in each IO thread.  Defaults to 1.
 
-* **$cassdb set_max_connections_per_host $numConnections**
+* *$cassdb* **set_max_connections_per_host** *$numConnections*
 
 Sets the maximum number of connections made to each server in each IO thread.  Defaults to 2.
 
-* **$cassdb set_max_concurrent_creation $numConnections**
+* *$cassdb* **set_max_concurrent_creation** *$numConnections*
 
 Sets the maximum number of connections that will be created concurrently.  Connections are created when the current connections are unable to keep up with request throughput.  The default is 1.
 
-* **$cassdb set_max_concurrent_requests_threshold $numRequests**
+* *$cassdb* **set_max_concurrent_requests_threshold** *$numRequests*
 
 Sets the threshold for the maximum number of concurrent requests in-flight on a connection before creating a new connection.  The number of new connections created will not exceed max_connections_per_host.  Default 100.
 
-* **$cassdb set_connect_timeout $timeoutMS**
+* *$cassdb* **set_connect_timeout** *$timeoutMS*
 
 Sets the timeout for connecting to a node.  Timeout is in milliseconds.  The default is 5000 ms.
 
-* **$cassdb set_request_timeout $timeoutMS**
+* *$cassdb* **set_request_timeout** *$timeoutMS*
 
 Sets the timeout for waiting for a response from a node.  Timeout is in milliseconds.  The default is 12000 ms.
 
-* **$cassdb set_reconnect_wait_time $timeoutMS**
+* *$cassdb* **set_reconnect_wait_time** *$timeoutMS*
 
 Sets the amount of time to wait before attempting to reconnect.  Default 2000 ms.
 
-* **$cassdb set_credentials $user $password**
+* *$cassdb* **set_credentials** *$user $password*
 
 Set credentials for plaintext authentication.
 
-* **$cassdb set_tcp_nodelay $enabled**
+* *$cassdb* **set_tcp_nodelay** *$enabled*
 
 Enable/Disable Nagel's algorithm on connections.  The default is disabled.
 
-* **$cassdb set_token_aware_routing $enabled**
+* *$cassdb* **set_token_aware_routing** *$enabled*
 
 Configures the cluster to use Token-aware request routing, or not.
 
@@ -175,34 +175,34 @@ The default is enabled.
 
 This routing policy composes the base routing policy, routing requests first to replicas on nodes considered local by the base load balancing policy.
 
-* **$cassdb set_tcp_keepalive $enabled $delaySecs**
+* *$cassdb* **set_tcp_keepalive** *$enabled $delaySecs*
 
 Enables/Disables TCP keep-alive.  Default is disabled.  delaySecs is the initial delay in seconds; it is ignored when disabled.
 
-* **$cassdb delete**
+* *$cassdb* **delete**
 
 Disconnect from the cluster and delete the cluster connection object.
 
-* **$cassdb close**
+* *$cassdb* **close**
 
 Disconnect from the cluster.
 
 Configuring SSL Connections
 ---
 
-* **$cassdb set_ssl_cert $pemFormattedCertString**
+* *$cassdb* **set_ssl_cert** *$pemFormattedCertString*
 
 This sets the client-side certificate chain.  This is used by the server to authenticate the client.  This should contain the entire certificate chain starting with the certificate itself.
 
-* **$cassdb set_ssl_private_key $pemFormattedCertString $password**
+* *$cassdb* **set_ssl_private_key** *$pemFormattedCertString $password*
 
 This sets the client-side private key.  This is by the server to authenticate the client.
 
-* **$cassdb add_trusted_cert $pemFormattedCertString**
+* *$cassdb* **add_trusted_cert** *$pemFormattedCertString*
 
 This adds a trusted certificate.  This is used to verify the peer's certificate.
 
-* **$cassdb set_ssl_verify_flag $flag**
+* *$cassdb* **set_ssl_verify_flag** *$flag*
 
 This sets the verification that the client will perform on the peer's certificate.  **none** selects that no verification will be performed, while **verify_peer_certificate** will verify that a certificate is present and valid.
 
@@ -224,27 +224,27 @@ if {[$future isready]} {
 }
 ```
 
-* **$future isready**
+* *$future* **isready**
 
 Returns 1 if the future (query result) is ready, else 0.
 
-* **$future wait** *?us?*
+* *$future* **wait** *?us?*
 
 Waits for the request to complete.  If the optional argument us is specified, times out after that number of microseconds.
 
-* **$future foreach rowArray code**
+* *$future* **foreach** *rowArray code*
 
 Iterate through the query results, filling the named array with the columns of the row and their values and executing code thereupon.
 
-* **future error_code**
+* *$future* **error_code**
 
 Return the cassandra error code converted back to a string, like CASS_OK and CASS_ERROR_SSL_NO_PEER_CERT and whatnot.
 
-* **future error_message**
+* *$future* **error_message**
 
 Return the cassandra error message for the future, empty string if none.
 
-* **$future delete**
+* *$future* **delete**
 
 Delete the future.  Care should be taken to delete these when done with them to avoid leaking memory.
 
@@ -292,19 +292,19 @@ Download schema information from the cassandra cluster only if it hasn't already
 
 Return a list of all the schema defined on the cluster.
 
-* **::casstcl::list_table $schema**
+* **::casstcl::list_table** *$schema*
 
 Return a list of all of the tables defined by the specified schema.
 
-* **::casstcl::list_columns $schema $table**
+* **::casstcl::list_columns** *$schema $table*
 
 Return a list of all the columns defined in the specified table in the specified schema.
 
-* **::casstcl::column_type $schema $table $column**
+* **::casstcl::column_type** *$schema $table $column*
 
 Return the cassandra data type of the specified schema, table and column
 
-* **::casstcl::table_typemap_to_array $schema $table arrayName**
+* **::casstcl::table_typemap_to_array** *$schema $table arrayName*
 
 Given a schema and table and the name of an array, the array with key-value pairs where the keys are the names of each column in the table and the values are the cassandra data types of those columns
 
