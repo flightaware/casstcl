@@ -1202,7 +1202,6 @@ void print_schema_meta(const CassSchemaMeta* meta, int indent) {
  */
 int
 casstcl_logging_eventProc (Tcl_Event *tevPtr, int flags) {
-printf("casstcl_logging_eventProc invoked\n");
 
 	// we got called with a Tcl_Event pointer but really it's a pointer to
 	// our casstcl_loggingEvent structure that has the Tcl_Event plus a pointer
@@ -1213,9 +1212,11 @@ printf("casstcl_logging_eventProc invoked\n");
 	int tclReturnCode;
 	Tcl_Interp *interp = evPtr->interp;
 
-#define CASSTCL_LOG_CALLBACK_ARGCOUNT 7
+#define CASSTCL_LOG_CALLBACK_ARGCOUNT 2
+#define CASSTCL_LOG_CALLBACK_LISTCOUNT 12
 
 	Tcl_Obj *evalObjv[CASSTCL_LOG_CALLBACK_ARGCOUNT];
+	Tcl_Obj *listObjv[CASSTCL_LOG_CALLBACK_LISTCOUNT];
 
 	// probably won't happen but if we get a logging callback and have
 	// no callback object, return 1 saying we handled it and let the
@@ -1225,25 +1226,42 @@ printf("callback obj is null\n");
 		return 1;
 	}
 
+	// construct a list of key-value pairs representing the log message
+
+	listObjv[0] = Tcl_NewStringObj ("clock", -1);
+	listObjv[1] = Tcl_NewDoubleObj (evPtr->message.time_ms / 1000.0);
+
+	listObjv[2] = Tcl_NewStringObj ("severity", -1);
+	listObjv[3] = Tcl_NewStringObj (casstcl_cass_log_level_to_string (evPtr->message.severity), -1);
+
+	listObjv[4] = Tcl_NewStringObj ("file", -1);
+	listObjv[5] = Tcl_NewStringObj (evPtr->message.file, -1);
+
+	listObjv[6] = Tcl_NewStringObj ("line", -1);
+	listObjv[7] = Tcl_NewIntObj (evPtr->message.line);
+
+	listObjv[8] = Tcl_NewStringObj ("function", -1);
+	listObjv[9] = Tcl_NewStringObj (evPtr->message.function, -1);
+
+	listObjv[10] = Tcl_NewStringObj ("message", -1);
+	int messageLength = strnlen (evPtr->message.message, CASS_LOG_MAX_MESSAGE_SIZE);
+	listObjv[11] = Tcl_NewStringObj (evPtr->message.message, messageLength);
+
+	Tcl_Obj *listObj = Tcl_NewListObj (CASSTCL_LOG_CALLBACK_LISTCOUNT, listObjv);
+
 	// construct an objv we'll pass to eval.
 	// first is the callback command
-	// second is the name of the future object this callback is related to
+	// second is the list we just created
 	evalObjv[0] = casstcl_loggingCallbackObj;
-	evalObjv[1] = Tcl_NewDoubleObj (evPtr->message.time_ms / 1000.0);
-	evalObjv[2] = Tcl_NewStringObj (casstcl_cass_log_level_to_string (evPtr->message.severity), -1);
-	evalObjv[3] = Tcl_NewStringObj (evPtr->message.file, -1);
-	evalObjv[4] = Tcl_NewIntObj (evPtr->message.line);
-	evalObjv[5] = Tcl_NewStringObj (evPtr->message.function, -1);
+	evalObjv[1] = listObj;
 
-	int messageLength = strnlen (evPtr->message.message, CASS_LOG_MAX_MESSAGE_SIZE);
-	evalObjv[6] = Tcl_NewStringObj (evPtr->message.message, messageLength);
-
-	// eval the command.  it should be the callback we were told as the
-	// first argument and the elements we picked out of the CassLogMessage
-	// structure.
-
+	// invoke the logging callback command
 	tclReturnCode = Tcl_EvalObjv (interp, CASSTCL_LOG_CALLBACK_ARGCOUNT, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
 
+	// if we got a Tcl error, since we initiated the event, it doesn't
+	// have anything to traceback further from here to, we must initiate
+	// a background error, which will generally cause the bgerror proc
+	// to get invoked
 	if (tclReturnCode == TCL_ERROR) {
 		Tcl_BackgroundException (interp, TCL_ERROR);
 	}
@@ -1272,7 +1290,6 @@ printf("callback obj is null\n");
 void casstcl_logging_callback (const CassLogMessage *message, void *data) {
 	casstcl_loggingEvent *evPtr;
 
-printf("casstcl_logging_callback invoked\n");
 	Tcl_Interp *interp = data;
 	evPtr = ckalloc (sizeof (casstcl_loggingEvent));
 	evPtr->event.proc = casstcl_logging_eventProc;

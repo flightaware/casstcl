@@ -259,23 +259,36 @@ The logging callback is defined like this:
 ::casstcl::cass set_logging_callback callbackFunction
 ```
 
-When a log message callback occurs from the Cassandra cpp-driver, casstcl will obtain that and invoke the specified callback function with six arguments:
+When a log message callback occurs from the Cassandra cpp-driver, casstcl will obtain that and invoke the specified callback function one argument containing a list of key value pairs representing the (currently six) things that are received in a logging object:
 
-* a floating point epoch clock with millisecond accuracy
+* "clock" and a floating point epoch clock with millisecond accuracy
 
-* the cassandra log level as a string.  value will be one of **disabled**, **critical**, **error**, **warn**, **info**, **debug**, **trace** or **unknown**.
+* "severity" and the cassandra log level as a string.  value will be one of **disabled**, **critical**, **error**, **warn**, **info**, **debug**, **trace** or **unknown**.
 
-* some file, not sure what it is, maybe the source file of the cpp-driver that is throwing the error
+* "file" and possibly the name of some file, or an empty string... not sure what it is, maybe the source file of the cpp-driver that is throwing the error.
 
-* some line number, not sure what it is, maybe the line number of the source file of the cpp-driver that is throwing the error
+* "line" and some line number, not sure what it is, probably the line number of the source file of the cpp-driver that is throwing the error
 
-* some function, probably the cpp-driver function that is throwing the error
+* "function" and the name of some function, probably the cpp-driver function that is throwing the error
 
-* the error message itself
+* "message" and the error message itself
+
+A sample implementation:
+
+```tcl
+proc logging_callback {pairList} {
+    puts "logging_callback called..."
+    array set log $pairList
+    parray log
+    puts ""
+}
+
+casstcl::cass set_logging_callback logging_callback
+```
 
 According to the cpp-driver documentation, logging configuration should be done before calling any other driver function, so if you're going to use this, invoke it after package requiring casstcl and before invoking ::casstcl::cass create.
 
-We are not really satisfied with how this works and may change it completely in the near future.
+Also note that logging is global.  That is, it's not tied to a specific connection if you had more than one connection for some reason.  Also currently it is not fully cleaned up if you unload the package.
 
 Casstcl library functions
 ---
@@ -308,7 +321,7 @@ Return the cassandra data type of the specified schema, table and column
 
 Given a schema and table and the name of an array, the array with key-value pairs where the keys are the names of each column in the table and the values are the cassandra data types of those columns
 
-We are also not satisfied with how this works, either, and it is likely to change in the (near) future.
+We are also satisfied with how this works and it is likely to completely revamp it in the (near) future.
 
 Bugs
 ---
