@@ -930,261 +930,6 @@ int casstcl_select (casstcl_clientData *ct, char *query, char *arrayName, Tcl_Ob
 	return tclReturn;
 }
 
-int
-casstcl_list_keyspaces (casstcl_clientData *ct, Tcl_Obj **objPtr) {
-	const CassSchema *schema = cass_session_get_schema(ct->session);
-	CassIterator *iterator = cass_iterator_from_schema(schema);
-	Tcl_Obj *listObj = Tcl_NewObj();
-	int tclReturn = TCL_OK;
-
-	while (cass_iterator_next(iterator)) {
-		CassString name;
-		const CassSchemaMeta *schemaMeta = cass_iterator_get_schema_meta (iterator);
-
-		const CassSchemaMetaField* field = cass_schema_meta_get_field(schemaMeta, "keyspace_name");
-		cass_value_get_string(cass_schema_meta_field_value(field), &name);
-		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
-			tclReturn = TCL_ERROR;
-			break;
-		}
-	}
-	cass_iterator_free(iterator);
-	cass_schema_free(schema);
-	*objPtr = listObj;
-	return tclReturn;
-}
-
-// meta schema - list the schemas
-// meta table - list the tables
-// meta columns $table - lists the columns and their types
-
-int
-casstcl_meta_walk_table (casstcl_clientData *ct, const CassSchemaMeta *tableMeta) {
-	CassIterator *iterator = NULL;
-	// = cass_iterator_from_schema(tableMeta);
-	const CassSchemaMetaField* field = NULL;
-	CassString tableName;
-
-	// should be CASS_SCHEMA_META_TYPE_TABLE
-	
-	field = cass_schema_meta_get_field (tableMeta, "columnfamily_name");
-	cass_value_get_string (cass_schema_meta_field_value (field), &tableName);
-	// lappend some list object table and a tablename  string object
-
-	while (cass_iterator_next(iterator)) {
-		const CassSchemaMeta *schemaMeta = cass_iterator_get_schema_meta (iterator);
-	}
-	return TCL_OK;
-}
-
-void print_schema_meta(const CassSchemaMeta* meta, int indent);
-
-int
-casstcl_meta_walk_schema (casstcl_clientData *ct) {
-	const CassSchema *schema = cass_session_get_schema(ct->session);
-	CassIterator *iterator = cass_iterator_from_schema(schema);
-
-	while (cass_iterator_next(iterator)) {
-		const CassSchemaMeta *schemaMeta = cass_iterator_get_schema_meta (iterator);
-
-		print_schema_meta (schemaMeta, 0);
-	}
-	return TCL_OK;
-}
-
-void print_keyspace(CassSession* session, const char* keyspace) {
-  const CassSchema* schema = cass_session_get_schema(session);
-  const CassSchemaMeta* keyspace_meta = cass_schema_get_keyspace(schema, keyspace);
-
-  if (keyspace_meta != NULL) {
-    print_schema_meta(keyspace_meta, 0);
-  } else {
-    fprintf(stderr, "Unable to find \"%s\" keyspace in the schema metadata\n", keyspace);
-  }
-
-  cass_schema_free(schema);
-}
-
-void print_table(CassSession* session, const char* keyspace, const char* table) {
-  const CassSchema* schema = cass_session_get_schema(session);
-  const CassSchemaMeta* keyspace_meta = cass_schema_get_keyspace(schema, keyspace);
-
-  if (keyspace_meta != NULL) {
-    const CassSchemaMeta* table_meta = cass_schema_meta_get_entry(keyspace_meta, table);
-    if (table_meta != NULL) {
-      print_schema_meta(table_meta, 0);
-    } else {
-      fprintf(stderr, "Unable to find \"%s\" table in the schema metadata\n", table);
-    }
-  } else {
-    fprintf(stderr, "Unable to find \"%s\" keyspace in the schema metadata\n", keyspace);
-  }
-
-  cass_schema_free(schema);
-}
-
-void print_schema_value(const CassValue* value);
-void print_schema_list(const CassValue* value);
-void print_schema_map(const CassValue* value);
-void print_schema_meta_field(const CassSchemaMetaField* field, int indent);
-void print_schema_meta_fields(const CassSchemaMeta* meta, int indent);
-void print_schema_meta_entries(const CassSchemaMeta* meta, int indent);
-
-void print_indent(int indent) {
-  int i;
-  for (i = 0; i < indent; ++i) {
-    printf("\t");
-  }
-}
-
-void print_schema_value(const CassValue* value) {
-  cass_int32_t i;
-  cass_bool_t b;
-  cass_double_t d;
-  CassString s;
-  CassUuid u;
-  char us[CASS_UUID_STRING_LENGTH];
-
-  CassValueType type = cass_value_type(value);
-  switch (type) {
-    case CASS_VALUE_TYPE_INT:
-      cass_value_get_int32(value, &i);
-      printf("%d", i);
-      break;
-
-    case CASS_VALUE_TYPE_BOOLEAN:
-      cass_value_get_bool(value, &b);
-      printf("%s", b ? "true" : "false");
-      break;
-
-    case CASS_VALUE_TYPE_DOUBLE:
-      cass_value_get_double(value, &d);
-      printf("%f", d);
-      break;
-
-    case CASS_VALUE_TYPE_TEXT:
-    case CASS_VALUE_TYPE_ASCII:
-    case CASS_VALUE_TYPE_VARCHAR:
-      cass_value_get_string(value, &s);
-      printf("\"%.*s\"", (int)s.length, s.data);
-      break;
-
-    case CASS_VALUE_TYPE_UUID:
-      cass_value_get_uuid(value, &u);
-      cass_uuid_string(u, us);
-      printf("%s", us);
-      break;
-
-    case CASS_VALUE_TYPE_LIST:
-      print_schema_list(value);
-      break;
-
-    case CASS_VALUE_TYPE_MAP:
-      print_schema_map(value);
-      break;
-
-    default:
-      if (cass_value_is_null(value)) {
-        printf("null");
-      } else {
-        printf("<unhandled type>");
-      }
-      break;
-  }
-}
-
-void print_schema_list(const CassValue* value) {
-  CassIterator* iterator = cass_iterator_from_collection(value);
-  cass_bool_t is_first = cass_true;
-
-  printf("[ ");
-  while (cass_iterator_next(iterator)) {
-    if (!is_first) printf(", ");
-    print_schema_value(cass_iterator_get_value(iterator));
-    is_first = cass_false;
-  }
-  printf(" ]");
-  cass_iterator_free(iterator);
-}
-
-void print_schema_map(const CassValue* value) {
-  CassIterator* iterator = cass_iterator_from_map(value);
-  cass_bool_t is_first = cass_true;
-
-  printf("{ ");
-  while (cass_iterator_next(iterator)) {
-    if (!is_first) printf(", ");
-    print_schema_value(cass_iterator_get_map_key(iterator));
-    printf(" : ");
-    print_schema_value(cass_iterator_get_map_value(iterator));
-    is_first = cass_false;
-  }
-  printf(" }");
-  cass_iterator_free(iterator);
-}
-
-void print_schema_meta_field(const CassSchemaMetaField* field, int indent) {
-  CassString name = cass_schema_meta_field_name(field);
-  const CassValue* value = cass_schema_meta_field_value(field);
-
-  print_indent(indent);
-  printf("%.*s: ", (int)name.length, name.data);
-  print_schema_value(value);
-  printf("\n");
-}
-
-void print_schema_meta_fields(const CassSchemaMeta* meta, int indent) {
-  CassIterator* fields = cass_iterator_fields_from_schema_meta(meta);
-
-  while (cass_iterator_next(fields)) {
-    print_schema_meta_field(cass_iterator_get_schema_meta_field(fields), indent);
-  }
-  cass_iterator_free(fields);
-}
-
-void print_schema_meta_entries(const CassSchemaMeta* meta, int indent) {
-  CassIterator* entries = cass_iterator_from_schema_meta(meta);
-
-  while (cass_iterator_next(entries)) {
-    print_schema_meta(cass_iterator_get_schema_meta(entries), indent);
-  }
-  cass_iterator_free(entries);
-}
-
-void print_schema_meta(const CassSchemaMeta* meta, int indent) {
-  const CassSchemaMetaField* field = NULL;
-  CassString name;
-  print_indent(indent);
-
-  switch (cass_schema_meta_type(meta)) {
-    case CASS_SCHEMA_META_TYPE_KEYSPACE:
-      field = cass_schema_meta_get_field(meta, "keyspace_name");
-      cass_value_get_string(cass_schema_meta_field_value(field), &name);
-      printf("Keyspace \"%.*s\":\n", (int)name.length, name.data);
-      print_schema_meta_fields(meta, indent + 1);
-      printf("\n");
-      print_schema_meta_entries(meta, indent + 1);
-      break;
-
-    case CASS_SCHEMA_META_TYPE_TABLE:
-      field = cass_schema_meta_get_field(meta, "columnfamily_name");
-      cass_value_get_string(cass_schema_meta_field_value(field), &name);
-      printf("Table \"%.*s\":\n", (int)name.length, name.data);
-      print_schema_meta_fields(meta, indent + 1);
-      printf("\n");
-      print_schema_meta_entries(meta, indent + 1);
-      break;
-
-    case CASS_SCHEMA_META_TYPE_COLUMN:
-      field = cass_schema_meta_get_field(meta, "column_name");
-      cass_value_get_string(cass_schema_meta_field_value(field), &name);
-      printf("Column \"%.*s\":\n", (int)name.length, name.data);
-      print_schema_meta_fields(meta, indent + 1);
-      printf("\n");
-      break;
-  }
-}
-
 
 /*
  *----------------------------------------------------------------------
@@ -1631,7 +1376,6 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
         "exec",
         "connect",
 		"prepare",
-		"list_keyspaces",
         "set_contact_points",
         "set_port",
         "set_protocol_version",
@@ -1656,7 +1400,6 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		"set_ssl_verify_flag",
 		"delete",
 		"close",
-		"meta",
         NULL
     };
 
@@ -1666,7 +1409,6 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
         OPT_EXEC,
         OPT_CONNECT,
 		OPT_PREPARE,
-		OPT_LIST_KEYSPACES,
         OPT_SET_CONTACT_POINTS,
         OPT_SET_PORT,
         OPT_SET_PROTOCOL_VERSION,
@@ -1690,8 +1432,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		OPT_SET_SSL_PRIVATE_KEY,
 		OPT_SET_SSL_VERIFY_FLAG,
 		OPT_DELETE,
-		OPT_CLOSE,
-		OPT_META
+		OPT_CLOSE
     };
 
     /* basic validation of command line arguments */
@@ -1887,18 +1628,6 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 			break;
 		}
-		case OPT_LIST_KEYSPACES: {
-			Tcl_Obj *obj = NULL;
-			if (objc != 2) {
-				Tcl_WrongNumArgs (interp, 2, objv, "");
-				return TCL_ERROR;
-			}
-
-			resultCode = casstcl_list_keyspaces (ct, &obj);
-			Tcl_SetObjResult (ct->interp, obj);
-			break;
-		}
-
 		case OPT_SET_CONTACT_POINTS: {
 			if (objc != 3) {
 				Tcl_WrongNumArgs (interp, 2, objv, "address_list");
@@ -2305,31 +2034,8 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			cass_session_close (ct->session);
 			break;
 		}
+	}
 
-#if 0
-		case OPT_META: {
-			if (objc != 3) {
-				Tcl_WrongNumArgs (interp, 2, objv, "keyspace");
-				return TCL_ERROR;
-			}
-
-			char *keyspace = Tcl_GetString (objv[2]);
-			print_keyspace(ct->session, keyspace);
-			break;
-		}
-#else
-		case OPT_META: {
-			if (objc != 2) {
-				Tcl_WrongNumArgs (interp, 2, objv, "");
-				return TCL_ERROR;
-			}
-
-			casstcl_meta_walk_schema (ct);
-			break;
-		}
-
-    }
-#endif
     return resultCode;
 }
 
