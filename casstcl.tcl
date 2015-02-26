@@ -9,39 +9,9 @@ package provide casstcl
 namespace eval ::casstcl {
 	variable schemaDict
 	variable schemaDownloaded 0
+	variable simpleValidatorToType
 
-#
-# translate_simple_validator_type - perform translations from simple cassandra
-#   java validator types to cassandra datatypes, for example
-#
-#   org.apache.cassandra.db.marshal.DoubleType to double
-#   org.apache.cassandra.db.marshal.UTF8Type to text
-#   org.apache.cassandra.db.marshal.Int32Type to int
-#
-proc translate_simple_validator_type {validator} {
-	if {![regexp {\.([^.]*)Type$} $validator dummy simpleType]} {
-		return ""
-	}
-
-	set type [string tolower $simpleType]
-	switch $type {
-		int32 {
-			return "int"
-		}
-
-		utf8 {
-			return "text"
-		}
-
-		inetaddress {
-			return "inet"
-		}
-
-		default {
-			return $type
-		}
-	}
-}
+	array set simpleValidatorToType {"org.apache.cassandra.db.marshal.AsciiType" ascii "org.apache.cassandra.db.marshal.LongType" int "org.apache.cassandra.db.marshal.BytesType" blob "org.apache.cassandra.db.marshal.BooleanType" boolean "org.apache.cassandra.db.marshal.CounterColumnType" counter "org.apache.cassandra.db.marshal.DecimalType" decimal "org.apache.cassandra.db.marshal.DoubleType" double "org.apache.cassandra.db.marshal.FloatType" float "org.apache.cassandra.db.marshal.InetAddressType" inet "org.apache.cassandra.db.marshal.Int32Type" int32 "org.apache.cassandra.db.marshal.UTF8Type" text "org.apache.cassandra.db.marshal.TimestampType" timestamp "org.apache.cassandra.db.marshal.DateType" timestamp "org.apache.cassandra.db.marshal.UUIDType" "org.apache.cassandra.db.marshal.IntegerType" int "org.apache.cassandra.db.marshal.TimeUUIDType" timeuuid "org.apache.cassandra.db.marshal.ListType" list "org.apache.cassandra.db.marshal.MapType" map "org.apache.cassandra.db.marshal.SetType" set "org.apache.cassandra.db.marshal.CompositeType" composite}
 
 #
 # validator_to_type - perform translations from simple and complex cassandra
@@ -55,9 +25,10 @@ proc translate_simple_validator_type {validator} {
 #   org.apache.cassandra.db.marshal.ReversedType(org.apache.cassandra.db.marshal.TimestampType) to timestamp
 #
 proc validator_to_type {validator} {
-	set simpleType [translate_simple_validator_type $validator]
-	if {$simpleType != ""} {
-		return $simpleType
+	variable simpleValidatorToType
+
+	if {[info exists simpleValidatorToType($validator)]} {
+		return $simpleValidatorToType($validator)
 	}
 
 	if {[regexp {([A-Za-z]*)Type\(([^)]*)\)$} $validator dummy complexType subType]} {
@@ -65,17 +36,17 @@ proc validator_to_type {validator} {
 
 		switch $complexType {
 			"reversed" {
-				return [translate_simple_validator_type $subType]
+				return $simpleValidatorToType($subType)
 			}
 
 			"set" -
 			"list" {
-				return [list $complexType [translate_simple_validator_type $subType]]
+				return [list $complexType $simpleValidatorToType($subType)]
 			}
 
 			"map" {
 				lassign [split $subType ","] keyType valueType
-				return [list map [translate_simple_validator_type $keyType] [translate_simple_validator_type $valueType]]
+				return [list map $simpleValidatorToType($keyType) $simpleValidatorToType($valieType)]
 			}
 		}
 
