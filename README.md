@@ -73,7 +73,7 @@ Perform the requested CQL statement.  Waits for it to complete. Either it works 
 
 Perform the requested CQL statement.  Does not wait.  Creates a result object called a *future* object that you can use the methods of to find out the status of your statement and iterate over select results. Allows for considerable performance gains over exec at the cost of greater code complexity.
 
-If the -callback argument is specified then the next argument is a callback routine that will be invoked when the Cassandra request has completed or errored or whatnot.  The callback routine will be invoked with a single argument, which is the name of the future object created (such as ::future17) when the request was made.
+If the **-callback** argument is specified then the next argument is a callback routine that will be invoked when the Cassandra request has completed or errored or whatnot.  The callback routine will be invoked with a single argument, which is the name of the future object created (such as *::future17*) when the request was made.
 
 See also the future object.
 
@@ -85,13 +85,19 @@ Null values are unset from the array, so you have to use info exists to see if a
 
 The array is cleared each iteration for you automatically so you don't neeed to jack with unset.
 
+If the **-pagesize** argument is present then it should be followed by an integer which is the number of query results that should be returned "per pass".  Changing this should transparent to the caller but smaller pagesize numbers should allow greater concurrency in many cases by allowing the application to process some results while the cluster is still producing them.  The default pagesize is 100 rows.
+
 * **$cassdb connect** *?keyspace?*
 
-Connect to the cassandra cluster.  Use the specified keyspace if present.
+Connect to the cassandra cluster.  Use the specified keyspace if the keyspace argument is present.  Alternatively after connecting you can specify the keyspace to use with something like
+
+```tcl
+$cassdb exec "use wx;"
+```
 
 * **$cassdb prepare $statement**
 
-Prepare the specified statement.
+Prepare the specified statement.  Although this command will probably work, the casstcl infrastructure in support of prepared statements including binding values into statements does not (yet) exist.
 
 * **$cassdb set_contact_points $addressList**
 
@@ -207,14 +213,16 @@ Future Objects
 
 Future objects are created when casstcl's async method is invoked.  It is up to the user to ensure that the objects returned by the async method have their own methods invoked to enquire as to the status and ultimate disposition of their requests.  After you're finished with a future object, you should delete it.
 
-	set future [$cassObj async "select * from wx_metar where airport = 'KHOU' order by time desc limit 1"]
+```tcl
+set future [$cassObj async "select * from wx_metar where airport = 'KHOU' order by time desc limit 1"]
 
-	# see if the request was successful
-	if {[$future isready]} {
-		if {[$future error_code] != "CASS_OK"} {
-			set errorString [$future error_message]
-		}
+# see if the request was successful
+if {[$future isready]} {
+	if {[$future error_code] != "CASS_OK"} {
+		set errorString [$future error_message]
 	}
+}
+```
 
 * **$future isready**
 
@@ -267,6 +275,7 @@ When a log message callback occurs from the Cassandra cpp-driver, casstcl will o
 
 According to the cpp-driver documentation, logging configuration should be done before calling any other driver function, so if you're going to use this, invoke it after package requiring casstcl and before invoking ::casstcl::cass create.
 
+We are not really satisfied with how this works and may change it completely in the near future.
 
 Casstcl library functions
 ---
@@ -299,4 +308,13 @@ Return the cassandra data type of the specified schema, table and column
 
 Given a schema and table and the name of an array, the array with key-value pairs where the keys are the names of each column in the table and the values are the cassandra data types of those columns
 
+We are also not satisfied with how this works, either, and it is likely to change in the (near) future.
 
+Bugs
+---
+
+Some Cassandra data types are unimplemented or broken.  Specifically *unknown*, *custom*, *decimal*, *varint*, and *timeuuid* either don't or probably don't work.
+
+Memory leaks are a distinct possibility.
+
+The code is new and therefore hasn't gotten a lot of use.  Nonetheless, the workhorse functions **async**, **exec** and **select** seem to work pretty well.
