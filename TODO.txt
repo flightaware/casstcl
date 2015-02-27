@@ -32,6 +32,3 @@
   for the write to have been completed for it to be considered
   complete.
 
-* see if the way we get column names and data types in select is inefficient and if so then only get the that info once and keep a copy of it during the select, freeing it afterwards
-
-* Figure out what's going on with https://groups.google.com/a/lists.datastax.com/forum/#!topic/cpp-driver-user/qswjKhATEKU

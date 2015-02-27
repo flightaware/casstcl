@@ -333,32 +333,38 @@ casstcl_obj_to_cass_log_level (casstcl_sessionClientData *ct, Tcl_Obj *tclObj, C
     switch ((enum loglevels) logIndex) {
         case OPT_DISABLED: {
 			*cassLogLevel = CASS_LOG_DISABLED;
+			break;
 		}
 
         case OPT_CRITICAL: {
 			*cassLogLevel = CASS_LOG_CRITICAL;
+			break;
 		}
 
         case OPT_ERROR: {
 			*cassLogLevel = CASS_LOG_ERROR;
+			break;
 		}
 
 		case OPT_WARN: {
 			*cassLogLevel = CASS_LOG_WARN;
+			break;
 		}
 
         case OPT_INFO: {
 			*cassLogLevel = CASS_LOG_INFO;
+			break;
 		}
 
         case OPT_DEBUG: {
 			*cassLogLevel = CASS_LOG_DEBUG;
+			break;
 		}
 
         case OPT_TRACE: {
 			*cassLogLevel = CASS_LOG_TRACE;
+			break;
 		}
-
 	}
 
 	return TCL_OK;
@@ -403,6 +409,302 @@ casstcl_cass_log_level_to_string (CassLogLevel severity) {
 
 		case CASS_LOG_TRACE:
 			return "trace";
+
+		default:
+			return "unknown";
+	}
+}
+
+
+/*
+ *--------------------------------------------------------------
+ *
+ * casstcl_obj_to_cass_value_type -- lookup a string in a Tcl object
+ *   to be one of the cass value type strings for CassValueType and set
+ *   a pointer to a passed-in CassValueType value to the corresponding
+ *   type such as CASS_VALUE_TYPE_DOUBLE, etc
+ *
+ * Results:
+ *      ...cass value type gets set
+ *      ...a standard Tcl result is returned
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+int
+casstcl_obj_to_cass_value_type (casstcl_sessionClientData *ct, Tcl_Obj *tclObj, CassValueType *cassValueType) {
+    int                 typeIndex;
+
+    static CONST char *valueTypes[] = {
+        "unknown",
+        "custom",
+        "ascii",
+        "bigint",
+        "blob",
+        "boolean",
+        "counter",
+        "decimal",
+        "double",
+        "float",
+        "int",
+        "text",
+        "timestamp",
+        "uuid",
+        "varchar",
+        "varint",
+        "timeuuid",
+        "inet",
+        "list",
+        "map",
+        "set",
+        NULL
+    };
+
+    enum valueTypes {
+		OPT_CASS_VALUE_TYPE_UNKNOWN,
+		OPT_CASS_VALUE_TYPE_CUSTOM,
+		OPT_CASS_VALUE_TYPE_ASCII,
+		OPT_CASS_VALUE_TYPE_BIGINT,
+		OPT_CASS_VALUE_TYPE_BLOB,
+		OPT_CASS_VALUE_TYPE_BOOLEAN,
+		OPT_CASS_VALUE_TYPE_COUNTER,
+		OPT_CASS_VALUE_TYPE_DECIMAL,
+		OPT_CASS_VALUE_TYPE_DOUBLE,
+		OPT_CASS_VALUE_TYPE_FLOAT,
+		OPT_CASS_VALUE_TYPE_INT,
+		OPT_CASS_VALUE_TYPE_TEXT,
+		OPT_CASS_VALUE_TYPE_TIMESTAMP,
+		OPT_CASS_VALUE_TYPE_UUID,
+		OPT_CASS_VALUE_TYPE_VARCHAR,
+		OPT_CASS_VALUE_TYPE_VARINT,
+		OPT_CASS_VALUE_TYPE_TIMEUUID,
+		OPT_CASS_VALUE_TYPE_INET,
+		OPT_CASS_VALUE_TYPE_LIST,
+		OPT_CASS_VALUE_TYPE_MAP,
+		OPT_CASS_VALUE_TYPE_SET
+	};
+
+    // argument must be one of the options defined above
+    if (Tcl_GetIndexFromObj (ct->interp, tclObj, valueTypes, "valueTypes",
+        TCL_EXACT, &typeIndex) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+
+    switch ((enum valueTypes) typeIndex) {
+		case OPT_CASS_VALUE_TYPE_UNKNOWN: {
+			*cassValueType = CASS_VALUE_TYPE_UNKNOWN;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_CUSTOM: {
+			*cassValueType = CASS_VALUE_TYPE_CUSTOM;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_ASCII: {
+			*cassValueType = CASS_VALUE_TYPE_ASCII;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_BIGINT: {
+			*cassValueType = CASS_VALUE_TYPE_BIGINT;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_BLOB: {
+			*cassValueType = CASS_VALUE_TYPE_BLOB;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_BOOLEAN: {
+			*cassValueType = CASS_VALUE_TYPE_BOOLEAN;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_COUNTER: {
+			*cassValueType = CASS_VALUE_TYPE_COUNTER;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_DECIMAL: {
+			*cassValueType = CASS_VALUE_TYPE_DECIMAL;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_DOUBLE: {
+			*cassValueType = CASS_VALUE_TYPE_DOUBLE;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_FLOAT: {
+			*cassValueType = CASS_VALUE_TYPE_FLOAT;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_INT: {
+			*cassValueType = CASS_VALUE_TYPE_INT;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_TEXT: {
+			*cassValueType = CASS_VALUE_TYPE_TEXT;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_TIMESTAMP: {
+			*cassValueType = CASS_VALUE_TYPE_TIMESTAMP;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_UUID: {
+			*cassValueType = CASS_VALUE_TYPE_UUID;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_VARCHAR: {
+			*cassValueType = CASS_VALUE_TYPE_VARCHAR;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_VARINT: {
+			*cassValueType = CASS_VALUE_TYPE_VARINT;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_TIMEUUID: {
+			*cassValueType = CASS_VALUE_TYPE_TIMEUUID;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_INET: {
+			*cassValueType = CASS_VALUE_TYPE_INET;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_LIST: {
+			*cassValueType = CASS_VALUE_TYPE_LIST;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_MAP: {
+			*cassValueType = CASS_VALUE_TYPE_MAP;
+			break;
+		}
+
+		case OPT_CASS_VALUE_TYPE_SET: {
+			*cassValueType = CASS_VALUE_TYPE_SET;
+			break;
+		}
+	}
+
+	return TCL_OK;
+}
+
+
+/*
+ *--------------------------------------------------------------
+ *
+ * casstcl_cass_value_type_to_string -- given a CassValueType,
+ *   return a const char * to a character string of equivalent
+ *   meaning
+ *
+ * Results:
+ *      a string gets returned
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+const char *
+casstcl_cass_value_type_to_string (CassValueType valueType) {
+	switch (valueType) {
+		case CASS_VALUE_TYPE_UNKNOWN: {
+			return "unknown";
+		}
+
+		case CASS_VALUE_TYPE_CUSTOM: {
+			return "unknown";
+		}
+
+		case CASS_VALUE_TYPE_ASCII: {
+			return "custom";
+		}
+
+		case CASS_VALUE_TYPE_BIGINT: {
+			return "ascii";
+		}
+
+		case CASS_VALUE_TYPE_BLOB: {
+			return "blob";
+		}
+
+		case CASS_VALUE_TYPE_BOOLEAN: {
+			return "boolean";
+		}
+
+		case CASS_VALUE_TYPE_COUNTER: {
+			return "counter";
+		}
+
+		case CASS_VALUE_TYPE_DECIMAL: {
+			return "decimal";
+		}
+
+		case CASS_VALUE_TYPE_DOUBLE: {
+			return "double";
+		}
+
+		case CASS_VALUE_TYPE_FLOAT: {
+			return "float";
+		}
+
+		case CASS_VALUE_TYPE_INT: {
+			return "int";
+		}
+
+		case CASS_VALUE_TYPE_TEXT: {
+			return "text";
+		}
+
+		case CASS_VALUE_TYPE_TIMESTAMP: {
+			return "timestamp";
+		}
+
+		case CASS_VALUE_TYPE_UUID: {
+			return "uuid";
+		}
+
+		case CASS_VALUE_TYPE_VARCHAR: {
+			return "varchar";
+		}
+
+		case CASS_VALUE_TYPE_VARINT: {
+			return "varint";
+		}
+
+		case CASS_VALUE_TYPE_TIMEUUID: {
+			return "timeuuid";
+		}
+
+		case CASS_VALUE_TYPE_INET: {
+			return "inet";
+		}
+
+		case CASS_VALUE_TYPE_LIST: {
+			return "list";
+		}
+
+		case CASS_VALUE_TYPE_MAP: {
+			return "map";
+		}
+
+		case CASS_VALUE_TYPE_SET: {
+			return "set";
+		}
 
 		default:
 			return "unknown";
@@ -849,6 +1151,153 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 	return TCL_ERROR;
 }
 
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_bind_tcl_obj --
+ *
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *
+ *----------------------------------------------------------------------
+ */
+
+int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statement, cass_size_t index, CassValueType valueType, Tcl_Obj *obj)
+{
+	Tcl_Interp *interp = ct->interp;
+	CassError cassError = CASS_OK;
+
+	switch (valueType) {
+		case CASS_VALUE_TYPE_ASCII:
+		case CASS_VALUE_TYPE_TEXT:
+		case CASS_VALUE_TYPE_VARCHAR: {
+			int length = 0;
+			char *value = Tcl_GetStringFromObj (obj, &length);
+
+			cassError = cass_statement_bind_string (statement, index, cass_string_init(value));
+			break;
+		}
+
+		case CASS_VALUE_TYPE_UNKNOWN: {
+			break;
+		}
+
+		case CASS_VALUE_TYPE_CUSTOM: {
+			int length = 0;
+			unsigned char *value = Tcl_GetByteArrayFromObj (obj, &length);
+			cass_byte_t *copyBuffer = NULL;
+
+			cassError = cass_statement_bind_custom (statement, index, length, &copyBuffer);
+
+			if (cassError == CASS_OK) {
+				memcpy (copyBuffer, value, length);
+			}
+			break;
+		}
+
+		case CASS_VALUE_TYPE_BIGINT: {
+			break;
+		}
+
+		case CASS_VALUE_TYPE_BLOB: {
+			int length = 0;
+			unsigned char *value = Tcl_GetByteArrayFromObj (obj, &length);
+
+			cassError = cass_statement_bind_bytes (statement, index, cass_bytes_init(value, length));
+			break;
+		}
+
+		case CASS_VALUE_TYPE_BOOLEAN: {
+			int value = 0;
+
+			if (Tcl_GetBooleanFromObj (interp, obj, &value) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting boolean element", NULL);
+				return TCL_ERROR;
+			}
+
+			cassError = cass_statement_bind_bool (statement, index, value);
+			break;
+		}
+
+		case CASS_VALUE_TYPE_COUNTER: {
+			break;
+		}
+
+		case CASS_VALUE_TYPE_DECIMAL: {
+			break;
+		}
+
+		case CASS_VALUE_TYPE_DOUBLE: {
+			double value = 0;
+
+			if (Tcl_GetDoubleFromObj (interp, obj, &value) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting double element", NULL);
+				return TCL_ERROR;
+			}
+
+			cassError = cass_statement_bind_double (statement, index, value);
+			break;
+		}
+
+		case CASS_VALUE_TYPE_FLOAT: {
+			double value = 0;
+
+			if (Tcl_GetDoubleFromObj (interp, obj, &value) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting double element", NULL);
+				return TCL_ERROR;
+			}
+
+			cassError = cass_statement_bind_float (statement, index, value);
+			break;
+		}
+
+		case CASS_VALUE_TYPE_INT: {
+			break;
+		}
+
+		case CASS_VALUE_TYPE_TIMESTAMP: {
+			break;
+		}
+
+		case CASS_VALUE_TYPE_UUID: {
+			break;
+		}
+
+		case CASS_VALUE_TYPE_VARINT: {
+			break;
+		}
+
+		case CASS_VALUE_TYPE_TIMEUUID: {
+			break;
+		}
+
+		case CASS_VALUE_TYPE_INET: {
+			break;
+		}
+
+		case CASS_VALUE_TYPE_LIST: {
+			break;
+		}
+
+		case CASS_VALUE_TYPE_MAP: {
+			break;
+		}
+
+		case CASS_VALUE_TYPE_SET: {
+			break;
+		}
+
+	}
+
+	if (cassError != CASS_OK) {
+		return casstcl_cass_error_to_tcl (ct, cassError);
+	}
+
+	return TCL_OK;
+}
 
 /*
  *----------------------------------------------------------------------
