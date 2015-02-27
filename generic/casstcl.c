@@ -897,7 +897,7 @@ casstcl_list_keyspaces (casstcl_sessionClientData *ct, Tcl_Obj **objPtr) {
  *
  * casstcl_list_tables --
  *
- *      Return a list of the extant tables in a keyspace by
+ *      Set the Tcl result to a list of the extant tables in a keyspace by
  *      examining the metadata managed by the driver.
  *
  * Results:
@@ -942,7 +942,7 @@ casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **ob
  *
  * casstcl_list_columns --
  *
- *      Return a list of the extant columns in a table
+ *      Set the Tcl result to a list of the extant columns in a table
  *      in a keyspace by examining the metadata managed
  *      by the driver.
  *
@@ -952,7 +952,7 @@ casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **ob
  *----------------------------------------------------------------------
  */
 int
-casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table, Tcl_Obj **objPtr) {
+casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table, int includeTypes, Tcl_Obj **objPtr) {
 	const CassSchema *schema = cass_session_get_schema(ct->session);
 	const CassSchemaMeta *keyspaceMeta = cass_schema_get_keyspace (schema, keyspace);
 
@@ -980,6 +980,31 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
 			tclReturn = TCL_ERROR;
 			break;
+		}
+
+		if (includeTypes) {
+			CassString name;
+			const CassSchemaMetaField* field = cass_schema_meta_get_field (columnMeta, "validator");
+
+			Tcl_Obj *evalObjv[2];
+			// construct a call to our casstcl.tcl library function
+			// validate_to_type to translate the value to a cassandra
+			// data type
+			evalObjv[0] = Tcl_NewStringObj ("::casstcl::validator_to_type", -1);
+
+			cass_value_get_string(cass_schema_meta_field_value(field), &name);
+			evalObjv[1] = Tcl_NewStringObj (name.data, name.length);
+
+			tclReturn = Tcl_EvalObjv (ct->interp, 2, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
+
+			if (tclReturn == TCL_ERROR) {
+				break;
+			}
+
+			if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_GetObjResult (ct->interp)) == TCL_ERROR) {
+				tclReturn = TCL_ERROR;
+				break;
+			}
 		}
 	}
 	cass_iterator_free(iterator);
@@ -1833,6 +1858,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		"list_keyspaces",
 		"list_tables",
 		"list_columns",
+		"list_column_types",
         "set_contact_points",
         "set_port",
         "set_protocol_version",
@@ -1870,6 +1896,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		OPT_LIST_KEYSPACES,
 		OPT_LIST_TABLES,
 		OPT_LIST_COLUMNS,
+		OPT_LIST_COLUMN_TYPES,
         OPT_SET_CONTACT_POINTS,
         OPT_SET_PORT,
         OPT_SET_PROTOCOL_VERSION,
@@ -2192,7 +2219,8 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_LIST_COLUMNS: {
+		case OPT_LIST_COLUMNS:
+		case OPT_LIST_COLUMN_TYPES: {
 			Tcl_Obj *obj = NULL;
 			if (objc != 4) {
 				Tcl_WrongNumArgs (interp, 2, objv, "keyspace tableName");
@@ -2202,7 +2230,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			char *keyspace = Tcl_GetString (objv[2]);
 			char *table = Tcl_GetString (objv[3]);
 
-			resultCode = casstcl_list_columns (ct, keyspace, table, &obj);
+			resultCode = casstcl_list_columns (ct, keyspace, table, (optIndex == OPT_LIST_COLUMN_TYPES), &obj);
 			Tcl_SetObjResult (ct->interp, obj);
 			break;
 		}
