@@ -1324,6 +1324,7 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
     static CONST char *options[] = {
         "add",
         "consistency",
+		"reset",
         "delete",
         NULL
     };
@@ -1331,6 +1332,7 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
     enum options {
         OPT_ADD,
         OPT_CONSISTENCY,
+		OPT_RESET,
 		OPT_DELETE
     };
 
@@ -1382,6 +1384,18 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 			if (cassError != CASS_OK) {
 				return casstcl_cass_error_to_tcl (bcd->ct, cassError);
 			}
+			break;
+		}
+
+		case OPT_RESET: {
+			if (objc != 2) {
+				Tcl_WrongNumArgs (interp, 2, objv, "");
+				return TCL_ERROR;
+			}
+
+			bcd->batch = cass_batch_new (bcd->batchType);
+			cass_batch_free (bcd->batch);
+
 			break;
 		}
 
@@ -1981,6 +1995,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			bcd->cass_batch_magic = CASS_BATCH_MAGIC;
 			bcd->ct = ct;
 			bcd->batch = cass_batch_new (cassBatchType);
+			bcd->batchType = cassBatchType;
 
 			char *commandName = Tcl_GetString (objv[2]);
 

@@ -46,6 +46,7 @@ typedef struct casstcl_batchClientData
     int cass_batch_magic;
 	casstcl_sessionClientData *ct;
 	CassBatch *batch;
+	CassBatchType batchType;
 	Tcl_Command cmdToken;
 } casstcl_batchClientData;
 
