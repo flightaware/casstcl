@@ -12,15 +12,17 @@
 #include <string.h>
 #include <cassandra.h>
 
-#define CASS_MAGIC 7138570
+#define CASS_SESSION_MAGIC 7138570
 #define CASS_FUTURE_MAGIC 71077345
+#define CASS_BATCH_MAGIC 14215469
+#define CASS_PREPARED_MAGIC 713832281
 
 extern int
 casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[]);
 
-typedef struct casstcl_clientData
+typedef struct casstcl_sessionClientData
 {
-    int cass_magic;
+    int cass_session_magic;
     Tcl_Interp *interp;
     CassCluster *cluster;
     CassSession* session;
@@ -28,16 +30,33 @@ typedef struct casstcl_clientData
     Tcl_Command cmdToken;
 	Tcl_ThreadId threadId;
 	Tcl_Obj *loggingCallbackObj;
-} casstcl_clientData;
+} casstcl_sessionClientData;
 
 typedef struct casstcl_futureClientData
 {
-    int cass_magic;
-	casstcl_clientData *ct;
+    int cass_future_magic;
+	casstcl_sessionClientData *ct;
 	CassFuture *future;
 	Tcl_Command cmdToken;
 	Tcl_Obj *callbackObj;
 } casstcl_futureClientData;
+
+typedef struct casstcl_batchClientData
+{
+    int cass_batch_magic;
+	casstcl_sessionClientData *ct;
+	CassBatch *batch;
+	CassBatchType batchType;
+	Tcl_Command cmdToken;
+} casstcl_batchClientData;
+
+typedef struct casstcl_preparedClientData
+{
+    int cass_prepared_magic;
+	casstcl_sessionClientData *ct;
+	const CassPrepared *prepared;
+	Tcl_Command cmdToken;
+} casstcl_preparedClientData;
 
 typedef struct casstcl_loggingEvent
 {

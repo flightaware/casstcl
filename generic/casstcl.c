@@ -1,3 +1,5 @@
+
+
 /*
  * casstcl - Tcl interface to CassDB
  *
@@ -30,9 +32,9 @@ Tcl_ThreadId casstcl_loggingCallbackThreadId = NULL;
 void
 casstcl_cassObjectDelete (ClientData clientData)
 {
-    casstcl_clientData *ct = (casstcl_clientData *)clientData;
+    casstcl_sessionClientData *ct = (casstcl_sessionClientData *)clientData;
 
-    assert (ct->cass_magic == CASS_MAGIC);
+    assert (ct->cass_session_magic == CASS_SESSION_MAGIC);
 
 	cass_ssl_free (ct->ssl);
     cass_cluster_free (ct->cluster);
@@ -61,10 +63,62 @@ casstcl_futureObjectDelete (ClientData clientData)
 {
     casstcl_futureClientData *fcd = (casstcl_futureClientData *)clientData;
 
-    assert (fcd->cass_magic == CASS_FUTURE_MAGIC);
+    assert (fcd->cass_future_magic == CASS_FUTURE_MAGIC);
 
 	cass_future_free (fcd->future);
 	Tcl_DecrRefCount(fcd->callbackObj);
+    ckfree((char *)clientData);
+}
+
+
+/*
+ *--------------------------------------------------------------
+ *
+ * casstcl_batchObjectDelete -- command deletion callback routine.
+ *
+ * Results:
+ *      ...destroys the batch object.
+ *      ...frees memory.
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+void
+casstcl_batchObjectDelete (ClientData clientData)
+{
+    casstcl_batchClientData *bcd = (casstcl_batchClientData *)clientData;
+
+    assert (bcd->cass_batch_magic == CASS_BATCH_MAGIC);
+
+	cass_batch_free (bcd->batch);
+    ckfree((char *)clientData);
+}
+
+
+/*
+ *--------------------------------------------------------------
+ *
+ * casstcl_preparedObjectDelete -- command deletion callback routine.
+ *
+ * Results:
+ *      ...destroys the prepared object.
+ *      ...frees memory.
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+void
+casstcl_preparedObjectDelete (ClientData clientData)
+{
+    casstcl_preparedClientData *pcd = (casstcl_preparedClientData *)clientData;
+
+    assert (pcd->cass_prepared_magic == CASS_PREPARED_MAGIC);
+
+	cass_prepared_free (pcd->prepared);
     ckfree((char *)clientData);
 }
 
@@ -246,7 +300,7 @@ const char *casstcl_cass_error_to_errorcode_string (CassError cassError)
  *--------------------------------------------------------------
  */
 int
-casstcl_obj_to_cass_log_level (casstcl_clientData *ct, Tcl_Obj *tclObj, CassLogLevel *cassLogLevel) {
+casstcl_obj_to_cass_log_level (casstcl_sessionClientData *ct, Tcl_Obj *tclObj, CassLogLevel *cassLogLevel) {
     int                 logIndex;
 
     static CONST char *logLevels[] = {
@@ -370,7 +424,7 @@ casstcl_cass_log_level_to_string (CassLogLevel severity) {
  *
  *--------------------------------------------------------------
  */
-int casstcl_cass_error_to_tcl (casstcl_clientData *ct, CassError cassError) {
+int casstcl_cass_error_to_tcl (casstcl_sessionClientData *ct, CassError cassError) {
 
 	if (cassError == CASS_OK) {
 		return TCL_OK;
@@ -402,7 +456,7 @@ int casstcl_cass_error_to_tcl (casstcl_clientData *ct, CassError cassError) {
  *--------------------------------------------------------------
  */
 int
-casstcl_obj_to_cass_consistency(casstcl_clientData *ct, Tcl_Obj *tclObj, CassConsistency *cassConsistency) {
+casstcl_obj_to_cass_consistency(casstcl_sessionClientData *ct, Tcl_Obj *tclObj, CassConsistency *cassConsistency) {
     int                 conIndex;
 
     static CONST char *consistencies[] = {
@@ -492,6 +546,96 @@ casstcl_obj_to_cass_consistency(casstcl_clientData *ct, Tcl_Obj *tclObj, CassCon
 
 
 /*
+ *--------------------------------------------------------------
+ *
+ * casstcl_obj_to_cass_batch_type -- lookup a string in a Tcl object
+ *   to be one of the batch_type strings for CassBatchType and set
+ *   a pointer to a passed-in CassBatchType value to the corresponding
+ *   CassBatchType such as CASS_BATCH_TYPE_LOGGED, etc
+ *
+ * Results:
+ *      ...cass batch type gets set
+ *      ...a standard Tcl result is returned
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+int
+casstcl_obj_to_cass_batch_type (Tcl_Interp *interp, Tcl_Obj *tclObj, CassBatchType *cassBatchType) {
+    int                 batchTypeIndex;
+
+    static CONST char *batchTypes[] = {
+        "logged",
+        "unlogged",
+        "counter",
+        NULL
+    };
+
+    enum batchTypes {
+        OPT_LOGGED,
+        OPT_UNLOGGED,
+        OPT_COUNTER
+	};
+
+    // argument must be one of the subOptions defined above
+    if (Tcl_GetIndexFromObj (interp, tclObj, batchTypes, "batch_type",
+        TCL_EXACT, &batchTypeIndex) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    switch ((enum batchTypes) batchTypeIndex) {
+        case OPT_LOGGED: {
+			*cassBatchType = CASS_BATCH_TYPE_LOGGED;
+		}
+
+        case OPT_UNLOGGED: {
+			*cassBatchType = CASS_BATCH_TYPE_UNLOGGED;
+		}
+
+        case OPT_COUNTER: {
+			*cassBatchType = CASS_BATCH_TYPE_COUNTER;
+		}
+	}
+
+	return TCL_OK;
+}
+
+
+/*
+ *--------------------------------------------------------------
+ *
+ * casstcl_batch_type_to_batch_type_string -- given a CassBatchType
+ *   code return a string corresponding to the CassBatchType constant
+ *
+ * Results:
+ *      returns a pointer to a const char *
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+const char *casstcl_batch_type_to_batch_type_string (CassBatchType cassBatchType)
+{
+	switch (cassBatchType) {
+		case CASS_BATCH_TYPE_LOGGED:
+			return "logged";
+
+		case CASS_BATCH_TYPE_UNLOGGED:
+			return "unlogged";
+
+		case CASS_BATCH_TYPE_COUNTER:
+			return "counter";
+
+		default:
+			return "unknown";
+	}
+}
+
+
+/*
  *----------------------------------------------------------------------
  *
  * casstcl_cass_value_to_tcl_obj --
@@ -506,7 +650,7 @@ casstcl_obj_to_cass_consistency(casstcl_clientData *ct, Tcl_Obj *tclObj, CassCon
  *----------------------------------------------------------------------
  */
 
-int casstcl_cass_value_to_tcl_obj (casstcl_clientData *ct, const CassValue *cassValue, Tcl_Obj **tclObj)
+int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValue *cassValue, Tcl_Obj **tclObj)
 {
 	CassValueType valueType = cass_value_type (cassValue);
 	switch (valueType) {
@@ -709,6 +853,170 @@ int casstcl_cass_value_to_tcl_obj (casstcl_clientData *ct, const CassValue *cass
 /*
  *----------------------------------------------------------------------
  *
+ * casstcl_list_keyspaces --
+ *
+ *      Return a list of the extant keyspaces in the cluster by
+ *      examining the metadata managed by the driver.
+ *
+ *      The cpp-driver docs indicate that the driver stays abreast with
+ *      changes to the schema so we prefer to ask it rather than
+ *      caching our own copy, or something.
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_list_keyspaces (casstcl_sessionClientData *ct, Tcl_Obj **objPtr) {
+	const CassSchema *schema = cass_session_get_schema(ct->session);
+	CassIterator *iterator = cass_iterator_from_schema(schema);
+	Tcl_Obj *listObj = Tcl_NewObj();
+	int tclReturn = TCL_OK;
+
+	while (cass_iterator_next(iterator)) {
+		CassString name;
+		const CassSchemaMeta *schemaMeta = cass_iterator_get_schema_meta (iterator);
+
+		const CassSchemaMetaField* field = cass_schema_meta_get_field(schemaMeta, "keyspace_name");
+		cass_value_get_string(cass_schema_meta_field_value(field), &name);
+		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
+			tclReturn = TCL_ERROR;
+			break;
+		}
+	}
+	cass_iterator_free(iterator);
+	cass_schema_free(schema);
+	*objPtr = listObj;
+	return tclReturn;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_list_tables --
+ *
+ *      Set the Tcl result to a list of the extant tables in a keyspace by
+ *      examining the metadata managed by the driver.
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **objPtr) {
+	const CassSchema *schema = cass_session_get_schema(ct->session);
+	const CassSchemaMeta *keyspaceMeta = cass_schema_get_keyspace (schema, keyspace);
+
+	if (keyspaceMeta == NULL) {
+		Tcl_AppendResult (ct->interp, "keyspace '", keyspace, "' not found", NULL);
+		return TCL_ERROR;
+	}
+
+	CassIterator *iterator = cass_iterator_from_schema_meta (keyspaceMeta);
+	Tcl_Obj *listObj = Tcl_NewObj();
+	int tclReturn = TCL_OK;
+
+	while (cass_iterator_next(iterator)) {
+		CassString name;
+		const CassSchemaMeta *tableMeta = cass_iterator_get_schema_meta (iterator);
+
+		const CassSchemaMetaField* field = cass_schema_meta_get_field(tableMeta, "columnfamily_name");
+		cass_value_get_string(cass_schema_meta_field_value(field), &name);
+		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
+			tclReturn = TCL_ERROR;
+			break;
+		}
+	}
+	cass_iterator_free(iterator);
+	cass_schema_free(schema);
+	*objPtr = listObj;
+	return tclReturn;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_list_columns --
+ *
+ *      Set the Tcl result to a list of the extant columns in a table
+ *      in a keyspace by examining the metadata managed
+ *      by the driver.
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table, int includeTypes, Tcl_Obj **objPtr) {
+	const CassSchema *schema = cass_session_get_schema(ct->session);
+	const CassSchemaMeta *keyspaceMeta = cass_schema_get_keyspace (schema, keyspace);
+
+	if (keyspaceMeta == NULL) {
+		Tcl_AppendResult (ct->interp, "keyspace '", keyspace, "' not found", NULL);
+		return TCL_ERROR;
+	}
+
+	const CassSchemaMeta *tableMeta = cass_schema_meta_get_entry (keyspaceMeta, table);
+
+	if (tableMeta == NULL) {
+		Tcl_AppendResult (ct->interp, "table '", table, "' not found in keyspace '", keyspace, "'", NULL);
+	}
+
+	CassIterator *iterator = cass_iterator_from_schema_meta (tableMeta);
+	Tcl_Obj *listObj = Tcl_NewObj();
+	int tclReturn = TCL_OK;
+
+	while (cass_iterator_next(iterator)) {
+		CassString name;
+		const CassSchemaMeta *columnMeta = cass_iterator_get_schema_meta (iterator);
+
+		const CassSchemaMetaField* field = cass_schema_meta_get_field(columnMeta, "column_name");
+		cass_value_get_string(cass_schema_meta_field_value(field), &name);
+		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
+			tclReturn = TCL_ERROR;
+			break;
+		}
+
+		if (includeTypes) {
+			CassString name;
+			const CassSchemaMetaField* field = cass_schema_meta_get_field (columnMeta, "validator");
+
+			Tcl_Obj *evalObjv[2];
+			// construct a call to our casstcl.tcl library function
+			// validate_to_type to translate the value to a cassandra
+			// data type
+			evalObjv[0] = Tcl_NewStringObj ("::casstcl::validator_to_type", -1);
+
+			cass_value_get_string(cass_schema_meta_field_value(field), &name);
+			evalObjv[1] = Tcl_NewStringObj (name.data, name.length);
+
+			tclReturn = Tcl_EvalObjv (ct->interp, 2, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
+
+			if (tclReturn == TCL_ERROR) {
+				break;
+			}
+
+			if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_GetObjResult (ct->interp)) == TCL_ERROR) {
+				tclReturn = TCL_ERROR;
+				break;
+			}
+		}
+	}
+	cass_iterator_free(iterator);
+	cass_schema_free(schema);
+	*objPtr = listObj;
+	return tclReturn;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
  * casstcl_iterate_over_future --
  *
  *      Given a casstcl client data structure, a cassandra cpp-driver
@@ -728,7 +1036,7 @@ int casstcl_cass_value_to_tcl_obj (casstcl_clientData *ct, const CassValue *cass
  *----------------------------------------------------------------------
  */
 int
-casstcl_iterate_over_future (casstcl_clientData *ct, CassFuture *future, char *arrayName, Tcl_Obj *codeObj)
+casstcl_iterate_over_future (casstcl_sessionClientData *ct, CassFuture *future, char *arrayName, Tcl_Obj *codeObj)
 {
 	int tclReturn = TCL_OK;
 	const CassResult* result = NULL;
@@ -818,7 +1126,7 @@ casstcl_iterate_over_future (casstcl_clientData *ct, CassFuture *future, char *a
  *----------------------------------------------------------------------
  */
 
-int casstcl_select (casstcl_clientData *ct, char *query, char *arrayName, Tcl_Obj *codeObj, int pagingSize) {
+int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName, Tcl_Obj *codeObj, int pagingSize) {
 	CassStatement* statement = NULL;
 	int tclReturn = TCL_OK;
 
@@ -950,7 +1258,7 @@ casstcl_logging_eventProc (Tcl_Event *tevPtr, int flags) {
 
 	// we got called with a Tcl_Event pointer but really it's a pointer to
 	// our casstcl_loggingEvent structure that has the Tcl_Event plus a pointer
-	// to casstcl_clientData, which is our key to the kindgdom.
+	// to casstcl_sessionClientData, which is our key to the kindgdom.
 	// Go get that.
 
 	casstcl_loggingEvent *evPtr = (casstcl_loggingEvent *)tevPtr;
@@ -1163,6 +1471,175 @@ casstcl_futureObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_O
 /*
  *----------------------------------------------------------------------
  *
+ * casstcl_batchObjectObjCmd --
+ *
+ *    dispatches the subcommands of a casstcl batch-handling command
+ *
+ * Results:
+ *    stuff
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+{
+    int         optIndex;
+	casstcl_batchClientData *bcd = (casstcl_batchClientData *)cData;
+	int resultCode = TCL_OK;
+
+    static CONST char *options[] = {
+        "add",
+        "consistency",
+		"reset",
+        "delete",
+        NULL
+    };
+
+    enum options {
+        OPT_ADD,
+        OPT_CONSISTENCY,
+		OPT_RESET,
+		OPT_DELETE
+    };
+
+    /* basic validation of command line arguments */
+    if (objc < 2) {
+        Tcl_WrongNumArgs (interp, 1, objv, "subcommand ?args?");
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIndexFromObj (interp, objv[1], options, "option", TCL_EXACT, &optIndex) != TCL_OK) {
+		return TCL_ERROR;
+    }
+
+    switch ((enum options) optIndex) {
+		case OPT_ADD: {
+			CassStatement* statement = NULL;
+			char *query = NULL;
+
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "statement");
+				return TCL_ERROR;
+			}
+
+			query = Tcl_GetString (objv[2]);
+			statement = cass_statement_new(cass_string_init(query), 0);
+			CassError cassError = cass_batch_add_statement (bcd->batch, statement);
+			cass_statement_free (statement);
+
+			if (cassError != CASS_OK) {
+				return casstcl_cass_error_to_tcl (bcd->ct, cassError);
+			}
+
+			break;
+		}
+
+		case OPT_CONSISTENCY: {
+			CassConsistency cassConsistency;
+
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "consistency");
+				return TCL_ERROR;
+			}
+
+			if (casstcl_obj_to_cass_consistency(bcd->ct, objv[2], &cassConsistency) == TCL_ERROR) {
+				return TCL_ERROR;
+			}
+
+			CassError cassError = cass_batch_set_consistency (bcd->batch, cassConsistency);
+			if (cassError != CASS_OK) {
+				return casstcl_cass_error_to_tcl (bcd->ct, cassError);
+			}
+			break;
+		}
+
+		case OPT_RESET: {
+			if (objc != 2) {
+				Tcl_WrongNumArgs (interp, 2, objv, "");
+				return TCL_ERROR;
+			}
+
+			bcd->batch = cass_batch_new (bcd->batchType);
+			cass_batch_free (bcd->batch);
+
+			break;
+		}
+
+		case OPT_DELETE: {
+			if (objc != 2) {
+				Tcl_WrongNumArgs (interp, 2, objv, "");
+				return TCL_ERROR;
+			}
+
+			if (Tcl_DeleteCommandFromToken (bcd->ct->interp, bcd->cmdToken) == TCL_ERROR) {
+				resultCode = TCL_ERROR;
+			}
+			break;
+		}
+    }
+    return resultCode;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_preparedObjectObjCmd --
+ *
+ *    dispatches the subcommands of a casstcl prepared statement-handling
+ *    command
+ *
+ * Results:
+ *    stuff
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_preparedObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+{
+    int         optIndex;
+	casstcl_preparedClientData *pcd = (casstcl_preparedClientData *)cData;
+	int resultCode = TCL_OK;
+
+    static CONST char *options[] = {
+        "delete",
+        NULL
+    };
+
+    enum options {
+		OPT_DELETE
+    };
+
+    /* basic validation of command line arguments */
+    if (objc < 2) {
+        Tcl_WrongNumArgs (interp, 1, objv, "subcommand ?args?");
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIndexFromObj (interp, objv[1], options, "option", TCL_EXACT, &optIndex) != TCL_OK) {
+		return TCL_ERROR;
+    }
+
+    switch ((enum options) optIndex) {
+		case OPT_DELETE: {
+			if (objc != 2) {
+				Tcl_WrongNumArgs (interp, 2, objv, "");
+				return TCL_ERROR;
+			}
+
+			if (Tcl_DeleteCommandFromToken (pcd->ct->interp, pcd->cmdToken) == TCL_ERROR) {
+				resultCode = TCL_ERROR;
+			}
+			break;
+		}
+    }
+    return resultCode;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
  * casstcl_EventSetupProc --
  *    This routine is a required argument to Tcl_CreateEventSource
  *
@@ -1305,10 +1782,11 @@ void casstcl_future_callback (CassFuture* future, void* data) {
  *
  * casstcl_createFutureObjectCommand --
  *
- *    given a casstcl_clientData pointer, a pointer to a CassFuture structure
- *    and a Tcl callback object (containing a function name), this routine
- *    creates a Tcl command like "future17" that can be invoked with method
- *    arguments to access, manipulate and destroy cassandra future objects.
+ *    given a casstcl_sessionClientData pointer, a pointer to a
+ *    CassFuture structure and a Tcl callback object (containing a
+ *    function name), this routine creates a Tcl command like
+ *    "future17" that can be invoked with method arguments to access,
+ *    manipulate and destroy cassandra future objects.
  *
  * Results:
  *    A standard Tcl result
@@ -1316,12 +1794,12 @@ void casstcl_future_callback (CassFuture* future, void* data) {
  *----------------------------------------------------------------------
  */
 int
-casstcl_createFutureObjectCommand (casstcl_clientData *ct, CassFuture *future, Tcl_Obj *callbackObj)
+casstcl_createFutureObjectCommand (casstcl_sessionClientData *ct, CassFuture *future, Tcl_Obj *callbackObj)
 {
     // allocate one of our cass future objects for Tcl and configure it
 	casstcl_futureClientData *fcd = (casstcl_futureClientData *)ckalloc (sizeof (casstcl_futureClientData));
 
-    fcd->cass_magic = CASS_FUTURE_MAGIC;
+    fcd->cass_future_magic = CASS_FUTURE_MAGIC;
 	fcd->ct = ct;
 	fcd->future = future;
 
@@ -1367,7 +1845,7 @@ int
 casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
 {
     int         optIndex;
-	casstcl_clientData *ct = (casstcl_clientData *)cData;
+	casstcl_sessionClientData *ct = (casstcl_sessionClientData *)cData;
 	int resultCode = TCL_OK;
 
     static CONST char *options[] = {
@@ -1376,6 +1854,11 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
         "exec",
         "connect",
 		"prepare",
+		"batch",
+		"list_keyspaces",
+		"list_tables",
+		"list_columns",
+		"list_column_types",
         "set_contact_points",
         "set_port",
         "set_protocol_version",
@@ -1409,6 +1892,11 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
         OPT_EXEC,
         OPT_CONNECT,
 		OPT_PREPARE,
+		OPT_BATCH,
+		OPT_LIST_KEYSPACES,
+		OPT_LIST_TABLES,
+		OPT_LIST_COLUMNS,
+		OPT_LIST_COLUMN_TYPES,
         OPT_SET_CONTACT_POINTS,
         OPT_SET_PORT,
         OPT_SET_PROTOCOL_VERSION,
@@ -1608,12 +2096,12 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			CassError rc = CASS_OK;
 			CassFuture *future;
 
-			if (objc != 3) {
-				Tcl_WrongNumArgs (interp, 2, objv, "statement");
+			if (objc != 4) {
+				Tcl_WrongNumArgs (interp, 2, objv, "name statement");
 				return TCL_ERROR;
 			}
 
-			query = Tcl_GetString (objv[2]);
+			query = Tcl_GetString (objv[3]);
 
 			future = cass_session_prepare (ct->session, cass_string_init(query));
 
@@ -1626,8 +2114,127 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				Tcl_SetStringObj (Tcl_GetObjResult(interp), message.data, message.length);
 				resultCode = TCL_ERROR;
 			}
+
+			const CassPrepared *cassPrepared = cass_future_get_prepared (future);
+			cass_future_free (future);
+
+			// allocate one of our cass prepared data objects for Tcl
+			// and configure it
+			casstcl_preparedClientData *pcd = (casstcl_preparedClientData *)ckalloc (sizeof (casstcl_preparedClientData));
+
+			pcd->cass_prepared_magic = CASS_PREPARED_MAGIC;
+			pcd->ct = ct;
+			pcd->prepared = cassPrepared;
+
+			char *commandName = Tcl_GetString (objv[2]);
+
+#define PREPARED_STRING_FORMAT "prepared%lu"
+			// if commandName is #auto, generate a unique name for the object
+			int autoGeneratedName = 0;
+			if (strcmp (commandName, "#auto") == 0) {
+				static unsigned long nextAutoCounter = 0;
+				int baseNameLength = snprintf (NULL, 0, PREPARED_STRING_FORMAT, nextAutoCounter) + 1;
+				commandName = ckalloc (baseNameLength);
+				snprintf (commandName, baseNameLength, PREPARED_STRING_FORMAT, nextAutoCounter++);
+				autoGeneratedName = 1;
+			}
+
+			// create a Tcl command to interface to cass
+			pcd->cmdToken = Tcl_CreateObjCommand (interp, commandName, casstcl_preparedObjectObjCmd, pcd, casstcl_preparedObjectDelete);
+			Tcl_SetObjResult (interp, Tcl_NewStringObj (commandName, -1));
+			if (autoGeneratedName == 1) {
+				ckfree(commandName);
+			}
 			break;
 		}
+
+		case OPT_BATCH: {
+			CassBatchType cassBatchType = CASS_BATCH_TYPE_LOGGED;
+
+			if (objc < 3 || objc > 4) {
+				Tcl_WrongNumArgs (interp, 1, objv, "name ?consistency?");
+				return TCL_ERROR;
+			}
+
+			if (objc == 4) {
+				if (casstcl_obj_to_cass_batch_type (interp, objv[3], &cassBatchType) == TCL_ERROR) {
+					Tcl_AppendResult (interp, " while determining batch type", NULL);
+					return TCL_ERROR;
+				}
+			}
+
+			// allocate one of our cass client data objects for Tcl and configure it
+			casstcl_batchClientData *bcd = (casstcl_batchClientData *)ckalloc (sizeof (casstcl_batchClientData));
+
+			bcd->cass_batch_magic = CASS_BATCH_MAGIC;
+			bcd->ct = ct;
+			bcd->batch = cass_batch_new (cassBatchType);
+			bcd->batchType = cassBatchType;
+
+			char *commandName = Tcl_GetString (objv[2]);
+
+#define BATCH_STRING_FORMAT "batch%lu"
+			// if commandName is #auto, generate a unique name for the object
+			int autoGeneratedName = 0;
+			if (strcmp (commandName, "#auto") == 0) {
+				static unsigned long nextAutoCounter = 0;
+				int baseNameLength = snprintf (NULL, 0, BATCH_STRING_FORMAT, nextAutoCounter) + 1;
+				commandName = ckalloc (baseNameLength);
+				snprintf (commandName, baseNameLength, BATCH_STRING_FORMAT, nextAutoCounter++);
+				autoGeneratedName = 1;
+			}
+
+			// create a Tcl command to interface to cass
+			bcd->cmdToken = Tcl_CreateObjCommand (interp, commandName, casstcl_batchObjectObjCmd, bcd, casstcl_batchObjectDelete);
+			Tcl_SetObjResult (interp, Tcl_NewStringObj (commandName, -1));
+			if (autoGeneratedName == 1) {
+				ckfree(commandName);
+			}
+			break;
+		}
+
+		case OPT_LIST_KEYSPACES: {
+			Tcl_Obj *obj = NULL;
+			if (objc != 2) {
+				Tcl_WrongNumArgs (interp, 2, objv, "");
+				return TCL_ERROR;
+			}
+
+			resultCode = casstcl_list_keyspaces (ct, &obj);
+			Tcl_SetObjResult (ct->interp, obj);
+			break;
+		}
+
+		case OPT_LIST_TABLES: {
+			Tcl_Obj *obj = NULL;
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "keyspace");
+				return TCL_ERROR;
+			}
+
+			char *keyspace = Tcl_GetString (objv[2]);
+
+			resultCode = casstcl_list_tables (ct, keyspace, &obj);
+			Tcl_SetObjResult (ct->interp, obj);
+			break;
+		}
+
+		case OPT_LIST_COLUMNS:
+		case OPT_LIST_COLUMN_TYPES: {
+			Tcl_Obj *obj = NULL;
+			if (objc != 4) {
+				Tcl_WrongNumArgs (interp, 2, objv, "keyspace tableName");
+				return TCL_ERROR;
+			}
+
+			char *keyspace = Tcl_GetString (objv[2]);
+			char *table = Tcl_GetString (objv[3]);
+
+			resultCode = casstcl_list_columns (ct, keyspace, table, (optIndex == OPT_LIST_COLUMN_TYPES), &obj);
+			Tcl_SetObjResult (ct->interp, obj);
+			break;
+		}
+
 		case OPT_SET_CONTACT_POINTS: {
 			if (objc != 3) {
 				Tcl_WrongNumArgs (interp, 2, objv, "address_list");
@@ -2063,7 +2670,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 int
 casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
 {
-    casstcl_clientData *ct;
+    casstcl_sessionClientData *ct;
     int                 optIndex;
     char               *commandName;
     int                 autoGeneratedName;
@@ -2080,10 +2687,6 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
     };
 
     // basic command line processing
-    if (objc != 3) {
-        Tcl_WrongNumArgs (interp, 1, objv, "option arg");
-        return TCL_ERROR;
-    }
 
     // argument must be one of the subOptions defined above
     if (Tcl_GetIndexFromObj (interp, objv[1], options, "option",
@@ -2093,10 +2696,15 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
 
     switch ((enum options) optIndex) {
 		case OPT_CREATE: {
-			// allocate one of our cass client data objects for Tcl and configure it
-			ct = (casstcl_clientData *)ckalloc (sizeof (casstcl_clientData));
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 1, objv, "option arg");
+				return TCL_ERROR;
+			}
 
-			ct->cass_magic = CASS_MAGIC;
+			// allocate one of our cass client data objects for Tcl and configure it
+			ct = (casstcl_sessionClientData *)ckalloc (sizeof (casstcl_sessionClientData));
+
+			ct->cass_session_magic = CASS_SESSION_MAGIC;
 			ct->interp = interp;
 			ct->session = cass_session_new ();
 			ct->cluster = cass_cluster_new ();
@@ -2132,6 +2740,11 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
 		}
 
 		case OPT_SET_LOGGING_CALLBACK: {
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 1, objv, "option arg");
+				return TCL_ERROR;
+			}
+
 			// if it already isn't null it was set to something, decrement
 			// that object's reference count so it will probably be
 			// deleted
