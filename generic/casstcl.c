@@ -713,6 +713,75 @@ casstcl_cass_value_type_to_string (CassValueType valueType) {
 /*
  *--------------------------------------------------------------
  *
+ * casstcl_obj_to_compound_cass_value_types -- lookup a string in a Tcl object
+ *   to be one of the cass value type strings for CassValueType and set
+ *   a pointer to a passed-in CassValueType value to the corresponding
+ *   type such as CASS_VALUE_TYPE_DOUBLE, etc
+ *
+ * Also if it is a list of "map type type" or "set type" or "list type"
+ * then set the secondary value types as well
+ *
+ * Results:
+ *      ...cass value type gets set
+ *      ...a standard Tcl result is returned
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+int
+casstcl_obj_to_compound_cass_value_types (casstcl_sessionClientData *ct, Tcl_Obj *tclObj, CassValueType *cassValueType, CassValueType *valueSubType1, CassValueType *valueSubType2) {
+	int listObjc;
+	Tcl_Obj **listObjv;
+	Tcl_Interp *interp = ct->interp;
+
+	if (casstcl_obj_to_cass_value_type (ct, tclObj, cassValueType) == TCL_OK) {
+		return TCL_OK;
+	}
+
+	// clear error from previous function's failure to decode the type
+	Tcl_ResetResult (interp);
+
+	if (Tcl_ListObjGetElements (interp, tclObj, &listObjc, &listObjv) == TCL_ERROR) {
+		Tcl_AppendResult (interp, " while parsing cassandra data type", NULL);
+		return TCL_ERROR;
+	}
+
+	if (*cassValueType == CASS_VALUE_TYPE_MAP) {
+		if (listObjc != 3) {
+			Tcl_AppendResult (interp, "map type doesn't have 3 args", NULL);
+			return TCL_ERROR;
+		}
+
+		if (casstcl_obj_to_cass_value_type (ct, listObjv[1], valueSubType1) != TCL_OK) {
+			Tcl_AppendResult (interp, "while looking up value for sub type 1", NULL);
+			return TCL_ERROR;
+		}
+
+		if (casstcl_obj_to_cass_value_type (ct, listObjv[2], valueSubType2) != TCL_OK) {
+			Tcl_AppendResult (interp, "while looking up value for sub type 2", NULL);
+			return TCL_ERROR;
+		}
+	} else if ((*cassValueType == CASS_VALUE_TYPE_SET) || (*cassValueType == CASS_VALUE_TYPE_LIST)) {
+		if (listObjc != 2) {
+			Tcl_AppendResult (interp, "list or set type doesn't have 2 args", NULL);
+			return TCL_ERROR;
+		}
+
+		if (casstcl_obj_to_cass_value_type (ct, listObjv[1], valueSubType1) != TCL_OK) {
+			Tcl_AppendResult (interp, "while looking up value for sub type 1", NULL);
+			return TCL_ERROR;
+		}
+	}
+
+	return TCL_OK;
+}
+
+
+/*
+ *--------------------------------------------------------------
+ *
  * casstcl_cass_error_to_tcl -- given a CassError code and a field
  *   name, if the error code isn CASS_OK
  *
