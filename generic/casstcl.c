@@ -1850,10 +1850,7 @@ int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName,
 
 		rc = cass_future_error_code(future);
 		if (rc != CASS_OK) {
-			CassString message = cass_future_error_message(future);
-
-			Tcl_SetStringObj (Tcl_GetObjResult(ct->interp), message.data, message.length);
-			tclReturn = TCL_ERROR;
+			tclReturn = casstcl_cass_error_to_tcl (ct, rc);
 			break;
 		}
 
@@ -2706,10 +2703,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 
 			rc = cass_future_error_code (future);
 			if (rc != CASS_OK) {
-				CassString message = cass_future_error_message(future);
-
-				Tcl_SetStringObj (Tcl_GetObjResult(interp), message.data, message.length);
-				resultCode = TCL_ERROR;
+				resultCode = casstcl_cass_error_to_tcl (ct, rc);
 			}
 
 			cass_future_free (future);
@@ -2788,10 +2782,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 
 			rc = cass_future_error_code (future);
 			if (rc != CASS_OK) {
-				CassString message = cass_future_error_message(future);
-
-				Tcl_SetStringObj (Tcl_GetObjResult(interp), message.data, message.length);
-				resultCode = TCL_ERROR;
+				resultCode = casstcl_cass_error_to_tcl (ct, rc);
 			}
 			break;
 		}
@@ -2814,10 +2805,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 
 			rc = cass_future_error_code (future);
 			if (rc != CASS_OK) {
-				CassString message = cass_future_error_message(future);
-
-				Tcl_SetStringObj (Tcl_GetObjResult(interp), message.data, message.length);
-				resultCode = TCL_ERROR;
+				resultCode = casstcl_cass_error_to_tcl (ct, rc);
 			}
 
 			const CassPrepared *cassPrepared = cass_future_get_prepared (future);
