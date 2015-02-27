@@ -1153,7 +1153,7 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 /*
  *----------------------------------------------------------------------
  *
- * casstcl_bind_tcl_obj --
+ * casstcl_append_tcl_obj_to_collection --
  *
  *
  * Results:
@@ -1162,8 +1162,136 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
  *
  *----------------------------------------------------------------------
  */
+int casstcl_append_tcl_obj_to_collection (casstcl_sessionClientData *ct, CassCollection *collection, CassValueType valueType, Tcl_Obj *obj) {
+	CassError cassError = CASS_OK;
+	Tcl_Interp *interp = ct->interp;
 
-int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statement, cass_size_t index, CassValueType valueType, Tcl_Obj *obj)
+	switch (valueType) {
+		case CASS_VALUE_TYPE_ASCII:
+		case CASS_VALUE_TYPE_TEXT:
+		case CASS_VALUE_TYPE_VARCHAR: {
+			int length = 0;
+			char *value = Tcl_GetStringFromObj (obj, &length);
+
+			cassError = cass_collection_append_string (collection, cass_string_init(value));
+			break;
+		}
+
+		case CASS_VALUE_TYPE_VARINT:
+		case CASS_VALUE_TYPE_BLOB: {
+			int length = 0;
+			unsigned char *value = Tcl_GetByteArrayFromObj (obj, &length);
+
+			cassError = cass_collection_append_bytes (collection, cass_bytes_init(value, length));
+			break;
+		}
+
+		case CASS_VALUE_TYPE_BOOLEAN: {
+			int value = 0;
+
+			if (Tcl_GetBooleanFromObj (interp, obj, &value) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting boolean element", NULL);
+				return TCL_ERROR;
+			}
+
+			cassError = cass_collection_append_bool (collection, value);
+			break;
+		}
+
+		case CASS_VALUE_TYPE_TIMESTAMP:
+		case CASS_VALUE_TYPE_BIGINT:
+		case CASS_VALUE_TYPE_COUNTER: {
+			Tcl_WideInt wideValue = 0;
+
+			if (Tcl_GetWideIntFromObj (interp, obj, &wideValue) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting wide int element", NULL);
+				return TCL_ERROR;
+			}
+
+			cassError = cass_collection_append_int64 (collection, wideValue);
+			break;
+		}
+
+
+		case CASS_VALUE_TYPE_DOUBLE: {
+			double value = 0;
+
+			if (Tcl_GetDoubleFromObj (interp, obj, &value) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting double element", NULL);
+				return TCL_ERROR;
+			}
+
+			cassError = cass_collection_append_double (collection, value);
+			break;
+		}
+
+		case CASS_VALUE_TYPE_FLOAT: {
+			double value = 0;
+
+			if (Tcl_GetDoubleFromObj (interp, obj, &value) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting float element", NULL);
+				return TCL_ERROR;
+			}
+
+			cassError = cass_collection_append_float (collection, value);
+			break;
+		}
+
+		case CASS_VALUE_TYPE_INT: {
+			int value = 0;
+
+			if (Tcl_GetIntFromObj (interp, obj, &value) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting int element", NULL);
+				return TCL_ERROR;
+			}
+
+			cassError = cass_collection_append_int32 (collection, value);
+			break;
+		}
+
+		case CASS_VALUE_TYPE_UUID: {
+			break;
+		}
+
+
+		case CASS_VALUE_TYPE_TIMEUUID: {
+			break;
+		}
+
+		case CASS_VALUE_TYPE_INET: {
+			break;
+		}
+
+		default: {
+			break;
+		}
+	}
+
+	if (cassError != CASS_OK) {
+		return casstcl_cass_error_to_tcl (ct, cassError);
+	}
+
+	return TCL_OK;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_bind_tcl_obj --
+ *
+ *
+ * valueSubType1 is only used for maps, sets and lists
+ * valueSubType2 is only used for maps
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *
+ *----------------------------------------------------------------------
+ */
+
+int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statement, cass_size_t index, CassValueType valueType, CassValueType valueSubType1, CassValueType valueSubType2, Tcl_Obj *obj)
 {
 	Tcl_Interp *interp = ct->interp;
 	CassError cassError = CASS_OK;
@@ -1289,12 +1417,36 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 
 		case CASS_VALUE_TYPE_SET:
 		case CASS_VALUE_TYPE_LIST: {
+			int listObjc;
+			Tcl_Obj **listObjv;
+			int i;
+
+			CassCollectionType collectionType = (valueType == CASS_VALUE_TYPE_SET) ? CASS_COLLECTION_TYPE_SET : CASS_COLLECTION_TYPE_LIST;
+
+			if (Tcl_ListObjGetElements (interp, obj, &listObjc, &listObjv) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting map element", NULL);
+				return TCL_ERROR;
+			}
+
+			CassCollection *collection = cass_collection_new (collectionType, listObjc);
+
+			for (i = 0; i < listObjc; i++) {
+				cassError = casstcl_append_tcl_obj_to_collection (ct, collection, valueSubType1, listObjv[i]);
+				if (cassError != CASS_OK) {
+					break;
+				}
+			}
+
+			cassError = cass_statement_bind_collection (statement, index, collection);
+			cass_collection_free (collection);
+
 			break;
 		}
 
 		case CASS_VALUE_TYPE_MAP: {
 			int listObjc;
 			Tcl_Obj **listObjv;
+			int i;
 
 			if (Tcl_ListObjGetElements (interp, obj, &listObjc, &listObjv) == TCL_ERROR) {
 				Tcl_AppendResult (interp, " while converting map element", NULL);
@@ -1305,6 +1457,24 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 				Tcl_AppendResult (interp, "list must contain an even number of elements while converting map element", NULL);
 				return TCL_ERROR;
 			}
+
+			CassCollection *collection = cass_collection_new (CASS_COLLECTION_TYPE_MAP, listObjc);
+
+			for (i = 0; i < listObjc; i += 2) {
+				cassError = casstcl_append_tcl_obj_to_collection (ct, collection, valueSubType1, listObjv[i]);
+				if (cassError != CASS_OK) {
+					break;
+				}
+
+				cassError = casstcl_append_tcl_obj_to_collection (ct, collection, valueSubType2, listObjv[i+1]);
+				if (cassError != CASS_OK) {
+					break;
+				}
+			}
+
+			cassError = cass_statement_bind_collection (statement, index, collection);
+			cass_collection_free (collection);
+
 			break;
 		}
 	}
