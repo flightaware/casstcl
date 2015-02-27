@@ -1660,6 +1660,7 @@ int
 casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table, int includeTypes, Tcl_Obj **objPtr) {
 	const CassSchema *schema = cass_session_get_schema(ct->session);
 	const CassSchemaMeta *keyspaceMeta = cass_schema_get_keyspace (schema, keyspace);
+	Tcl_Interp *interp = ct->interp;
 
 	if (keyspaceMeta == NULL) {
 		Tcl_AppendResult (ct->interp, "keyspace '", keyspace, "' not found", NULL);
@@ -1691,22 +1692,32 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 			CassString name;
 			const CassSchemaMetaField* field = cass_schema_meta_get_field (columnMeta, "validator");
 
-			Tcl_Obj *evalObjv[2];
-			// construct a call to our casstcl.tcl library function
-			// validate_to_type to translate the value to a cassandra
-			// data type
-			evalObjv[0] = Tcl_NewStringObj ("::casstcl::validator_to_type", -1);
-
 			cass_value_get_string(cass_schema_meta_field_value(field), &name);
-			evalObjv[1] = Tcl_NewStringObj (name.data, name.length);
 
-			tclReturn = Tcl_EvalObjv (ct->interp, 2, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
+			// check the cache array directly from C
+			Tcl_Obj *elementObj = Tcl_GetVar2Ex (interp, "::casstcl::validatorTypeLookupCache", name.data, (TCL_GLOBAL_ONLY));
 
-			if (tclReturn == TCL_ERROR) {
-				break;
+			// not there, gotta call Tcl to do the heavy lifting
+			if (elementObj == NULL) {
+				Tcl_Obj *evalObjv[2];
+				// construct a call to our casstcl.tcl library function
+				// validate_to_type to translate the value to a cassandra
+				// data type
+				evalObjv[0] = Tcl_NewStringObj ("::casstcl::validator_to_type", -1);
+
+				evalObjv[1] = Tcl_NewStringObj (name.data, name.length);
+
+				tclReturn = Tcl_EvalObjv (ct->interp, 2, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
+
+				if (tclReturn == TCL_ERROR) {
+					break;
+				}
+
+				elementObj = Tcl_GetObjResult (ct->interp);
+				Tcl_ResetResult (interp);
 			}
 
-			if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_GetObjResult (ct->interp)) == TCL_ERROR) {
+			if (Tcl_ListObjAppendElement (ct->interp, listObj, elementObj) == TCL_ERROR) {
 				tclReturn = TCL_ERROR;
 				break;
 			}
