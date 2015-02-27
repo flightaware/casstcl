@@ -1,5 +1,3 @@
-
-
 /*
  * casstcl - Tcl interface to CassDB
  *
@@ -1198,9 +1196,6 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 			break;
 		}
 
-		case CASS_VALUE_TYPE_BIGINT: {
-			break;
-		}
 
 		case CASS_VALUE_TYPE_BLOB: {
 			int length = 0;
@@ -1222,7 +1217,17 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 			break;
 		}
 
+		case CASS_VALUE_TYPE_TIMESTAMP:
+		case CASS_VALUE_TYPE_BIGINT:
 		case CASS_VALUE_TYPE_COUNTER: {
+			Tcl_WideInt wideValue = 0;
+
+			if (Tcl_GetWideIntFromObj (interp, obj, &wideValue) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting wide int element", NULL);
+				return TCL_ERROR;
+			}
+
+			cassError = cass_statement_bind_int64 (statement, index, wideValue);
 			break;
 		}
 
@@ -1246,7 +1251,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 			double value = 0;
 
 			if (Tcl_GetDoubleFromObj (interp, obj, &value) == TCL_ERROR) {
-				Tcl_AppendResult (interp, " while converting double element", NULL);
+				Tcl_AppendResult (interp, " while converting float element", NULL);
 				return TCL_ERROR;
 			}
 
@@ -1255,10 +1260,14 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 		}
 
 		case CASS_VALUE_TYPE_INT: {
-			break;
-		}
+			int value = 0;
 
-		case CASS_VALUE_TYPE_TIMESTAMP: {
+			if (Tcl_GetIntFromObj (interp, obj, &value) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting int element", NULL);
+				return TCL_ERROR;
+			}
+
+			cassError = cass_statement_bind_int32 (statement, index, value);
 			break;
 		}
 
@@ -1278,18 +1287,26 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 			break;
 		}
 
+		case CASS_VALUE_TYPE_SET:
 		case CASS_VALUE_TYPE_LIST: {
 			break;
 		}
 
 		case CASS_VALUE_TYPE_MAP: {
+			int listObjc;
+			Tcl_Obj **listObjv;
+
+			if (Tcl_ListObjGetElements (interp, obj, &listObjc, &listObjv) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting map element", NULL);
+				return TCL_ERROR;
+			}
+
+			if (listObjc & 1) {
+				Tcl_AppendResult (interp, "list must contain an even number of elements while converting map element", NULL);
+				return TCL_ERROR;
+			}
 			break;
 		}
-
-		case CASS_VALUE_TYPE_SET: {
-			break;
-		}
-
 	}
 
 	if (cassError != CASS_OK) {
