@@ -895,6 +895,51 @@ casstcl_list_keyspaces (casstcl_sessionClientData *ct, Tcl_Obj **objPtr) {
 /*
  *----------------------------------------------------------------------
  *
+ * casstcl_list_tables --
+ *
+ *      Return a list of the extant tables in a keyspace by
+ *      examining the metadata managed by the driver.
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **objPtr) {
+	const CassSchema *schema = cass_session_get_schema(ct->session);
+	const CassSchemaMeta *keyspaceMeta = cass_schema_get_keyspace (schema, keyspace);
+
+	if (keyspaceMeta == NULL) {
+		Tcl_AppendResult (ct->interp, "keyspace '", keyspace, "' not found", NULL);
+		return TCL_ERROR;
+	}
+
+	CassIterator *iterator = cass_iterator_from_schema_meta (keyspaceMeta);
+	Tcl_Obj *listObj = Tcl_NewObj();
+	int tclReturn = TCL_OK;
+
+	while (cass_iterator_next(iterator)) {
+		CassString name;
+		const CassSchemaMeta *tableMeta = cass_iterator_get_schema_meta (iterator);
+
+		const CassSchemaMetaField* field = cass_schema_meta_get_field(tableMeta, "columnfamily_name");
+		cass_value_get_string(cass_schema_meta_field_value(field), &name);
+		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
+			tclReturn = TCL_ERROR;
+			break;
+		}
+	}
+	cass_iterator_free(iterator);
+	cass_schema_free(schema);
+	*objPtr = listObj;
+	return tclReturn;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
  * casstcl_iterate_over_future --
  *
  *      Given a casstcl client data structure, a cassandra cpp-driver
@@ -1734,6 +1779,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		"prepare",
 		"batch",
 		"list_keyspaces",
+		"list_tables",
         "set_contact_points",
         "set_port",
         "set_protocol_version",
@@ -1769,6 +1815,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		OPT_PREPARE,
 		OPT_BATCH,
 		OPT_LIST_KEYSPACES,
+		OPT_LIST_TABLES,
         OPT_SET_CONTACT_POINTS,
         OPT_SET_PORT,
         OPT_SET_PROTOCOL_VERSION,
@@ -2073,6 +2120,20 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			resultCode = casstcl_list_keyspaces (ct, &obj);
+			Tcl_SetObjResult (ct->interp, obj);
+			break;
+		}
+
+		case OPT_LIST_TABLES: {
+			Tcl_Obj *obj = NULL;
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "keyspace");
+				return TCL_ERROR;
+			}
+
+			char *keyspace = Tcl_GetString (objv[2]);
+
+			resultCode = casstcl_list_tables (ct, keyspace, &obj);
 			Tcl_SetObjResult (ct->interp, obj);
 			break;
 		}
