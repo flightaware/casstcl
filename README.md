@@ -99,6 +99,24 @@ $cassdb exec "use wx;"
 
 Prepare the specified statement.  Although this command will probably work, the casstcl infrastructure in support of prepared statements including binding values into statements does not (yet) exist.
 
+* *$cassdb* **list_keyspaces**
+
+Return a list of all of the keyspaces known to the cluster.
+
+* *$cassdb* **list_tables** *$keyspace*
+
+Return a list of all of the tables within the named keyspace.
+
+* *$cassdb* **list_columns** *$keyspace* *$table*
+
+Returns a list of the names of all of the columns within the specified table within the specified keyspace.
+
+* *$cassdb* **list_column_types** *$keyspace* *$table*
+
+Returns a list of key-value pairs consisting of all of the columns and their Cassandra data types.
+
+All of the schema-accessing functions, *list_keyspaces*, *list_tables*, *list_columns* and *list_column_types* locate this information using the metadata access capabilities provided by the cpp-driver.  As the cpp-driver will update its metadata on the fly as changes to the schema are made, the schema-accessing functions likewise will reflect any changes in the schema if called subsequently to schema changes occurring.
+
 * *$cassdb* **set_contact_points** *$addressList*
 
 Provide a list of one or more addresses to contact the cluster at.
@@ -293,35 +311,12 @@ Also note that logging is global.  That is, it's not tied to a specific connecti
 Casstcl library functions
 ---
 
-* **::casstcl::download_schema**
+The library functions such as *download_schema*, *list_schema*, *list_tables*, etc, have been removed.  These capabilities are now provided by the metadata-traversing methods *list_keyspaces*, *list_tables*, *list_columns* and *list_column_types* documented above.
 
-Get information from the current cluster about keyspaces, tables, columns and column data types.
 
-* **::casstcl::download_schema_if_not_loaded**
+* **::casstcl::validator_to_type** *$type*
 
-Download schema information from the cassandra cluster only if it hasn't already been downloded.
-
-* **::casstcl::list_schema**
-
-Return a list of all the schema defined on the cluster.
-
-* **::casstcl::list_table** *$schema*
-
-Return a list of all of the tables defined by the specified schema.
-
-* **::casstcl::list_columns** *$schema $table*
-
-Return a list of all the columns defined in the specified table in the specified schema.
-
-* **::casstcl::column_type** *$schema $table $column*
-
-Return the cassandra data type of the specified schema, table and column
-
-* **::casstcl::table_typemap_to_array** *$schema $table arrayName*
-
-Given a schema and table and the name of an array, the array with key-value pairs where the keys are the names of each column in the table and the values are the cassandra data types of those columns
-
-We are also satisfied with how this works and it is likely to completely revamp it in the (near) future.
+Given a validator type such as "org.apache.cassandra.db.marshal.AsciiType" and return the corresponding Cassandra type.  Can decode complex type references including reversed, list, set, and map.  This function is used by casstcl's *list_column_types* method.
 
 Bugs
 ---
