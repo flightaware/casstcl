@@ -1346,10 +1346,42 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 
     switch ((enum options) optIndex) {
 		case OPT_ADD: {
+			CassStatement* statement = NULL;
+			char *query = NULL;
+
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "statement");
+				return TCL_ERROR;
+			}
+
+			query = Tcl_GetString (objv[2]);
+			statement = cass_statement_new(cass_string_init(query), 0);
+			CassError cassError = cass_batch_add_statement (bcd->batch, statement);
+			cass_statement_free (statement);
+
+			if (cassError != CASS_OK) {
+				return casstcl_cass_error_to_tcl (bcd->ct, cassError);
+			}
+
 			break;
 		}
 
 		case OPT_CONSISTENCY: {
+			CassConsistency cassConsistency;
+
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "consistency");
+				return TCL_ERROR;
+			}
+
+			if (casstcl_obj_to_cass_consistency(bcd->ct, objv[2], &cassConsistency) == TCL_ERROR) {
+				return TCL_ERROR;
+			}
+
+			CassError cassError = cass_batch_set_consistency (bcd->batch, cassConsistency);
+			if (cassError != CASS_OK) {
+				return casstcl_cass_error_to_tcl (bcd->ct, cassError);
+			}
 			break;
 		}
 
