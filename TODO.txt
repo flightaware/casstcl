@@ -19,16 +19,3 @@
 	* varint
 	* timeuuid
 
-* support batches, probably with a batch method and suboptions
-	$cass batch start
-	$cass batch add $statement
-	$cass batch add $statement
-	$cass batch exec
-	$cass batch drop
-
-  on the other hand batches can be done entirely through CQL.
-
-  also if supported there is some argument about how securely
-  for the write to have been completed for it to be considered
-  complete.
-
