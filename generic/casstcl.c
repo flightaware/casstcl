@@ -1722,6 +1722,62 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 /*
  *----------------------------------------------------------------------
  *
+ * casstcl_bind_values_and_types --
+ *
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int objc, Tcl_Obj *CONST objv[], CassStatement **statementPtr)
+{
+	int i;
+	int masterReturn = TCL_OK;
+	int tclReturn = TCL_OK;
+	Tcl_Interp *interp = ct->interp;
+
+	CassValueType valueType;
+	CassValueType valueSubType1;
+	CassValueType valueSubType2;
+
+	*statementPtr = NULL;
+
+	if (objc & 1) {
+		Tcl_AppendResult (interp, "values_and_types list must contain an even number of elements", NULL);
+		return TCL_ERROR;
+	}
+
+	CassStatement *statement = cass_statement_new(cass_string_init(query), objc / 2);
+
+	for (i = 0; i < objc; i += 2) {
+		tclReturn = casstcl_obj_to_compound_cass_value_types (ct, objv[i+1], &valueType, &valueSubType1, &valueSubType2);
+
+		if (tclReturn == TCL_ERROR) {
+			masterReturn = TCL_ERROR;
+			break;
+		}
+
+		tclReturn = casstcl_bind_tcl_obj (ct, statement, i / 2, valueType, valueSubType1, valueSubType2, objv[i]);
+
+		if (tclReturn == TCL_ERROR) {
+			masterReturn = TCL_ERROR;
+			break;
+		}
+	}
+
+	if (masterReturn == TCL_OK) {
+		*statementPtr = statement;
+	}
+
+	return masterReturn;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
  * casstcl_iterate_over_future --
  *
  *      Given a casstcl client data structure, a cassandra cpp-driver
