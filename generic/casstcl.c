@@ -731,6 +731,10 @@ casstcl_obj_to_compound_cass_value_types (casstcl_sessionClientData *ct, Tcl_Obj
 	Tcl_Obj **listObjv;
 	Tcl_Interp *interp = ct->interp;
 
+	*cassValueType = CASS_VALUE_TYPE_UNKNOWN;
+	*valueSubType1 = CASS_VALUE_TYPE_UNKNOWN;
+	*valueSubType2 = CASS_VALUE_TYPE_UNKNOWN;
+
 	if (casstcl_obj_to_cass_value_type (ct, tclObj, cassValueType) == TCL_OK) {
 		return TCL_OK;
 	}
@@ -1041,6 +1045,7 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 
 	if (tableMeta == NULL) {
 		Tcl_AppendResult (ct->interp, "table '", table, "' not found in keyspace '", keyspace, "'", NULL);
+		return TCL_ERROR;
 	}
 
 	// prepare to iterate on the columns within the table
@@ -2044,8 +2049,17 @@ casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char 
 			break;
 		}
 
-		tclReturn = casstcl_bind_tcl_obj (ct, statement, i, valueType, valueSubType1, valueSubType2, objv[i]);
+		// get the value out of the array
+		Tcl_Obj *valueObj = Tcl_GetVar2Ex (interp, tclArray, Tcl_GetString (objv[i]), (TCL_GLOBAL_ONLY|TCL_LEAVE_ERR_MSG));
 
+		if (valueObj == NULL) {
+			Tcl_AppendResult (interp, " while trying to look up the data value for column '", varName, "', ", table, "', ", table, "' from array '", tclArray, "'", NULL);
+			masterReturn = TCL_ERROR;
+			break;
+		}
+
+		tclReturn = casstcl_bind_tcl_obj (ct, statement, i, valueType, valueSubType1, valueSubType2, valueObj);
+printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
 		if (tclReturn == TCL_ERROR) {
 			masterReturn = TCL_ERROR;
 			break;
@@ -2117,13 +2131,13 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 	}
 
 	while (arg + 1 < objc) {
-		char *option = Tcl_GetString (objv[arg]);
+		char *optionString = Tcl_GetString (objv[arg]);
 
 		// if the first character isn't a dash, we're done here.
 		// this is going to get called a lot so i don't want
 		// Tcl_GetIndexFromObj writing an error message and all
 		// that stuff unless there really is an option
-		if (*option != '-') {
+		if (*optionString != '-') {
 			break;
 		}
 
@@ -2141,6 +2155,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 				}
 
 				arrayName = Tcl_GetString (objv[arg++]);
+printf ("array name is '%s'\n", arrayName);
 				arrayStyle = 1;
 				break;
 			}
@@ -2157,8 +2172,10 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 		}
 	}
 
+printf ("looking for query, arg %d, objc %d\n", arg, objc);
+
 	// there must at least be a query string left
-	if (arg + 1 >= objc) {
+	if (arg >= objc) {
 		goto wrong_numargs;
 	}
 
