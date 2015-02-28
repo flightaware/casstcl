@@ -1214,22 +1214,38 @@ const char *casstcl_batch_type_to_batch_type_string (CassBatchType cassBatchType
 	}
 }
 
-
+/*
+ *--------------------------------------------------------------
+ *
+ * casstcl_batchClientData -- given a batch command name, find it
+ *   in the interpreter and return a pointer to its batch client
+ *   data or NULL
+ *
+ * Results:
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
 casstcl_batchClientData *
 casstcl_batch_command_to_batchClientData (casstcl_sessionClientData *ct, char *batchCommandName)
 {
 	Tcl_CmdInfo batchCmdInfo;
 	Tcl_Interp *interp = ct->interp;
 	
-	if (Tcl_GetCommandInfo (interp, batchCommandName, &batchCmdInfo) == TCL_ERROR) {
+	if (!Tcl_GetCommandInfo (interp, batchCommandName, &batchCmdInfo)) {
+printf("batchCommandName lookup failed for '%s'\n", batchCommandName);
 		return NULL;
 	}
 
 	casstcl_batchClientData *bcd = (casstcl_batchClientData *)batchCmdInfo.objClientData;
     if (bcd->cass_batch_magic != CASS_BATCH_MAGIC) {
+printf("batch magic check failed\n");
 		return NULL;
 	}
 
+printf("batchCommandName lookup succeeded for '%s'\n", batchCommandName);
 	return bcd;
 }
 
