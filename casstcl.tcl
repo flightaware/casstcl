@@ -45,19 +45,16 @@ proc validator_to_type {validator} {
 		switch $complexType {
 			"reversed" {
 				set result $simpleValidatorToType($subType)
-				break
 			}
 
 			"set" -
 			"list" {
 				set result [list $complexType $simpleValidatorToType($subType)]
-				break
 			}
 
 			"map" {
 				lassign [split $subType ","] keyType valueType
-				set result [list map $simpleValidatorToType($keyType) $simpleValidatorToType($valieType)]
-				break
+				set result [list map $simpleValidatorToType($keyType) $simpleValidatorToType($valueType)]
 			}
 
 			default {
@@ -77,11 +74,9 @@ proc import_column_type_map {obj} {
 	unset -nocomplain columnTypeMap
 
 	foreach keyspace [$obj list_keyspaces] {
-		puts "keyspace $keyspace"
 		foreach table [$obj list_tables $keyspace] {
-			puts "table $table"
 			foreach "column type" [$obj list_column_types $keyspace $table] {
-				puts "set columnTypeMap($keyspace.$table.$column) $type"
+				set columnTypeMap($keyspace.$table.$column) $type
 			}
 		}
 	}

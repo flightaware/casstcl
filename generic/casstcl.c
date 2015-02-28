@@ -731,10 +731,7 @@ casstcl_obj_to_compound_cass_value_types (casstcl_sessionClientData *ct, Tcl_Obj
 	Tcl_Obj **listObjv;
 	Tcl_Interp *interp = ct->interp;
 
-printf("casstcl_obj_to_compound_cass_value_types called with '%s'", Tcl_GetString(tclObj));
-
 	if (casstcl_obj_to_cass_value_type (ct, tclObj, cassValueType) == TCL_OK) {
-printf("obj '%s' mapped to value type %d\n", Tcl_GetString(tclObj), cassValueType);
 		return TCL_OK;
 	}
 
@@ -1086,13 +1083,19 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 
 				evalObjv[1] = Tcl_NewStringObj (name.data, name.length);
 
+				Tcl_IncrRefCount (evalObjv[0]);
+				Tcl_IncrRefCount (evalObjv[1]);
 				tclReturn = Tcl_EvalObjv (ct->interp, 2, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
+				Tcl_DecrRefCount(evalObjv[0]);
+				Tcl_DecrRefCount(evalObjv[1]);
 
 				if (tclReturn == TCL_ERROR) {
-					break;
+					goto error;
 				}
+				tclReturn = TCL_OK;
 
 				elementObj = Tcl_GetObjResult (ct->interp);
+				Tcl_IncrRefCount(elementObj);
 				// Tcl_ResetResult (interp);
 			}
 
@@ -1106,6 +1109,7 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 			}
 		}
 	}
+  error:
 	cass_iterator_free(iterator);
 	cass_schema_free(schema);
 	*objPtr = listObj;
@@ -1241,7 +1245,6 @@ casstcl_logging_eventProc (Tcl_Event *tevPtr, int flags) {
 	// no callback object, return 1 saying we handled it and let the
 	// dispatcher delete the message NB this isn't exactly cool
 	if (casstcl_loggingCallbackObj == NULL) {
-printf("callback obj is null\n");
 		return 1;
 	}
 
@@ -1947,7 +1950,6 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
 
 	for (i = 0; i < objc; i += 2) {
 		tclReturn = casstcl_obj_to_compound_cass_value_types (ct, objv[i+1], &valueType, &valueSubType1, &valueSubType2);
-printf("casstcl_bind_values_and_types called casstcl_obj_to_compound_cass_value_types with arg '%s' and got back %d %d %d\n", Tcl_GetString (objv[i+1]), valueType, valueSubType1, valueSubType2);
 
 		if (tclReturn == TCL_ERROR) {
 			masterReturn = TCL_ERROR;
