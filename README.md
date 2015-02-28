@@ -205,6 +205,38 @@ Disconnect from the cluster and delete the cluster connection object.
 
 Disconnect from the cluster.
 
+Batches
+---
+
+Batching CQL can yield a huge performance increase.
+
+While you can construct batches out of straight CQL with BEGIN BATCH and APPLY BATCH, casstcl provides batch objects to help you construct, manage and use batches.
+
+Create a new batch using the batch method of the cassandra object:
+
+```tcl
+$cassdb create mybatch
+set mybatch [$cassdb create #auto]
+```
+
+Both styles work.
+
+* *$batch* **add** *$statement*
+
+Adds the specified statement to the batch.
+
+* *$batch* **consistency** *$consistencyLevel*
+
+Sets the batch write consistency level to the specified level.  Consistency must be **any**, **one**, **two**, **three**, **quorum**, **all**, **local_quorum**, **each_quorum**, **serial**, **local_serial**, or **local_one**.
+
+* *$batch* **reset**
+
+Reset the batch by deleting all of its data.
+
+* *$batch* **delete**
+
+Delete the batch object and all of its data.
+
 Configuring SSL Connections
 ---
 
