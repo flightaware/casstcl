@@ -1000,6 +1000,117 @@ const char *casstcl_batch_type_to_batch_type_string (CassBatchType cassBatchType
 /*
  *----------------------------------------------------------------------
  *
+ * casstcl_logging_eventProc --
+ *
+ *    this routine is called by the Tcl event handler to process callbacks
+ *    we have set up from logging callbacks we've gotten from Cassandra
+ *    loop is
+ *
+ * Results:
+ *    returns 1 to say we handled the event and the dispatcher can delete it
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_logging_eventProc (Tcl_Event *tevPtr, int flags) {
+
+	// we got called with a Tcl_Event pointer but really it's a pointer to
+	// our casstcl_loggingEvent structure that has the Tcl_Event plus a pointer
+	// to casstcl_sessionClientData, which is our key to the kindgdom.
+	// Go get that.
+
+	casstcl_loggingEvent *evPtr = (casstcl_loggingEvent *)tevPtr;
+	int tclReturnCode;
+	Tcl_Interp *interp = evPtr->interp;
+
+#define CASSTCL_LOG_CALLBACK_ARGCOUNT 2
+#define CASSTCL_LOG_CALLBACK_LISTCOUNT 12
+
+	Tcl_Obj *evalObjv[CASSTCL_LOG_CALLBACK_ARGCOUNT];
+	Tcl_Obj *listObjv[CASSTCL_LOG_CALLBACK_LISTCOUNT];
+
+	// probably won't happen but if we get a logging callback and have
+	// no callback object, return 1 saying we handled it and let the
+	// dispatcher delete the message NB this isn't exactly cool
+	if (casstcl_loggingCallbackObj == NULL) {
+printf("callback obj is null\n");
+		return 1;
+	}
+
+	// construct a list of key-value pairs representing the log message
+
+	listObjv[0] = Tcl_NewStringObj ("clock", -1);
+	listObjv[1] = Tcl_NewDoubleObj (evPtr->message.time_ms / 1000.0);
+
+	listObjv[2] = Tcl_NewStringObj ("severity", -1);
+	listObjv[3] = Tcl_NewStringObj (casstcl_cass_log_level_to_string (evPtr->message.severity), -1);
+
+	listObjv[4] = Tcl_NewStringObj ("file", -1);
+	listObjv[5] = Tcl_NewStringObj (evPtr->message.file, -1);
+
+	listObjv[6] = Tcl_NewStringObj ("line", -1);
+	listObjv[7] = Tcl_NewIntObj (evPtr->message.line);
+
+	listObjv[8] = Tcl_NewStringObj ("function", -1);
+	listObjv[9] = Tcl_NewStringObj (evPtr->message.function, -1);
+
+	listObjv[10] = Tcl_NewStringObj ("message", -1);
+	int messageLength = strnlen (evPtr->message.message, CASS_LOG_MAX_MESSAGE_SIZE);
+	listObjv[11] = Tcl_NewStringObj (evPtr->message.message, messageLength);
+
+	Tcl_Obj *listObj = Tcl_NewListObj (CASSTCL_LOG_CALLBACK_LISTCOUNT, listObjv);
+
+	// construct an objv we'll pass to eval.
+	// first is the callback command
+	// second is the list we just created
+	evalObjv[0] = casstcl_loggingCallbackObj;
+	evalObjv[1] = listObj;
+
+	// invoke the logging callback command
+	tclReturnCode = Tcl_EvalObjv (interp, CASSTCL_LOG_CALLBACK_ARGCOUNT, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
+
+	// if we got a Tcl error, since we initiated the event, it doesn't
+	// have anything to traceback further from here to, we must initiate
+	// a background error, which will generally cause the bgerror proc
+	// to get invoked
+	if (tclReturnCode == TCL_ERROR) {
+		Tcl_BackgroundException (interp, TCL_ERROR);
+	}
+
+	// tell the dispatcher we handled it.  0 would mean we didn't deal with
+	// it and don't want it removed from the queue
+	return 1;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_logging_callback --
+ *
+ *    this routine is called by the cassandra cpp-driver as a callback
+ *    when a log message has been received and cass_log_set_callback
+ *    has been done to register this callback
+ *
+ * Results:
+ *    an event is queued to the thread that started our conversation with
+ *    cassandra
+ *
+ *----------------------------------------------------------------------
+ */
+void casstcl_logging_callback (const CassLogMessage *message, void *data) {
+	casstcl_loggingEvent *evPtr;
+
+	Tcl_Interp *interp = data;
+	evPtr = ckalloc (sizeof (casstcl_loggingEvent));
+	evPtr->event.proc = casstcl_logging_eventProc;
+	evPtr->interp = interp;
+	evPtr->message = *message; /* structure copy */
+	Tcl_ThreadQueueEvent(casstcl_loggingCallbackThreadId, (Tcl_Event *)evPtr, TCL_QUEUE_TAIL);
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
  * casstcl_cass_value_to_tcl_obj --
  *
  *      Given a cassandra CassValue, generate a Tcl_Obj of a corresponding
@@ -1355,6 +1466,20 @@ int casstcl_append_tcl_obj_to_collection (casstcl_sessionClientData *ct, CassCol
  *
  * casstcl_bind_tcl_obj --
  *
+ * This routine binds Tcl objects to ?-substitution parameters in nascent
+ * cassandra statements.
+ *
+ * It takes a statement, an index (which parameter to substitute left to
+ * right from 0 to n-1), the cassandra data type (and subtype(s) if it is
+ * a list, set or map), and it will convert the Tcl object to the specified
+ * data type and bind it to the statement.
+ *
+ * This is a really important routine.
+ *
+ * If type conversion fails, like Cassandra wants floating point and the
+ * Tcl object won't convert to floating point then it's a Tcl error.
+ *
+ * If everything works then TCL_OK is returned.
  *
  * valueSubType1 is only used for maps, sets and lists
  * valueSubType2 is only used for maps
@@ -1610,6 +1735,11 @@ casstcl_list_keyspaces (casstcl_sessionClientData *ct, Tcl_Obj **objPtr) {
  *      Set the Tcl result to a list of the extant tables in a keyspace by
  *      examining the metadata managed by the driver.
  *
+ *      This is cool because the driver will update the metadata if the
+ *      schema changes during the session and further examinations of the
+ *      metadata by the casstcl metadata-accessing functions will see the
+ *      changes
+ *
  * Results:
  *      A standard Tcl result.
  *
@@ -1651,9 +1781,12 @@ casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **ob
  *
  * casstcl_list_columns --
  *
- *      Set the Tcl result to a list of the extant columns in a table
- *      in a keyspace by examining the metadata managed
- *      by the driver.
+ *      Set a Tcl object pointer to a list of the extant columns in the
+ *      specified table in the specified keyspace by examining the
+ *      metadata managed by the driver.
+ *
+ *      If includeTypes is 1 then instead of listing just the columns it
+ *      also lists their data types, as a list of key-value pairs.
  *
  * Results:
  *      A standard Tcl result.
@@ -1663,6 +1796,8 @@ casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **ob
 int
 casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table, int includeTypes, Tcl_Obj **objPtr) {
 	const CassSchema *schema = cass_session_get_schema(ct->session);
+
+	// locate the keyspace
 	const CassSchemaMeta *keyspaceMeta = cass_schema_get_keyspace (schema, keyspace);
 	Tcl_Interp *interp = ct->interp;
 
@@ -1671,20 +1806,24 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 		return TCL_ERROR;
 	}
 
+	// locate the table within the keyspace
 	const CassSchemaMeta *tableMeta = cass_schema_meta_get_entry (keyspaceMeta, table);
 
 	if (tableMeta == NULL) {
 		Tcl_AppendResult (ct->interp, "table '", table, "' not found in keyspace '", keyspace, "'", NULL);
 	}
 
+	// prepare to iterate on the columns within the table
 	CassIterator *iterator = cass_iterator_from_schema_meta (tableMeta);
 	Tcl_Obj *listObj = Tcl_NewObj();
 	int tclReturn = TCL_OK;
 
+	// iterate on the columns within the table
 	while (cass_iterator_next(iterator)) {
 		CassString name;
 		const CassSchemaMeta *columnMeta = cass_iterator_get_schema_meta (iterator);
 
+		// get the field name and append it to the list we are creating
 		const CassSchemaMetaField* field = cass_schema_meta_get_field(columnMeta, "column_name");
 		cass_value_get_string(cass_schema_meta_field_value(field), &name);
 		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
@@ -1692,21 +1831,24 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 			break;
 		}
 
+		// if including types then get the data type and append it to the
+		// list too
 		if (includeTypes) {
 			CassString name;
 			const CassSchemaMetaField* field = cass_schema_meta_get_field (columnMeta, "validator");
 
 			cass_value_get_string(cass_schema_meta_field_value(field), &name);
 
-			// check the cache array directly from C
+			// check the cache array directly from C to avoid calling
+			// Tcl_Eval if possible
 			Tcl_Obj *elementObj = Tcl_GetVar2Ex (interp, "::casstcl::validatorTypeLookupCache", name.data, (TCL_GLOBAL_ONLY));
 
 			// not there, gotta call Tcl to do the heavy lifting
 			if (elementObj == NULL) {
 				Tcl_Obj *evalObjv[2];
 				// construct a call to our casstcl.tcl library function
-				// validate_to_type to translate the value to a cassandra
-				// data type
+				// validator_to_type to translate the value to a cassandra
+				// data type to text/list
 				evalObjv[0] = Tcl_NewStringObj ("::casstcl::validator_to_type", -1);
 
 				evalObjv[1] = Tcl_NewStringObj (name.data, name.length);
@@ -1720,6 +1862,10 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 				elementObj = Tcl_GetObjResult (ct->interp);
 				Tcl_ResetResult (interp);
 			}
+
+			// we got here, either we found elementObj by looking it up
+			// from the ::casstcl::validatorTypeLookCache array or
+			// by invoking eval on ::casstcl::validator_to_type
 
 			if (Tcl_ListObjAppendElement (ct->interp, listObj, elementObj) == TCL_ERROR) {
 				tclReturn = TCL_ERROR;
@@ -1738,6 +1884,25 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
  *
  * casstcl_bind_values_and_types --
  *
+ *   Now this little ditty takes a query and an objv and a pointer to
+ *   a pointer to a cassandra statement
+ *
+ *   It creates a cassandra statement
+ *
+ *   It then iterates through the objv as a list pairs where the first element
+ *   is a value and the second element is a cassandra data type
+ *
+ *   For each pair it interprets the data type, converts the element to
+ *   that type, and binds it to that position in the statement.
+ *
+ *   If the data type is a list or set then the corresponding Tcl object
+ *   is converted to a list of that type.
+ *
+ *   If the data type is a map then the corresponding Tcl object is converted
+ *   to a map of alternating key-value pairs of the two specified types.
+ *
+ *   If the objv is empty the statement is created with nothing bound.
+ *   It's probably fine if that happens.
  *
  * Results:
  *      A standard Tcl result.
@@ -1890,7 +2055,10 @@ casstcl_iterate_over_future (casstcl_sessionClientData *ct, CassFuture *future, 
  *      Tcl code, perform the select, filling the named array with elements
  *      from each row in turn and executing code against it.
  *
- *      break, continue and return are supported
+ *      break, continue and return are supported (probably)
+ *
+ *      Issuing commands with async and processing the results with
+ *      async foreach allows for greater concurrency.
  *
  * Results:
  *      A standard Tcl result.
@@ -2006,117 +2174,6 @@ int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName,
 	}
 
 	return tclReturn;
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * casstcl_logging_eventProc --
- *
- *    this routine is called by the Tcl event handler to process callbacks
- *    we have set up from logging callbacks we've gotten from Cassandra
- *    loop is
- *
- * Results:
- *    returns 1 to say we handled the event and the dispatcher can delete it
- *
- *----------------------------------------------------------------------
- */
-int
-casstcl_logging_eventProc (Tcl_Event *tevPtr, int flags) {
-
-	// we got called with a Tcl_Event pointer but really it's a pointer to
-	// our casstcl_loggingEvent structure that has the Tcl_Event plus a pointer
-	// to casstcl_sessionClientData, which is our key to the kindgdom.
-	// Go get that.
-
-	casstcl_loggingEvent *evPtr = (casstcl_loggingEvent *)tevPtr;
-	int tclReturnCode;
-	Tcl_Interp *interp = evPtr->interp;
-
-#define CASSTCL_LOG_CALLBACK_ARGCOUNT 2
-#define CASSTCL_LOG_CALLBACK_LISTCOUNT 12
-
-	Tcl_Obj *evalObjv[CASSTCL_LOG_CALLBACK_ARGCOUNT];
-	Tcl_Obj *listObjv[CASSTCL_LOG_CALLBACK_LISTCOUNT];
-
-	// probably won't happen but if we get a logging callback and have
-	// no callback object, return 1 saying we handled it and let the
-	// dispatcher delete the message NB this isn't exactly cool
-	if (casstcl_loggingCallbackObj == NULL) {
-printf("callback obj is null\n");
-		return 1;
-	}
-
-	// construct a list of key-value pairs representing the log message
-
-	listObjv[0] = Tcl_NewStringObj ("clock", -1);
-	listObjv[1] = Tcl_NewDoubleObj (evPtr->message.time_ms / 1000.0);
-
-	listObjv[2] = Tcl_NewStringObj ("severity", -1);
-	listObjv[3] = Tcl_NewStringObj (casstcl_cass_log_level_to_string (evPtr->message.severity), -1);
-
-	listObjv[4] = Tcl_NewStringObj ("file", -1);
-	listObjv[5] = Tcl_NewStringObj (evPtr->message.file, -1);
-
-	listObjv[6] = Tcl_NewStringObj ("line", -1);
-	listObjv[7] = Tcl_NewIntObj (evPtr->message.line);
-
-	listObjv[8] = Tcl_NewStringObj ("function", -1);
-	listObjv[9] = Tcl_NewStringObj (evPtr->message.function, -1);
-
-	listObjv[10] = Tcl_NewStringObj ("message", -1);
-	int messageLength = strnlen (evPtr->message.message, CASS_LOG_MAX_MESSAGE_SIZE);
-	listObjv[11] = Tcl_NewStringObj (evPtr->message.message, messageLength);
-
-	Tcl_Obj *listObj = Tcl_NewListObj (CASSTCL_LOG_CALLBACK_LISTCOUNT, listObjv);
-
-	// construct an objv we'll pass to eval.
-	// first is the callback command
-	// second is the list we just created
-	evalObjv[0] = casstcl_loggingCallbackObj;
-	evalObjv[1] = listObj;
-
-	// invoke the logging callback command
-	tclReturnCode = Tcl_EvalObjv (interp, CASSTCL_LOG_CALLBACK_ARGCOUNT, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
-
-	// if we got a Tcl error, since we initiated the event, it doesn't
-	// have anything to traceback further from here to, we must initiate
-	// a background error, which will generally cause the bgerror proc
-	// to get invoked
-	if (tclReturnCode == TCL_ERROR) {
-		Tcl_BackgroundException (interp, TCL_ERROR);
-	}
-
-	// tell the dispatcher we handled it.  0 would mean we didn't deal with
-	// it and don't want it removed from the queue
-	return 1;
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * casstcl_logging_callback --
- *
- *    this routine is called by the cassandra cpp-driver as a callback
- *    when a log message has been received and cass_log_set_callback
- *    has been done to register this callback
- *
- * Results:
- *    an event is queued to the thread that started our conversation with
- *    cassandra
- *
- *----------------------------------------------------------------------
- */
-void casstcl_logging_callback (const CassLogMessage *message, void *data) {
-	casstcl_loggingEvent *evPtr;
-
-	Tcl_Interp *interp = data;
-	evPtr = ckalloc (sizeof (casstcl_loggingEvent));
-	evPtr->event.proc = casstcl_logging_eventProc;
-	evPtr->interp = interp;
-	evPtr->message = *message; /* structure copy */
-	Tcl_ThreadQueueEvent(casstcl_loggingCallbackThreadId, (Tcl_Event *)evPtr, TCL_QUEUE_TAIL);
 }
 
 /*
