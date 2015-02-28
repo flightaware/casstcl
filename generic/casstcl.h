@@ -48,6 +48,7 @@ typedef struct casstcl_batchClientData
 	CassBatch *batch;
 	CassBatchType batchType;
 	Tcl_Command cmdToken;
+	CassConsistency consistency;
 } casstcl_batchClientData;
 
 typedef struct casstcl_preparedClientData

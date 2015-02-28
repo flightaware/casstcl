@@ -597,7 +597,7 @@ casstcl_obj_to_cass_value_type (casstcl_sessionClientData *ct, Tcl_Obj *tclObj, 
 /*
  *--------------------------------------------------------------
  *
- * casstcl_cass_value_type_to_string -- given a CassValueType,
+ * casstcl_cass_value_type_to_string -- given a CassConsistency,
  *   return a const char * to a character string of equivalent
  *   meaning
  *
@@ -610,90 +610,50 @@ casstcl_obj_to_cass_value_type (casstcl_sessionClientData *ct, Tcl_Obj *tclObj, 
  *--------------------------------------------------------------
  */
 const char *
-casstcl_cass_value_type_to_string (CassValueType valueType) {
-	switch (valueType) {
-		case CASS_VALUE_TYPE_UNKNOWN: {
-			return "unknown";
+casstcl_cass_value_type_to_string (CassConsistency consistency) {
+	switch (consistency) {
+		case CASS_CONSISTENCY_ANY: {
+			return "any";
 		}
 
-		case CASS_VALUE_TYPE_CUSTOM: {
-			return "unknown";
+		case CASS_CONSISTENCY_ONE: {
+			return "one";
 		}
 
-		case CASS_VALUE_TYPE_ASCII: {
-			return "custom";
+		case CASS_CONSISTENCY_TWO: {
+			return "two";
 		}
 
-		case CASS_VALUE_TYPE_BIGINT: {
-			return "ascii";
+		case CASS_CONSISTENCY_THREE: {
+			return "three";
 		}
 
-		case CASS_VALUE_TYPE_BLOB: {
-			return "blob";
+		case CASS_CONSISTENCY_QUORUM: {
+			return "quorum";
 		}
 
-		case CASS_VALUE_TYPE_BOOLEAN: {
-			return "boolean";
+		case CASS_CONSISTENCY_ALL: {
+			return "all";
 		}
 
-		case CASS_VALUE_TYPE_COUNTER: {
-			return "counter";
+		case CASS_CONSISTENCY_LOCAL_QUORUM: {
+			return "local_quorum";
 		}
 
-		case CASS_VALUE_TYPE_DECIMAL: {
-			return "decimal";
+		case CASS_CONSISTENCY_EACH_QUORUM: {
+			return "each_quorum";
 		}
 
-		case CASS_VALUE_TYPE_DOUBLE: {
-			return "double";
+		case CASS_CONSISTENCY_SERIAL: {
+			return "serial";
 		}
 
-		case CASS_VALUE_TYPE_FLOAT: {
-			return "float";
+		case CASS_CONSISTENCY_LOCAL_SERIAL: {
+			return "local_serial";
 		}
 
-		case CASS_VALUE_TYPE_INT: {
-			return "int";
-		}
-
-		case CASS_VALUE_TYPE_TEXT: {
-			return "text";
-		}
-
-		case CASS_VALUE_TYPE_TIMESTAMP: {
-			return "timestamp";
-		}
-
-		case CASS_VALUE_TYPE_UUID: {
-			return "uuid";
-		}
-
-		case CASS_VALUE_TYPE_VARCHAR: {
-			return "varchar";
-		}
-
-		case CASS_VALUE_TYPE_VARINT: {
-			return "varint";
-		}
-
-		case CASS_VALUE_TYPE_TIMEUUID: {
-			return "timeuuid";
-		}
-
-		case CASS_VALUE_TYPE_INET: {
-			return "inet";
-		}
-
-		case CASS_VALUE_TYPE_LIST: {
-			return "list";
-		}
-
-		case CASS_VALUE_TYPE_MAP: {
-			return "map";
-		}
-
-		case CASS_VALUE_TYPE_SET: {
-			return "set";
+		case CASS_CONSISTENCY_LOCAL_ONE: {
+			return "local_one";
 		}
 
 		default:
@@ -920,6 +880,114 @@ casstcl_obj_to_cass_consistency(casstcl_sessionClientData *ct, Tcl_Obj *tclObj, 
 
 	return TCL_OK;
 }
+
+/*
+ *--------------------------------------------------------------
+ *
+ * casstcl_cass_consistency_to_string -- given a CassValueType,
+ *   return a const char * to a character string of equivalent
+ *   meaning
+ *
+ * Results:
+ *      a string gets returned
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+const char *
+casstcl_cass_consistency_to_string (CassValueType valueType) {
+	switch (valueType) {
+		case CASS_VALUE_TYPE_UNKNOWN: {
+			return "unknown";
+		}
+
+		case CASS_VALUE_TYPE_CUSTOM: {
+			return "unknown";
+		}
+
+		case CASS_VALUE_TYPE_ASCII: {
+			return "custom";
+		}
+
+		case CASS_VALUE_TYPE_BIGINT: {
+			return "ascii";
+		}
+
+		case CASS_VALUE_TYPE_BLOB: {
+			return "blob";
+		}
+
+		case CASS_VALUE_TYPE_BOOLEAN: {
+			return "boolean";
+		}
+
+		case CASS_VALUE_TYPE_COUNTER: {
+			return "counter";
+		}
+
+		case CASS_VALUE_TYPE_DECIMAL: {
+			return "decimal";
+		}
+
+		case CASS_VALUE_TYPE_DOUBLE: {
+			return "double";
+		}
+
+		case CASS_VALUE_TYPE_FLOAT: {
+			return "float";
+		}
+
+		case CASS_VALUE_TYPE_INT: {
+			return "int";
+		}
+
+		case CASS_VALUE_TYPE_TEXT: {
+			return "text";
+		}
+
+		case CASS_VALUE_TYPE_TIMESTAMP: {
+			return "timestamp";
+		}
+
+		case CASS_VALUE_TYPE_UUID: {
+			return "uuid";
+		}
+
+		case CASS_VALUE_TYPE_VARCHAR: {
+			return "varchar";
+		}
+
+		case CASS_VALUE_TYPE_VARINT: {
+			return "varint";
+		}
+
+		case CASS_VALUE_TYPE_TIMEUUID: {
+			return "timeuuid";
+		}
+
+		case CASS_VALUE_TYPE_INET: {
+			return "inet";
+		}
+
+		case CASS_VALUE_TYPE_LIST: {
+			return "list";
+		}
+
+		case CASS_VALUE_TYPE_MAP: {
+			return "map";
+		}
+
+		case CASS_VALUE_TYPE_SET: {
+			return "set";
+		}
+
+		default:
+			return "unknown";
+	}
+}
+
 
 /*
  *----------------------------------------------------------------------
@@ -2855,9 +2923,14 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 		case OPT_CONSISTENCY: {
 			CassConsistency cassConsistency;
 
-			if (objc != 3) {
-				Tcl_WrongNumArgs (interp, 2, objv, "consistency");
+			if ((objc < 2) || (objc > 3)) {
+				Tcl_WrongNumArgs (interp, 2, objv, "?consistency?");
 				return TCL_ERROR;
+			}
+
+			if (objc == 2) {
+				Tcl_SetObjResult (interp, Tcl_NewStringObj (casstcl_cass_value_type_to_string (bcd->consistency), -1));
+				return TCL_OK;
 			}
 
 			if (casstcl_obj_to_cass_consistency(bcd->ct, objv[2], &cassConsistency) == TCL_ERROR) {
@@ -2865,6 +2938,7 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 			}
 
 			CassError cassError = cass_batch_set_consistency (bcd->batch, cassConsistency);
+			bcd->consistency = cassConsistency;
 			if (cassError != CASS_OK) {
 				return casstcl_cass_error_to_tcl (bcd->ct, cassError);
 			}
@@ -2879,6 +2953,10 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 
 			cass_batch_free (bcd->batch);
 			bcd->batch = cass_batch_new (bcd->batchType);
+			CassError cassError = cass_batch_set_consistency (bcd->batch, bcd->consistency);
+			if (cassError != CASS_OK) {
+				return casstcl_cass_error_to_tcl (bcd->ct, cassError);
+			}
 
 			break;
 		}
@@ -3502,6 +3580,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			bcd->ct = ct;
 			bcd->batch = cass_batch_new (cassBatchType);
 			bcd->batchType = cassBatchType;
+			bcd->consistency = CASS_CONSISTENCY_ONE;
 
 			char *commandName = Tcl_GetString (objv[2]);
 
