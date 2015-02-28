@@ -2876,8 +2876,8 @@ printf("returned from cass_batch_add_statement, cassError %d\n", cassError);
 				return TCL_ERROR;
 			}
 
-			bcd->batch = cass_batch_new (bcd->batchType);
 			cass_batch_free (bcd->batch);
+			bcd->batch = cass_batch_new (bcd->batchType);
 
 			break;
 		}
@@ -3377,7 +3377,9 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				}
 				const CassBatch *batch = bcd->batch;
 
+printf("executing batch %lx\n", batch);
 				future = cass_session_execute_batch (ct->session, batch);
+printf("returned from executing batch\n");
 
 			} else {
 				// it's a statement, possibly with arguments
@@ -3387,12 +3389,12 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				}
 
 				future = cass_session_execute (ct->session, statement);
+				cass_statement_free (statement);
 			}
 
 			if (casstcl_createFutureObjectCommand (ct, future, callbackObj) == TCL_ERROR) {
 				resultCode = TCL_ERROR;
 			}
-			cass_statement_free (statement);
 
 			break;
 		}
