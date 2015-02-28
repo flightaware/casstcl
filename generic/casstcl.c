@@ -12,7 +12,7 @@
 // possibly unfortunately, the cassandra cpp-driver logging stuff is global
 Tcl_Obj *casstcl_loggingCallbackObj = NULL;
 Tcl_ThreadId casstcl_loggingCallbackThreadId = NULL;
-
+
 /*
  *--------------------------------------------------------------
  *
@@ -41,7 +41,6 @@ casstcl_cassObjectDelete (ClientData clientData)
     ckfree((char *)clientData);
 }
 
-
 /*
  *--------------------------------------------------------------
  *
@@ -68,7 +67,6 @@ casstcl_futureObjectDelete (ClientData clientData)
     ckfree((char *)clientData);
 }
 
-
 /*
  *--------------------------------------------------------------
  *
@@ -94,7 +92,6 @@ casstcl_batchObjectDelete (ClientData clientData)
     ckfree((char *)clientData);
 }
 
-
 /*
  *--------------------------------------------------------------
  *
@@ -120,7 +117,6 @@ casstcl_preparedObjectDelete (ClientData clientData)
     ckfree((char *)clientData);
 }
 
-
 /*
  *--------------------------------------------------------------
  *
@@ -279,7 +275,6 @@ const char *casstcl_cass_error_to_errorcode_string (CassError cassError)
 	return NULL;
 }
 
-
 /*
  *--------------------------------------------------------------
  *
@@ -368,7 +363,6 @@ casstcl_obj_to_cass_log_level (casstcl_sessionClientData *ct, Tcl_Obj *tclObj, C
 	return TCL_OK;
 }
 
-
 /*
  *--------------------------------------------------------------
  *
@@ -413,7 +407,6 @@ casstcl_cass_log_level_to_string (CassLogLevel severity) {
 	}
 }
 
-
 /*
  *--------------------------------------------------------------
  *
@@ -601,7 +594,6 @@ casstcl_obj_to_cass_value_type (casstcl_sessionClientData *ct, Tcl_Obj *tclObj, 
 	return TCL_OK;
 }
 
-
 /*
  *--------------------------------------------------------------
  *
@@ -709,20 +701,23 @@ casstcl_cass_value_type_to_string (CassValueType valueType) {
 	}
 }
 
-
 /*
  *--------------------------------------------------------------
  *
- * casstcl_obj_to_compound_cass_value_types -- lookup a string in a Tcl object
- *   to be one of the cass value type strings for CassValueType and set
- *   a pointer to a passed-in CassValueType value to the corresponding
- *   type such as CASS_VALUE_TYPE_DOUBLE, etc
+ * casstcl_obj_to_compound_cass_value_types
+ *
+ * Lookup a string from a Tcl object and identify it as one of the cass 
+ * value type strings for CassValueType (int, text uuid, etc.) and set
+ * a pointer to a passed-in CassValueType value to the corresponding
+ * type such as CASS_VALUE_TYPE_DOUBLE, etc
  *
  * Also if it is a list of "map type type" or "set type" or "list type"
- * then set the secondary value types as well
+ * then set the valueSubType1 to type defined by the set or list and
+ * in the case of a map set valueSubType1 for the key datatype and
+ * valueSubType2 for the value datatype
  *
  * Results:
- *      ...cass value type gets set
+ *      ...cass value types gets set
  *      ...a standard Tcl result is returned
  *
  * Side effects:
@@ -773,20 +768,22 @@ casstcl_obj_to_compound_cass_value_types (casstcl_sessionClientData *ct, Tcl_Obj
 			Tcl_AppendResult (interp, "while looking up value for sub type 1", NULL);
 			return TCL_ERROR;
 		}
-	}
+	};
 
 	return TCL_OK;
 }
 
-
 /*
  *--------------------------------------------------------------
  *
  * casstcl_cass_error_to_tcl -- given a CassError code and a field
- *   name, if the error code isn CASS_OK
+ *   name, if the error code is CASS_OK return TCL_OK but if it's anything
+ *   else, set the interpreter result to the corresponding error string
+ *   and set the error code to CASSANDRA and the e-code like
+ *   CASS_ERROR_LIB_BAD_PARAMS
  *
  * Results:
- *      returns a pointer to a const char *
+ *      A standard Tcl result
  *
  * Side effects:
  *      None.
@@ -806,7 +803,6 @@ int casstcl_cass_error_to_tcl (casstcl_sessionClientData *ct, CassError cassErro
 	return TCL_ERROR;
 }
 
-
 /*
  *--------------------------------------------------------------
  *
@@ -913,7 +909,6 @@ casstcl_obj_to_cass_consistency(casstcl_sessionClientData *ct, Tcl_Obj *tclObj, 
 	return TCL_OK;
 }
 
-
 /*
  *--------------------------------------------------------------
  *
@@ -971,7 +966,6 @@ casstcl_obj_to_cass_batch_type (Tcl_Interp *interp, Tcl_Obj *tclObj, CassBatchTy
 	return TCL_OK;
 }
 
-
 /*
  *--------------------------------------------------------------
  *
@@ -1003,7 +997,6 @@ const char *casstcl_batch_type_to_batch_type_string (CassBatchType cassBatchType
 	}
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -1011,6 +1004,8 @@ const char *casstcl_batch_type_to_batch_type_string (CassBatchType cassBatchType
  *
  *      Given a cassandra CassValue, generate a Tcl_Obj of a corresponding
  *      type
+ *
+ *      This is a vital routine to the entire edifice.
  *
  * Results:
  *      A standard Tcl result.
@@ -1218,12 +1213,24 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 	return TCL_ERROR;
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
- * casstcl_append_tcl_obj_to_collection --
+ * casstcl_append_tcl_obj_to_collection
  *
+ * Convert a Tcl object to a cassandra value of the specified type and
+ * append it to the specified collection
+ *
+ * This is used for constructing cassandra maps, sets and lists.
+ *
+ * You create a set or a list by appending elements to it.
+ *
+ * You create a map by appending successions of key elements and value
+ * elements to it.
+ *
+ * They have a specified datatype for sets and lists; for keys there is
+ * one for the key and one for the value so for instance the keys can
+ * be integers and the values can be strings or whatever.
  *
  * Results:
  *      A standard Tcl result.
@@ -1343,7 +1350,6 @@ int casstcl_append_tcl_obj_to_collection (casstcl_sessionClientData *ct, CassCol
 	return TCL_OK;
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -1554,7 +1560,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 
 	return TCL_OK;
 }
-
+
 /*
  *----------------------------------------------------------------------
  *
@@ -1596,7 +1602,6 @@ casstcl_list_keyspaces (casstcl_sessionClientData *ct, Tcl_Obj **objPtr) {
 	return tclReturn;
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -1641,7 +1646,6 @@ casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **ob
 	return tclReturn;
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -1729,7 +1733,6 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 	return tclReturn;
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -1785,7 +1788,6 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
 	return masterReturn;
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -1879,7 +1881,6 @@ casstcl_iterate_over_future (casstcl_sessionClientData *ct, CassFuture *future, 
 	return tclReturn;
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -2007,7 +2008,6 @@ int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName,
 	return tclReturn;
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -2093,7 +2093,6 @@ printf("callback obj is null\n");
 	return 1;
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -2120,7 +2119,6 @@ void casstcl_logging_callback (const CassLogMessage *message, void *data) {
 	Tcl_ThreadQueueEvent(casstcl_loggingCallbackThreadId, (Tcl_Event *)evPtr, TCL_QUEUE_TAIL);
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -2236,7 +2234,6 @@ casstcl_futureObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_O
     return resultCode;
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -2349,7 +2346,6 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
     return resultCode;
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -2405,7 +2401,6 @@ casstcl_preparedObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl
     return resultCode;
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -2431,7 +2426,6 @@ casstcl_EventSetupProc (ClientData data, int flags)
 {
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -2454,7 +2448,6 @@ casstcl_EventCheckProc (ClientData data, int flags)
 {
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -2512,7 +2505,6 @@ casstcl_future_eventProc (Tcl_Event *tevPtr, int flags) {
 	return 1;
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -2545,7 +2537,6 @@ void casstcl_future_callback (CassFuture* future, void* data) {
 	Tcl_ThreadQueueEvent(fcd->ct->threadId, (Tcl_Event *)evPtr, TCL_QUEUE_TAIL);
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -2597,7 +2588,6 @@ casstcl_createFutureObjectCommand (casstcl_sessionClientData *ct, CassFuture *fu
     return TCL_OK;
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -3406,7 +3396,6 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
     return resultCode;
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
