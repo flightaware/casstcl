@@ -2041,6 +2041,129 @@ casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char 
 	return masterReturn;
 }
 
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_make_statement_from_objv --
+ *
+ *   This is a beautiful thing because it will work from the like four
+ *   places where we generate statements: exec, select, async, and
+ *   batch.
+ *
+ *   This is like what would be in the option-handling case statements.
+ *
+ *   We will look at the objc and objv we are given with what's in front
+ *   of the command that got invoked stripped off, that is for example
+ *   if the command was
+ *
+ *       $batch add -array row $query column column column
+ *
+ *       $batch add $query $value $type $value $type
+ *
+ *   ...we expect to get it from "-array" on, that is, they'll pass us
+ *   the address of the objv starting from there and the objc properly
+ *   discounting whatever preceded the stuff we handle
+ *
+ *   We then figure it out and invoke the underlying stuff.
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_Obj *CONST objv[], CassStatement **statementPtr) {
+	int arrayStyle = 0;
+	char *arrayName = NULL;
+	char *tableName = NULL;
+	Tcl_Interp *interp = ct->interp;
+
+    static CONST char *options[] = {
+        "-array",
+		"-table",
+        NULL
+    };
+
+    enum options {
+        OPT_ARRAY,
+		OPT_TABLE
+	};
+
+	int optIndex;
+	int arg = 0;
+
+	if (objc < 1) {
+	  wrong_numargs:
+		Tcl_WrongNumArgs (interp, 2, objv, "?-array arrayName? ?-table tableName? query ?arg...?");
+		return TCL_ERROR;
+	}
+
+	while (arg + 1 < objc) {
+		char *option = Tcl_GetString (objv[arg]);
+
+		// if the first character isn't a dash, we're done here.
+		// this is going to get called a lot so i don't want
+		// Tcl_GetIndexFromObj writing an error message and all
+		// that stuff unless there really is an option
+		if (*option != '-') {
+			break;
+		}
+
+		// OK so we aren't going to accept anything starting with - that
+		// isn't in our option list
+		if (Tcl_GetIndexFromObj (ct->interp, objv[arg++], options, "options",
+			TCL_EXACT, &optIndex) != TCL_OK) {
+			return TCL_ERROR;
+		}
+
+		switch ((enum options) optIndex) {
+			case OPT_ARRAY: {
+				if (arg + 1 >= objc) {
+					goto wrong_numargs;
+				}
+
+				arrayName = Tcl_GetString (objv[arg++]);
+				arrayStyle = 1;
+				break;
+			}
+
+			case OPT_TABLE: {
+				if (arg + 1 >= objc) {
+					goto wrong_numargs;
+				}
+
+				tableName = Tcl_GetString (objv[arg++]);
+				arrayStyle = 1;
+				break;
+			}
+		}
+	}
+
+	// there must at least be a query string left
+	if (arg + 1 >= objc) {
+		goto wrong_numargs;
+	}
+
+	char *query = Tcl_GetString (objv[arg++]);
+	// (whatever is left of the objv from arg to the end are column-related)
+
+	if (arrayStyle) {
+		if (tableName == NULL) {
+			Tcl_AppendResult (interp, "-table must be specified if -array is specified", NULL);
+			return TCL_ERROR;
+		}
+
+		if (arrayName == NULL) {
+			Tcl_AppendResult (interp, "-array must be specified if -table is specified", NULL);
+			return TCL_ERROR;
+		}
+
+		return casstcl_bind_names_from_array (ct, tableName, query, arrayName, objc - arg, &objv[arg], statementPtr);
+	} else {
+		return casstcl_bind_values_and_types (ct, query, objc - arg, &objv[arg], statementPtr);
+	}
+}
+
 
 /*
  *----------------------------------------------------------------------
@@ -2427,15 +2550,10 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
     switch ((enum options) optIndex) {
 		case OPT_ADD: {
 			CassStatement* statement = NULL;
-			char *query = NULL;
-
-			if (objc != 3) {
-				Tcl_WrongNumArgs (interp, 2, objv, "statement");
+			if (casstcl_make_statement_from_objv (bcd->ct, objc - 2, &objv[2], &statement) == TCL_ERROR) {
 				return TCL_ERROR;
 			}
 
-			query = Tcl_GetString (objv[2]);
-			statement = cass_statement_new(cass_string_init(query), 0);
 			CassError cassError = cass_batch_add_statement (bcd->batch, statement);
 			cass_statement_free (statement);
 
@@ -2889,17 +3007,11 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		case OPT_EXEC: {
 			CassStatement* statement = NULL;
 			CassFuture *future = NULL;
-			char *query = NULL;
 			CassError rc = CASS_OK;
 
-			if (objc != 3) {
-				Tcl_WrongNumArgs (interp, 2, objv, "statement");
+			if (casstcl_make_statement_from_objv (ct, objc - 2, &objv[2], &statement) == TCL_ERROR) {
 				return TCL_ERROR;
 			}
-
-			query = Tcl_GetString (objv[2]);
-
-			statement = cass_statement_new(cass_string_init(query), 0);
 
 			future = cass_session_execute (ct->session, statement);
 			cass_future_wait (future);
@@ -2918,7 +3030,6 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		case OPT_ASYNC: {
 			CassStatement* statement = NULL;
 			CassFuture *future = NULL;
-			char *query = NULL;
 			int arg = 2;
 			int      subOptIndex;
 			Tcl_Obj *callbackObj = NULL;
@@ -2932,16 +3043,15 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				SUBOPT_CALLBACK
 			};
 
-			// if we don't have at least three arguments and an odd number
-			// of arguments at that, it's an error
-			if ((objc < 3) || ((objc & 1) == 0)) {
-				Tcl_WrongNumArgs (interp, 2, objv, "?-callback n? statement");
+			// if we don't have at least three arguments, it's an error
+			if (objc < 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "?-callback n? ?-array array? ?-table table? statement ?args?");
 				return TCL_ERROR;
 			}
 
 			while (arg + 1 < objc) {
 				if (Tcl_GetIndexFromObj (interp, objv[arg++], subOptions, "subOption", TCL_EXACT, &subOptIndex) != TCL_OK) {
-					return TCL_ERROR;
+					break;
 				}
 
 				switch ((enum subOptions) subOptIndex) {
@@ -2952,8 +3062,10 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				}
 			}
 
-			query = Tcl_GetString (objv[arg]);
-			statement = cass_statement_new(cass_string_init(query), 0);
+			if (casstcl_make_statement_from_objv (ct, objc - arg, &objv[arg], &statement) == TCL_ERROR) {
+				return TCL_ERROR;
+			}
+
 			future = cass_session_execute (ct->session, statement);
 
 			if (casstcl_createFutureObjectCommand (ct, future, callbackObj) == TCL_ERROR) {
