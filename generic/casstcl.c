@@ -2095,6 +2095,185 @@ casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char 
 /*
  *----------------------------------------------------------------------
  *
+ * casstcl_bind_names_from_list --
+ *
+ *   fully qualified table name
+ *   name of the table 
+ *   and a pointer to a pointer to a cassandra statement
+ *
+ *   It creates a cassandra statement
+ *
+ *   Similar to casstcl_bind_names_from_array
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *query, int objc, Tcl_Obj *CONST objv[], CassStatement **statementPtr)
+{
+	int i;
+	int masterReturn = TCL_OK;
+	int tclReturn = TCL_OK;
+	Tcl_Interp *interp = ct->interp;
+
+	CassValueType valueType;
+	CassValueType valueSubType1;
+	CassValueType valueSubType2;
+
+	*statementPtr = NULL;
+
+	CassStatement *statement = cass_statement_new(cass_string_init(query), objc);
+
+printf("objc = %d\n", objc);
+	for (i = 0; i < objc; i += 2) {
+printf("i = %d\n", i);
+		int varNameSize = 0;
+		char *varName = Tcl_GetStringFromObj (objv[i], &varNameSize);
+
+		// this can be factored and shared with casstcl_bind_names_from_list
+		int typeIndexSize = strlen (table) + 8 + varNameSize;
+		char *typeIndexName = ckalloc (typeIndexSize);
+
+		snprintf (typeIndexName, typeIndexSize, "%s.%s", table, varName);
+printf ("typeIndexName '%s', typeIndexSize %d, table '%s', varName '%s'\n", typeIndexName, typeIndexSize, table, varName);
+
+		// get the type
+		Tcl_Obj *typeObj = Tcl_GetVar2Ex (interp, "::casstcl::columnTypeMap", typeIndexName, (TCL_GLOBAL_ONLY|TCL_LEAVE_ERR_MSG));
+
+		if (typeObj == NULL) {
+#if 0
+printf ("error from getvar2 '%s' not found\n", typeIndexName);
+			Tcl_AppendResult (interp, " while trying to look up the data type for column '", varName, "' table '", table, "' in the type map (", typeIndexName, ")", NULL);
+			masterReturn = TCL_ERROR;
+			break;
+#else
+			continue;
+#endif
+		}
+
+printf ("looking up type '%s'\n", Tcl_GetString (typeObj));
+		tclReturn = casstcl_obj_to_compound_cass_value_types (ct, typeObj, &valueType, &valueSubType1, &valueSubType2);
+
+		if (tclReturn == TCL_ERROR) {
+printf ("error from casstcl_obj_to_compound_cass_value_types\n");
+			masterReturn = TCL_ERROR;
+			break;
+		}
+
+		// get the value out of the list
+		Tcl_Obj *valueObj = objv[i+1];
+
+
+		tclReturn = casstcl_bind_tcl_obj (ct, statement, i / 2, valueType, valueSubType1, valueSubType2, valueObj);
+printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
+		if (tclReturn == TCL_ERROR) {
+printf ("error from casstcl_bind_tcl_obj\n");
+			masterReturn = TCL_ERROR;
+			break;
+		}
+	}
+
+	if (masterReturn == TCL_OK) {
+		*statementPtr = statement;
+	}
+
+	return masterReturn;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_make_upsert_statement --
+ *
+ *   given a session client data, fully qualified table name, Tcl list
+ *   obj and a pointer to a statement pointer,
+ *
+ *   this baby...
+ *
+ *     ...generates an upsert statement (in the form of insert but that's
+ *     how cassandra rolls)
+ *
+ *     ...uses casstcl_bind_names_from_list to bind the data elements
+ *     to the statement using the right data types
+ *
+ *   It creates a cassandra statement and sets your pointer to it
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, Tcl_Obj *listObj, CassStatement **statementPtr) {
+	int listObjc;
+	Tcl_Obj **listObjv;
+	Tcl_Interp *interp = ct->interp;
+
+	if (Tcl_ListObjGetElements (interp, listObj, &listObjc, &listObjv) == TCL_ERROR) {
+		Tcl_AppendResult (interp, " while parsing list of key-value pairs", NULL);
+		return TCL_ERROR;
+	}
+
+	if (listObjc & 1) {
+		Tcl_AppendResult (interp, "must contain an even number of elements", NULL);
+		return TCL_ERROR;
+	}
+
+	Tcl_DString ds;
+	Tcl_DStringInit (&ds);
+	Tcl_DStringAppend (&ds, "INSERT INTO ", -1);
+	Tcl_DStringAppend (&ds, tableName, -1);
+	Tcl_DStringAppend (&ds, " (", 2);
+
+	int i;
+	int nDone = 0;
+	int didOne = 0;
+
+	for (i = 0; i < listObjc; i += 2) {
+		int varNameLength;
+
+		char *varName = Tcl_GetStringFromObj (listObjv[i], &varNameLength);
+
+		// ignore Pgtcl meta variables
+		if (*varName == '.') {
+			continue;
+		}
+
+		if (didOne) {
+			Tcl_DStringAppend (&ds, ",", 1);
+		}
+		didOne = 0;
+
+		Tcl_DStringAppend (&ds, varName, varNameLength);
+		nDone++;
+		didOne = 1;
+	}
+
+	Tcl_DStringAppend (&ds, ") values (", -1);
+
+	for (i = 0; i < nDone; i++) {
+		if (i > 0) {
+			Tcl_DStringAppend (&ds, ",?", 2);
+		} else {
+			Tcl_DStringAppend (&ds, "?", 1);
+		}
+	}
+	Tcl_DStringAppend (&ds, ")", -1);
+
+	char *query = Tcl_DStringValue (&ds);
+
+printf("casstcl_make_upsert_statement: query: %s\n", query);
+	int tclReturn = casstcl_bind_names_from_list (ct, tableName, query, listObjc, listObjv, statementPtr);
+	Tcl_DStringFree (&ds);
+	return tclReturn;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
  * casstcl_make_statement_from_objv --
  *
  *   This is a beautiful thing because it will work from the like four
@@ -2577,6 +2756,7 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 
     static CONST char *options[] = {
         "add",
+		"upsert",
         "consistency",
 		"reset",
         "delete",
@@ -2585,6 +2765,7 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 
     enum options {
         OPT_ADD,
+        OPT_UPSERT,
         OPT_CONSISTENCY,
 		OPT_RESET,
 		OPT_DELETE
@@ -2607,6 +2788,28 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 				return TCL_ERROR;
 			}
 
+			CassError cassError = cass_batch_add_statement (bcd->batch, statement);
+			cass_statement_free (statement);
+
+			if (cassError != CASS_OK) {
+				return casstcl_cass_error_to_tcl (bcd->ct, cassError);
+			}
+
+			break;
+		}
+
+		case OPT_UPSERT: {
+			if (objc != 4) {
+				Tcl_WrongNumArgs (interp, 2, objv, "keyspace.tableName keyValuePairList");
+				return TCL_ERROR;
+			}
+
+			CassStatement* statement;
+			char *tableName = Tcl_GetString (objv[2]);
+			Tcl_Obj *listObj = objv[3];
+
+			
+			resultCode = casstcl_make_upsert_statement (bcd->ct, tableName, listObj, &statement);
 			CassError cassError = cass_batch_add_statement (bcd->batch, statement);
 			cass_statement_free (statement);
 
