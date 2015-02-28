@@ -1302,6 +1302,8 @@ casstcl_logging_eventProc (Tcl_Event *tevPtr, int flags) {
 	evalObjv[1] = listObj;
 
 	// invoke the logging callback command
+	Tcl_IncrRefCount (evalObjv[0]);
+	Tcl_IncrRefCount (evalObjv[1]);
 	tclReturnCode = Tcl_EvalObjv (interp, CASSTCL_LOG_CALLBACK_ARGCOUNT, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
 
 	// if we got a Tcl error, since we initiated the event, it doesn't
@@ -1311,6 +1313,9 @@ casstcl_logging_eventProc (Tcl_Event *tevPtr, int flags) {
 	if (tclReturnCode == TCL_ERROR) {
 		Tcl_BackgroundException (interp, TCL_ERROR);
 	}
+
+	Tcl_DecrRefCount(evalObjv[0]);
+	Tcl_DecrRefCount(evalObjv[1]);
 
 	// tell the dispatcher we handled it.  0 would mean we didn't deal with
 	// it and don't want it removed from the queue
@@ -2167,18 +2172,22 @@ printf ("error from casstcl_obj_to_compound_cass_value_types\n");
 
 
 		tclReturn = casstcl_bind_tcl_obj (ct, statement, i / 2, valueType, valueSubType1, valueSubType2, valueObj);
-// printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
+printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
 		if (tclReturn == TCL_ERROR) {
+printf ("error from casstcl_bind_tcl_obj\n");
 			Tcl_AppendResult (interp, " while attempting to bind field '", varName, "' referencing table '", table, "'", NULL);
 			masterReturn = TCL_ERROR;
 			break;
 		}
 	}
 
+printf("finished the loop, i = %d, objc = %d\n", i, objc);
 	if (masterReturn == TCL_OK) {
+printf("theoretically got a good statement\n");
 		*statementPtr = statement;
 	}
 
+printf("return code is %d\n", masterReturn);
 	return masterReturn;
 }
 
@@ -2268,6 +2277,7 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 printf("casstcl_make_upsert_statement: query: %s\n", query);
 	int tclReturn = casstcl_bind_names_from_list (ct, tableName, query, listObjc, listObjv, statementPtr);
 	Tcl_DStringFree (&ds);
+printf("casstcl_make_upsert_statement: freed the dstring, returning %d\n", tclReturn);
 	return tclReturn;
 }
 
@@ -2811,9 +2821,11 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 			
 			resultCode = casstcl_make_upsert_statement (bcd->ct, tableName, listObj, &statement);
 			if (resultCode != TCL_ERROR) {
+printf("calling cass_batch_add_statement\n");
 				CassError cassError;
 				cassError = cass_batch_add_statement (bcd->batch, statement);
 				cass_statement_free (statement);
+printf("returned from cass_batch_add_statement, cassError %d\n", cassError);
 
 				if (cassError != CASS_OK) {
 					return casstcl_cass_error_to_tcl (bcd->ct, cassError);
@@ -3017,11 +3029,17 @@ casstcl_future_eventProc (Tcl_Event *tevPtr, int flags) {
 	// the second.  go ahead and ask for direct, i.e. don't compile into
 	// bytecodes, because our little single two-argument call is ephemeral
 
+	Tcl_IncrRefCount (evalObjv[0]);
+	Tcl_IncrRefCount (evalObjv[1]);
+
 	tclReturnCode = Tcl_EvalObjv (interp, 2, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
 
 	if (tclReturnCode == TCL_ERROR) {
 		Tcl_BackgroundException (interp, TCL_ERROR);
 	}
+
+	Tcl_DecrRefCount(evalObjv[0]);
+	Tcl_DecrRefCount(evalObjv[1]);
 
 	// tell the dispatcher we handled it.  0 would mean we didn't deal with
 	// it and don't want it removed from the queue
