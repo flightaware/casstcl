@@ -2023,7 +2023,7 @@ casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char 
 
 	*statementPtr = NULL;
 
-	CassStatement *statement = cass_statement_new(cass_string_init(query), objc / 2);
+	CassStatement *statement = cass_statement_new(cass_string_init(query), objc);
 
 	for (i = 0; i < objc; i ++) {
 		int varNameSize = 0;
