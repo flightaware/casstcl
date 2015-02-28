@@ -37,6 +37,7 @@ casstcl_cassObjectDelete (ClientData clientData)
 	cass_ssl_free (ct->ssl);
     cass_cluster_free (ct->cluster);
     cass_session_free (ct->session);
+	Tcl_DeleteHashTable (ct->validatorTypeHash);
 
     ckfree((char *)clientData);
 }
@@ -2088,6 +2089,54 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
 /*
  *----------------------------------------------------------------------
  *
+ * casstcl_type_index_name_to_cass_value_types --
+ *
+ *   Look up the validator in the column type map and decode it into
+ *   three CassValueType entries, with extremely fast caching
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_type_index_name_to_cass_value_types (casstcl_sessionClientData *ct, char *typeIndexName, CassValueType *valueType, CassValueType *valueSubType1, CassValueType *valueSubType2) {
+	Tcl_HashEntry *hashEntry = Tcl_FindHashEntry (ct->validatorTypeHash, typeIndexName);
+	Tcl_Interp *interp = ct->interp;
+
+	if (hashEntry != NULL) {
+		casstcl_validatorHashInfo *hashInfo = (casstcl_validatorHashInfo *)Tcl_GetHashValue (hashEntry);
+		*valueType = hashInfo->cassValueType;
+		*valueSubType1 = hashInfo->valueSubType1;
+		*valueSubType2 = hashInfo->valueSubType2;
+		return TCL_OK;
+	}
+
+	Tcl_Obj *typeObj = Tcl_GetVar2Ex (interp, "::casstcl::columnTypeMap", typeIndexName, (TCL_GLOBAL_ONLY|TCL_LEAVE_ERR_MSG));
+
+	if (typeObj == NULL) {
+		Tcl_AppendResult (interp, " while trying to look up the data type for type index '", typeIndexName, "'", NULL);
+		return TCL_ERROR;
+	}
+
+	int tclReturn = casstcl_obj_to_compound_cass_value_types (ct, typeObj, valueType, valueSubType1, valueSubType2);
+
+	if (tclReturn == TCL_OK) {
+		// stuff the value types into the hash cache
+		casstcl_validatorHashInfo *hashInfo = (casstcl_validatorHashInfo *)ckalloc(sizeof (casstcl_validatorHashInfo));
+		hashInfo->cassValueType = *valueType;
+		hashInfo->valueSubType1 = *valueSubType1;
+		hashInfo->valueSubType2 = *valueSubType2;
+
+		Tcl_CreateHashEntry (ct->validatorTypeHash, typeIndexName, (ClientData) hashInfo);
+	}
+
+	return tclReturn;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
  * casstcl_bind_names_from_array --
  *
  *   Now this little ditty takes an array name and a query and an objv
@@ -4119,6 +4168,7 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
 			ct->session = cass_session_new ();
 			ct->cluster = cass_cluster_new ();
 			ct->ssl = cass_ssl_new ();
+			Tcl_InitHashTable (ct->validatorTypeHash, TCL_STRING_KEYS);
 
 			ct->threadId = Tcl_GetCurrentThread();
 
