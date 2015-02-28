@@ -731,7 +731,10 @@ casstcl_obj_to_compound_cass_value_types (casstcl_sessionClientData *ct, Tcl_Obj
 	Tcl_Obj **listObjv;
 	Tcl_Interp *interp = ct->interp;
 
+printf("casstcl_obj_to_compound_cass_value_types called with '%s'", Tcl_GetString(tclObj));
+
 	if (casstcl_obj_to_cass_value_type (ct, tclObj, cassValueType) == TCL_OK) {
+printf("obj '%s' mapped to value type %d\n", Tcl_GetString(tclObj), cassValueType);
 		return TCL_OK;
 	}
 
@@ -740,6 +743,13 @@ casstcl_obj_to_compound_cass_value_types (casstcl_sessionClientData *ct, Tcl_Obj
 
 	if (Tcl_ListObjGetElements (interp, tclObj, &listObjc, &listObjv) == TCL_ERROR) {
 		Tcl_AppendResult (interp, " while parsing cassandra data type", NULL);
+		return TCL_ERROR;
+	}
+
+	// the list parsed, now look up the first element, if we don't find it
+	// in the type list, we have a bad tyupe
+	if (casstcl_obj_to_cass_value_type (ct, listObjv[0], cassValueType) == TCL_ERROR) {
+		Tcl_AppendResult (interp, " while parsing cassandra data type '", Tcl_GetString (listObjv[0]), "'", NULL);
 		return TCL_ERROR;
 	}
 
@@ -1083,7 +1093,7 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 				}
 
 				elementObj = Tcl_GetObjResult (ct->interp);
-				Tcl_ResetResult (interp);
+				// Tcl_ResetResult (interp);
 			}
 
 			// we got here, either we found elementObj by looking it up
@@ -1099,6 +1109,11 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 	cass_iterator_free(iterator);
 	cass_schema_free(schema);
 	*objPtr = listObj;
+
+	if (tclReturn == TCL_OK) {
+		Tcl_ResetResult (interp);
+	}
+
 	return tclReturn;
 }
 
@@ -1917,9 +1932,9 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
 	int tclReturn = TCL_OK;
 	Tcl_Interp *interp = ct->interp;
 
-	CassValueType valueType;
-	CassValueType valueSubType1;
-	CassValueType valueSubType2;
+	CassValueType valueType = CASS_VALUE_TYPE_UNKNOWN;
+	CassValueType valueSubType1 = CASS_VALUE_TYPE_UNKNOWN;
+	CassValueType valueSubType2 = CASS_VALUE_TYPE_UNKNOWN;
 
 	*statementPtr = NULL;
 
@@ -1932,6 +1947,7 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
 
 	for (i = 0; i < objc; i += 2) {
 		tclReturn = casstcl_obj_to_compound_cass_value_types (ct, objv[i+1], &valueType, &valueSubType1, &valueSubType2);
+printf("casstcl_bind_values_and_types called casstcl_obj_to_compound_cass_value_types with arg '%s' and got back %d %d %d\n", Tcl_GetString (objv[i+1]), valueType, valueSubType1, valueSubType2);
 
 		if (tclReturn == TCL_ERROR) {
 			masterReturn = TCL_ERROR;
