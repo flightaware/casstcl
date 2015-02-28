@@ -11,6 +11,7 @@ namespace eval ::casstcl {
 	variable schemaDownloaded 0
 	variable simpleValidatorToType
 	variable validatorTypeLookupCache
+	variable columnTypeMap
 
 	array set simpleValidatorToType {"org.apache.cassandra.db.marshal.AsciiType" ascii "org.apache.cassandra.db.marshal.LongType" bigint "org.apache.cassandra.db.marshal.BytesType" blob "org.apache.cassandra.db.marshal.BooleanType" boolean "org.apache.cassandra.db.marshal.CounterColumnType" counter "org.apache.cassandra.db.marshal.DecimalType" decimal "org.apache.cassandra.db.marshal.DoubleType" double "org.apache.cassandra.db.marshal.FloatType" float "org.apache.cassandra.db.marshal.InetAddressType" inet "org.apache.cassandra.db.marshal.Int32Type" int "org.apache.cassandra.db.marshal.UTF8Type" text "org.apache.cassandra.db.marshal.TimestampType" timestamp "org.apache.cassandra.db.marshal.DateType" timestamp "org.apache.cassandra.db.marshal.UUIDType" uuid "org.apache.cassandra.db.marshal.IntegerType" int "org.apache.cassandra.db.marshal.TimeUUIDType" timeuuid "org.apache.cassandra.db.marshal.ListType" list "org.apache.cassandra.db.marshal.MapType" map "org.apache.cassandra.db.marshal.SetType" set "org.apache.cassandra.db.marshal.CompositeType" composite}
 
@@ -70,13 +71,16 @@ proc validator_to_type {validator} {
 	}
 }
 
-proc import {obj} {
-	namespace eval ::casstcl::keyspaces
+proc import_column_type_map {obj} {
+	variable columnTypeMap
+
+	unset -nocomplain columnTypeMap
 
 	foreach keyspace [$obj list_keyspaces] {
-		namespace eval ::casstcl::keyspaces::$keyspace
 		foreach table [$obj list_tables $keyspace] {
-			array set ::casstcl::keyspaces::${keyspace}::${table} [$obj list_column_types]
+			foreach "column type" [$obj list_column_types] {
+				set columnTypeMap($keyspace.$table.$column) $type
+			}
 		}
 	}
 }

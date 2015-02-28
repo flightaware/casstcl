@@ -910,6 +910,199 @@ casstcl_obj_to_cass_consistency(casstcl_sessionClientData *ct, Tcl_Obj *tclObj, 
 }
 
 /*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_list_keyspaces --
+ *
+ *      Return a list of the extant keyspaces in the cluster by
+ *      examining the metadata managed by the driver.
+ *
+ *      The cpp-driver docs indicate that the driver stays abreast with
+ *      changes to the schema so we prefer to ask it rather than
+ *      caching our own copy, or something.
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_list_keyspaces (casstcl_sessionClientData *ct, Tcl_Obj **objPtr) {
+	const CassSchema *schema = cass_session_get_schema(ct->session);
+	CassIterator *iterator = cass_iterator_from_schema(schema);
+	Tcl_Obj *listObj = Tcl_NewObj();
+	int tclReturn = TCL_OK;
+
+	while (cass_iterator_next(iterator)) {
+		CassString name;
+		const CassSchemaMeta *schemaMeta = cass_iterator_get_schema_meta (iterator);
+
+		const CassSchemaMetaField* field = cass_schema_meta_get_field(schemaMeta, "keyspace_name");
+		cass_value_get_string(cass_schema_meta_field_value(field), &name);
+		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
+			tclReturn = TCL_ERROR;
+			break;
+		}
+	}
+	cass_iterator_free(iterator);
+	cass_schema_free(schema);
+	*objPtr = listObj;
+	return tclReturn;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_list_tables --
+ *
+ *      Set the Tcl result to a list of the extant tables in a keyspace by
+ *      examining the metadata managed by the driver.
+ *
+ *      This is cool because the driver will update the metadata if the
+ *      schema changes during the session and further examinations of the
+ *      metadata by the casstcl metadata-accessing functions will see the
+ *      changes
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **objPtr) {
+	const CassSchema *schema = cass_session_get_schema(ct->session);
+	const CassSchemaMeta *keyspaceMeta = cass_schema_get_keyspace (schema, keyspace);
+
+	if (keyspaceMeta == NULL) {
+		Tcl_AppendResult (ct->interp, "keyspace '", keyspace, "' not found", NULL);
+		return TCL_ERROR;
+	}
+
+	CassIterator *iterator = cass_iterator_from_schema_meta (keyspaceMeta);
+	Tcl_Obj *listObj = Tcl_NewObj();
+	int tclReturn = TCL_OK;
+
+	while (cass_iterator_next(iterator)) {
+		CassString name;
+		const CassSchemaMeta *tableMeta = cass_iterator_get_schema_meta (iterator);
+
+		const CassSchemaMetaField* field = cass_schema_meta_get_field(tableMeta, "columnfamily_name");
+		cass_value_get_string(cass_schema_meta_field_value(field), &name);
+		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
+			tclReturn = TCL_ERROR;
+			break;
+		}
+	}
+	cass_iterator_free(iterator);
+	cass_schema_free(schema);
+	*objPtr = listObj;
+	return tclReturn;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_list_columns --
+ *
+ *      Set a Tcl object pointer to a list of the extant columns in the
+ *      specified table in the specified keyspace by examining the
+ *      metadata managed by the driver.
+ *
+ *      If includeTypes is 1 then instead of listing just the columns it
+ *      also lists their data types, as a list of key-value pairs.
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table, int includeTypes, Tcl_Obj **objPtr) {
+	const CassSchema *schema = cass_session_get_schema(ct->session);
+
+	// locate the keyspace
+	const CassSchemaMeta *keyspaceMeta = cass_schema_get_keyspace (schema, keyspace);
+	Tcl_Interp *interp = ct->interp;
+
+	if (keyspaceMeta == NULL) {
+		Tcl_AppendResult (ct->interp, "keyspace '", keyspace, "' not found", NULL);
+		return TCL_ERROR;
+	}
+
+	// locate the table within the keyspace
+	const CassSchemaMeta *tableMeta = cass_schema_meta_get_entry (keyspaceMeta, table);
+
+	if (tableMeta == NULL) {
+		Tcl_AppendResult (ct->interp, "table '", table, "' not found in keyspace '", keyspace, "'", NULL);
+	}
+
+	// prepare to iterate on the columns within the table
+	CassIterator *iterator = cass_iterator_from_schema_meta (tableMeta);
+	Tcl_Obj *listObj = Tcl_NewObj();
+	int tclReturn = TCL_OK;
+
+	// iterate on the columns within the table
+	while (cass_iterator_next(iterator)) {
+		CassString name;
+		const CassSchemaMeta *columnMeta = cass_iterator_get_schema_meta (iterator);
+
+		// get the field name and append it to the list we are creating
+		const CassSchemaMetaField* field = cass_schema_meta_get_field(columnMeta, "column_name");
+		cass_value_get_string(cass_schema_meta_field_value(field), &name);
+		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
+			tclReturn = TCL_ERROR;
+			break;
+		}
+
+		// if including types then get the data type and append it to the
+		// list too
+		if (includeTypes) {
+			CassString name;
+			const CassSchemaMetaField* field = cass_schema_meta_get_field (columnMeta, "validator");
+
+			cass_value_get_string(cass_schema_meta_field_value(field), &name);
+
+			// check the cache array directly from C to avoid calling
+			// Tcl_Eval if possible
+			Tcl_Obj *elementObj = Tcl_GetVar2Ex (interp, "::casstcl::validatorTypeLookupCache", name.data, (TCL_GLOBAL_ONLY));
+
+			// not there, gotta call Tcl to do the heavy lifting
+			if (elementObj == NULL) {
+				Tcl_Obj *evalObjv[2];
+				// construct a call to our casstcl.tcl library function
+				// validator_to_type to translate the value to a cassandra
+				// data type to text/list
+				evalObjv[0] = Tcl_NewStringObj ("::casstcl::validator_to_type", -1);
+
+				evalObjv[1] = Tcl_NewStringObj (name.data, name.length);
+
+				tclReturn = Tcl_EvalObjv (ct->interp, 2, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
+
+				if (tclReturn == TCL_ERROR) {
+					break;
+				}
+
+				elementObj = Tcl_GetObjResult (ct->interp);
+				Tcl_ResetResult (interp);
+			}
+
+			// we got here, either we found elementObj by looking it up
+			// from the ::casstcl::validatorTypeLookCache array or
+			// by invoking eval on ::casstcl::validator_to_type
+
+			if (Tcl_ListObjAppendElement (ct->interp, listObj, elementObj) == TCL_ERROR) {
+				tclReturn = TCL_ERROR;
+				break;
+			}
+		}
+	}
+	cass_iterator_free(iterator);
+	cass_schema_free(schema);
+	*objPtr = listObj;
+	return tclReturn;
+}
+
+/*
  *--------------------------------------------------------------
  *
  * casstcl_obj_to_cass_batch_type -- lookup a string in a Tcl object
@@ -1689,199 +1882,6 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 /*
  *----------------------------------------------------------------------
  *
- * casstcl_list_keyspaces --
- *
- *      Return a list of the extant keyspaces in the cluster by
- *      examining the metadata managed by the driver.
- *
- *      The cpp-driver docs indicate that the driver stays abreast with
- *      changes to the schema so we prefer to ask it rather than
- *      caching our own copy, or something.
- *
- * Results:
- *      A standard Tcl result.
- *
- *----------------------------------------------------------------------
- */
-int
-casstcl_list_keyspaces (casstcl_sessionClientData *ct, Tcl_Obj **objPtr) {
-	const CassSchema *schema = cass_session_get_schema(ct->session);
-	CassIterator *iterator = cass_iterator_from_schema(schema);
-	Tcl_Obj *listObj = Tcl_NewObj();
-	int tclReturn = TCL_OK;
-
-	while (cass_iterator_next(iterator)) {
-		CassString name;
-		const CassSchemaMeta *schemaMeta = cass_iterator_get_schema_meta (iterator);
-
-		const CassSchemaMetaField* field = cass_schema_meta_get_field(schemaMeta, "keyspace_name");
-		cass_value_get_string(cass_schema_meta_field_value(field), &name);
-		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
-			tclReturn = TCL_ERROR;
-			break;
-		}
-	}
-	cass_iterator_free(iterator);
-	cass_schema_free(schema);
-	*objPtr = listObj;
-	return tclReturn;
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * casstcl_list_tables --
- *
- *      Set the Tcl result to a list of the extant tables in a keyspace by
- *      examining the metadata managed by the driver.
- *
- *      This is cool because the driver will update the metadata if the
- *      schema changes during the session and further examinations of the
- *      metadata by the casstcl metadata-accessing functions will see the
- *      changes
- *
- * Results:
- *      A standard Tcl result.
- *
- *----------------------------------------------------------------------
- */
-int
-casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **objPtr) {
-	const CassSchema *schema = cass_session_get_schema(ct->session);
-	const CassSchemaMeta *keyspaceMeta = cass_schema_get_keyspace (schema, keyspace);
-
-	if (keyspaceMeta == NULL) {
-		Tcl_AppendResult (ct->interp, "keyspace '", keyspace, "' not found", NULL);
-		return TCL_ERROR;
-	}
-
-	CassIterator *iterator = cass_iterator_from_schema_meta (keyspaceMeta);
-	Tcl_Obj *listObj = Tcl_NewObj();
-	int tclReturn = TCL_OK;
-
-	while (cass_iterator_next(iterator)) {
-		CassString name;
-		const CassSchemaMeta *tableMeta = cass_iterator_get_schema_meta (iterator);
-
-		const CassSchemaMetaField* field = cass_schema_meta_get_field(tableMeta, "columnfamily_name");
-		cass_value_get_string(cass_schema_meta_field_value(field), &name);
-		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
-			tclReturn = TCL_ERROR;
-			break;
-		}
-	}
-	cass_iterator_free(iterator);
-	cass_schema_free(schema);
-	*objPtr = listObj;
-	return tclReturn;
-}
-
-/*
- *----------------------------------------------------------------------
- *
- * casstcl_list_columns --
- *
- *      Set a Tcl object pointer to a list of the extant columns in the
- *      specified table in the specified keyspace by examining the
- *      metadata managed by the driver.
- *
- *      If includeTypes is 1 then instead of listing just the columns it
- *      also lists their data types, as a list of key-value pairs.
- *
- * Results:
- *      A standard Tcl result.
- *
- *----------------------------------------------------------------------
- */
-int
-casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table, int includeTypes, Tcl_Obj **objPtr) {
-	const CassSchema *schema = cass_session_get_schema(ct->session);
-
-	// locate the keyspace
-	const CassSchemaMeta *keyspaceMeta = cass_schema_get_keyspace (schema, keyspace);
-	Tcl_Interp *interp = ct->interp;
-
-	if (keyspaceMeta == NULL) {
-		Tcl_AppendResult (ct->interp, "keyspace '", keyspace, "' not found", NULL);
-		return TCL_ERROR;
-	}
-
-	// locate the table within the keyspace
-	const CassSchemaMeta *tableMeta = cass_schema_meta_get_entry (keyspaceMeta, table);
-
-	if (tableMeta == NULL) {
-		Tcl_AppendResult (ct->interp, "table '", table, "' not found in keyspace '", keyspace, "'", NULL);
-	}
-
-	// prepare to iterate on the columns within the table
-	CassIterator *iterator = cass_iterator_from_schema_meta (tableMeta);
-	Tcl_Obj *listObj = Tcl_NewObj();
-	int tclReturn = TCL_OK;
-
-	// iterate on the columns within the table
-	while (cass_iterator_next(iterator)) {
-		CassString name;
-		const CassSchemaMeta *columnMeta = cass_iterator_get_schema_meta (iterator);
-
-		// get the field name and append it to the list we are creating
-		const CassSchemaMetaField* field = cass_schema_meta_get_field(columnMeta, "column_name");
-		cass_value_get_string(cass_schema_meta_field_value(field), &name);
-		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
-			tclReturn = TCL_ERROR;
-			break;
-		}
-
-		// if including types then get the data type and append it to the
-		// list too
-		if (includeTypes) {
-			CassString name;
-			const CassSchemaMetaField* field = cass_schema_meta_get_field (columnMeta, "validator");
-
-			cass_value_get_string(cass_schema_meta_field_value(field), &name);
-
-			// check the cache array directly from C to avoid calling
-			// Tcl_Eval if possible
-			Tcl_Obj *elementObj = Tcl_GetVar2Ex (interp, "::casstcl::validatorTypeLookupCache", name.data, (TCL_GLOBAL_ONLY));
-
-			// not there, gotta call Tcl to do the heavy lifting
-			if (elementObj == NULL) {
-				Tcl_Obj *evalObjv[2];
-				// construct a call to our casstcl.tcl library function
-				// validator_to_type to translate the value to a cassandra
-				// data type to text/list
-				evalObjv[0] = Tcl_NewStringObj ("::casstcl::validator_to_type", -1);
-
-				evalObjv[1] = Tcl_NewStringObj (name.data, name.length);
-
-				tclReturn = Tcl_EvalObjv (ct->interp, 2, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
-
-				if (tclReturn == TCL_ERROR) {
-					break;
-				}
-
-				elementObj = Tcl_GetObjResult (ct->interp);
-				Tcl_ResetResult (interp);
-			}
-
-			// we got here, either we found elementObj by looking it up
-			// from the ::casstcl::validatorTypeLookCache array or
-			// by invoking eval on ::casstcl::validator_to_type
-
-			if (Tcl_ListObjAppendElement (ct->interp, listObj, elementObj) == TCL_ERROR) {
-				tclReturn = TCL_ERROR;
-				break;
-			}
-		}
-	}
-	cass_iterator_free(iterator);
-	cass_schema_free(schema);
-	*objPtr = listObj;
-	return tclReturn;
-}
-
-/*
- *----------------------------------------------------------------------
- *
  * casstcl_bind_values_and_types --
  *
  *   Now this little ditty takes a query and an objv and a pointer to
@@ -1952,6 +1952,95 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
 
 	return masterReturn;
 }
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_bind_names_from_array --
+ *
+ *   Now this little ditty takes an array name and a query and an objv
+ *   and a pointer to a pointer to a cassandra statement
+ *
+ *   It creates a cassandra statement
+ *
+ *   It then iterates through the objv as a list of column names
+ *
+ *   It fetches the data type of the column from the column-datatype cache
+ *
+ *   It fetches the value from the array and converts it and binds it
+ *   to the statement
+ *
+ *   This requires that the table name and keyspace be known
+ *
+ *   If the data type is a list or set then the corresponding Tcl object
+ *   is converted to a list of that type.
+ *
+ *   If the data type is a map then the corresponding Tcl object is converted
+ *   to a map of alternating key-value pairs of the two specified types.
+ *
+ *   If the objv is empty the statement is created with nothing bound.
+ *   It's probably fine if that happens.
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char *query, char *tclArray, int objc, Tcl_Obj *CONST objv[], CassStatement **statementPtr)
+{
+	int i;
+	int masterReturn = TCL_OK;
+	int tclReturn = TCL_OK;
+	Tcl_Interp *interp = ct->interp;
+
+	CassValueType valueType;
+	CassValueType valueSubType1;
+	CassValueType valueSubType2;
+
+	*statementPtr = NULL;
+
+	CassStatement *statement = cass_statement_new(cass_string_init(query), objc / 2);
+
+	for (i = 0; i < objc; i ++) {
+		int varNameSize = 0;
+		char *varName = Tcl_GetStringFromObj (objv[i], &varNameSize);
+		int typeIndexSize = strlen (table) + 8 + varNameSize;
+		char *typeIndexName = ckalloc (typeIndexSize);
+
+		snprintf (typeIndexName, typeIndexSize, "%s.%s", table, varName);
+
+		// get the type
+		Tcl_Obj *typeObj = Tcl_GetVar2Ex (interp, "::casstcl::columnTypeMap", typeIndexName, (TCL_GLOBAL_ONLY|TCL_LEAVE_ERR_MSG));
+
+		if (typeObj == NULL) {
+			Tcl_AppendResult (interp, " while trying to look up the data type for column '", varName, "', ", table, "', ", table, "' in the type map", NULL);
+			masterReturn = TCL_ERROR;
+			break;
+		}
+
+		tclReturn = casstcl_obj_to_compound_cass_value_types (ct, typeObj, &valueType, &valueSubType1, &valueSubType2);
+
+		if (tclReturn == TCL_ERROR) {
+			masterReturn = TCL_ERROR;
+			break;
+		}
+
+		tclReturn = casstcl_bind_tcl_obj (ct, statement, i, valueType, valueSubType1, valueSubType2, objv[i]);
+
+		if (tclReturn == TCL_ERROR) {
+			masterReturn = TCL_ERROR;
+			break;
+		}
+	}
+
+	if (masterReturn == TCL_OK) {
+		*statementPtr = statement;
+	}
+
+	return masterReturn;
+}
+
 
 /*
  *----------------------------------------------------------------------
