@@ -809,8 +809,9 @@ int casstcl_cass_error_to_tcl (casstcl_sessionClientData *ct, CassError cassErro
 
 	const char *cassErrorCodeString = casstcl_cass_error_to_errorcode_string (cassError);
 	const char *cassErrorDesc = cass_error_desc (cassError);
+	Tcl_ResetResult (ct->interp);
 	Tcl_SetErrorCode (ct->interp, "CASSANDRA", cassErrorCodeString, cassErrorDesc, NULL);
-    Tcl_SetObjResult (ct->interp, Tcl_NewStringObj (cassErrorDesc, -1));
+	Tcl_AppendResult (ct->interp, "cassandra error: ", cassErrorDesc, NULL);
 	return TCL_ERROR;
 }
 
@@ -1235,17 +1236,17 @@ casstcl_batch_command_to_batchClientData (casstcl_sessionClientData *ct, char *b
 	Tcl_Interp *interp = ct->interp;
 	
 	if (!Tcl_GetCommandInfo (interp, batchCommandName, &batchCmdInfo)) {
-printf("batchCommandName lookup failed for '%s'\n", batchCommandName);
+//printf("batchCommandName lookup failed for '%s'\n", batchCommandName);
 		return NULL;
 	}
 
 	casstcl_batchClientData *bcd = (casstcl_batchClientData *)batchCmdInfo.objClientData;
     if (bcd->cass_batch_magic != CASS_BATCH_MAGIC) {
-printf("batch magic check failed\n");
+//printf("batch magic check failed\n");
 		return NULL;
 	}
 
-printf("batchCommandName lookup succeeded for '%s'\n", batchCommandName);
+//printf("batchCommandName lookup succeeded for '%s'\n", batchCommandName);
 	return bcd;
 }
 
@@ -2145,11 +2146,11 @@ casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *
 
 	*statementPtr = NULL;
 
-	CassStatement *statement = cass_statement_new(cass_string_init(query), objc);
+	CassStatement *statement = cass_statement_new(cass_string_init(query), objc / 2);
 
-printf("objc = %d\n", objc);
+//printf("objc = %d\n", objc);
 	for (i = 0; i < objc; i += 2) {
-printf("i = %d\n", i);
+//printf("i = %d\n", i);
 		int varNameSize = 0;
 		char *varName = Tcl_GetStringFromObj (objv[i], &varNameSize);
 
@@ -2158,14 +2159,14 @@ printf("i = %d\n", i);
 		char *typeIndexName = ckalloc (typeIndexSize);
 
 		snprintf (typeIndexName, typeIndexSize, "%s.%s", table, varName);
-printf ("typeIndexName '%s', typeIndexSize %d, table '%s', varName '%s'\n", typeIndexName, typeIndexSize, table, varName);
+//printf ("typeIndexName '%s', typeIndexSize %d, table '%s', varName '%s'\n", typeIndexName, typeIndexSize, table, varName);
 
 		// get the type
 		Tcl_Obj *typeObj = Tcl_GetVar2Ex (interp, "::casstcl::columnTypeMap", typeIndexName, (TCL_GLOBAL_ONLY|TCL_LEAVE_ERR_MSG));
 
 		if (typeObj == NULL) {
 #if 0
-printf ("error from getvar2 '%s' not found\n", typeIndexName);
+//printf ("error from getvar2 '%s' not found\n", typeIndexName);
 			Tcl_AppendResult (interp, " while trying to look up the data type for column '", varName, "' table '", table, "' in the type map (", typeIndexName, ")", NULL);
 			masterReturn = TCL_ERROR;
 			break;
@@ -2174,11 +2175,11 @@ printf ("error from getvar2 '%s' not found\n", typeIndexName);
 #endif
 		}
 
-printf ("looking up type '%s'\n", Tcl_GetString (typeObj));
+//printf ("looking up type '%s'\n", Tcl_GetString (typeObj));
 		tclReturn = casstcl_obj_to_compound_cass_value_types (ct, typeObj, &valueType, &valueSubType1, &valueSubType2);
 
 		if (tclReturn == TCL_ERROR) {
-printf ("error from casstcl_obj_to_compound_cass_value_types\n");
+//printf ("error from casstcl_obj_to_compound_cass_value_types\n");
 			masterReturn = TCL_ERROR;
 			break;
 		}
@@ -2188,22 +2189,22 @@ printf ("error from casstcl_obj_to_compound_cass_value_types\n");
 
 
 		tclReturn = casstcl_bind_tcl_obj (ct, statement, i / 2, valueType, valueSubType1, valueSubType2, valueObj);
-printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
+//printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
 		if (tclReturn == TCL_ERROR) {
-printf ("error from casstcl_bind_tcl_obj\n");
+//printf ("error from casstcl_bind_tcl_obj\n");
 			Tcl_AppendResult (interp, " while attempting to bind field '", varName, "' referencing table '", table, "'", NULL);
 			masterReturn = TCL_ERROR;
 			break;
 		}
 	}
 
-printf("finished the loop, i = %d, objc = %d\n", i, objc);
+//printf("finished the loop, i = %d, objc = %d\n", i, objc);
 	if (masterReturn == TCL_OK) {
-printf("theoretically got a good statement\n");
+//printf("theoretically got a good statement\n");
 		*statementPtr = statement;
 	}
 
-printf("return code is %d\n", masterReturn);
+//printf("return code is %d\n", masterReturn);
 	return masterReturn;
 }
 
@@ -2290,10 +2291,10 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 
 	char *query = Tcl_DStringValue (&ds);
 
-printf("casstcl_make_upsert_statement: query: %s\n", query);
+//printf("casstcl_make_upsert_statement: query: %s\n", query);
 	int tclReturn = casstcl_bind_names_from_list (ct, tableName, query, listObjc, listObjv, statementPtr);
 	Tcl_DStringFree (&ds);
-printf("casstcl_make_upsert_statement: freed the dstring, returning %d\n", tclReturn);
+//printf("casstcl_make_upsert_statement: freed the dstring, returning %d\n", tclReturn);
 	return tclReturn;
 }
 
@@ -2837,11 +2838,11 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 			
 			resultCode = casstcl_make_upsert_statement (bcd->ct, tableName, listObj, &statement);
 			if (resultCode != TCL_ERROR) {
-printf("calling cass_batch_add_statement\n");
+//printf("calling cass_batch_add_statement\n");
 				CassError cassError;
 				cassError = cass_batch_add_statement (bcd->batch, statement);
 				cass_statement_free (statement);
-printf("returned from cass_batch_add_statement, cassError %d\n", cassError);
+//printf("returned from cass_batch_add_statement, cassError %d\n", cassError);
 
 				if (cassError != CASS_OK) {
 					return casstcl_cass_error_to_tcl (bcd->ct, cassError);
@@ -3377,9 +3378,9 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				}
 				const CassBatch *batch = bcd->batch;
 
-printf("executing batch %lx\n", batch);
+//printf("executing batch %lx\n", batch);
 				future = cass_session_execute_batch (ct->session, batch);
-printf("returned from executing batch\n");
+//printf("returned from executing batch\n");
 
 			} else {
 				// it's a statement, possibly with arguments
