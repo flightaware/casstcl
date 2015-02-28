@@ -65,15 +65,21 @@ Methods of cassandra cluster interface object
     set ::cassdb [::cassandra::connect args]
 ```
 
-* **$cassdb exec $statement**
+* *$cassdb* **exec** *$statement**
 
 Perform the requested CQL statement.  Waits for it to complete. Either it works or you get a Tcl error.
 
-* **$cassdb async** *?-callback callbackRoutine?* **$statement**
+* *$cassdb* **async** *?-callback callbackRoutine?* *?-table tableName?* *?-array arrayName?* *?-batch batchObjectName?* *?$statement?* *?arg...?*
 
 Perform the requested CQL statement.  Does not wait.  Creates a result object called a *future* object that you can use the methods of to find out the status of your statement and iterate over select results. Allows for considerable performance gains over exec at the cost of greater code complexity.
 
 If the **-callback** argument is specified then the next argument is a callback routine that will be invoked when the Cassandra request has completed or errored or whatnot.  The callback routine will be invoked with a single argument, which is the name of the future object created (such as *::future17*) when the request was made.
+
+If -batch is specified the argument is a batch object and that is used as the source.
+
+If *-table* is specified it is the fully qualified name of a table and *-array* is also required, and vice versa.  These specify the affected table name and an array that the data elements will come from.  Args are zero or more arguments which are element names for the array and also legal column names for the table.  This technology will infer the data types and handle them behind your back as long as import_column_type_map has been run on the connection.
+
+If neither *-table*, *-array* or *-batch* has been specified, the arguments to the right of the statement need to be alternating between data and data type, like *14 int 3.7 float*.  This is the simplest for casstcl but requires the code to be more intimate with the data types than it otherwise would be.  If you use this style and you change a data type in the schema you also have to change it in the code.  So we don't like it.
 
 See also the future object.
 
@@ -225,9 +231,19 @@ Both styles work.
 
 Adds the specified statement to the batch.
 
-* *$batch* **consistency** *$consistencyLevel*
+* *$batch* **consistency** *?$consistencyLevel?*
 
 Sets the batch write consistency level to the specified level.  Consistency must be **any**, **one**, **two**, **three**, **quorum**, **all**, **local_quorum**, **each_quorum**, **serial**, **local_serial**, or **local_one**.
+
+* *$batch* **upsert** *$table* *$list*
+
+Generate in upsert into the batch.  List contains key value pairs where keys should be columns that exist in the fully qualified table.
+
+A typical usage would be:
+
+```tcl
+$batch upsert wx.wx_metar [array get row]
+```
 
 * *$batch* **reset**
 
