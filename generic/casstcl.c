@@ -1214,6 +1214,25 @@ const char *casstcl_batch_type_to_batch_type_string (CassBatchType cassBatchType
 	}
 }
 
+
+casstcl_batchClientData *
+casstcl_batch_command_to_batchClientData (casstcl_sessionClientData *ct, char *batchCommandName)
+{
+	Tcl_CmdInfo batchCmdInfo;
+	Tcl_Interp *interp = ct->interp;
+	
+	if (Tcl_GetCommandInfo (interp, batchCommandName, &batchCmdInfo) == TCL_ERROR) {
+		return NULL;
+	}
+
+	casstcl_batchClientData *bcd = (casstcl_batchClientData *)batchCmdInfo.objClientData;
+    if (bcd->cass_batch_magic != CASS_BATCH_MAGIC) {
+		return NULL;
+	}
+
+	return bcd;
+}
+
 /*
  *----------------------------------------------------------------------
  *
@@ -2059,7 +2078,7 @@ casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char 
 		}
 
 		tclReturn = casstcl_bind_tcl_obj (ct, statement, i, valueType, valueSubType1, valueSubType2, valueObj);
-printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
+// printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
 		if (tclReturn == TCL_ERROR) {
 			masterReturn = TCL_ERROR;
 			break;
@@ -2155,7 +2174,6 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 				}
 
 				arrayName = Tcl_GetString (objv[arg++]);
-printf ("array name is '%s'\n", arrayName);
 				arrayStyle = 1;
 				break;
 			}
@@ -2172,7 +2190,7 @@ printf ("array name is '%s'\n", arrayName);
 		}
 	}
 
-printf ("looking for query, arg %d, objc %d\n", arg, objc);
+//printf ("looking for query, arg %d, objc %d\n", arg, objc);
 
 	// there must at least be a query string left
 	if (arg >= objc) {
@@ -3068,19 +3086,22 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			int arg = 2;
 			int      subOptIndex;
 			Tcl_Obj *callbackObj = NULL;
+			char *batchObjName = NULL;
 
 			static CONST char *subOptions[] = {
 				"-callback",
+				"-batch",
 				NULL
 			};
 
 			enum subOptions {
-				SUBOPT_CALLBACK
+				SUBOPT_CALLBACK,
+				SUBOPT_BATCH
 			};
 
 			// if we don't have at least three arguments, it's an error
 			if (objc < 3) {
-				Tcl_WrongNumArgs (interp, 2, objv, "?-callback n? ?-array array? ?-table table? statement ?args?");
+				Tcl_WrongNumArgs (interp, 2, objv, "?-callback n? ?-batch batchObject? ?-array array? ?-table table? statement ?args?");
 				return TCL_ERROR;
 			}
 
@@ -3094,14 +3115,39 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 						callbackObj = objv[arg++];
 						break;
 					}
+
+					case SUBOPT_BATCH: {
+						batchObjName = Tcl_GetString (objv[arg++]);
+						break;
+					}
 				}
 			}
 
-			if (casstcl_make_statement_from_objv (ct, objc - arg, &objv[arg], &statement) == TCL_ERROR) {
-				return TCL_ERROR;
-			}
+			if (batchObjName != NULL) {
+				if (arg != objc) {
+					Tcl_AppendResult (interp, "batch usage: obj ?-callback? -batch batchName", NULL);
+					return TCL_ERROR;
+				}
 
-			future = cass_session_execute (ct->session, statement);
+				// get the batch object from the command name we extracted
+				casstcl_batchClientData *bcd = casstcl_batch_command_to_batchClientData (ct, batchObjName);
+				if (bcd == NULL) {
+					Tcl_AppendResult (interp, "batch object '", batchObjName, "' doesn't exist or isn't a batch object", NULL);
+					return TCL_ERROR;
+				}
+				const CassBatch *batch = bcd->batch;
+
+				future = cass_session_execute_batch (ct->session, batch);
+
+			} else {
+				// it's a statement, possibly with arguments
+
+				if (casstcl_make_statement_from_objv (ct, objc - arg, &objv[arg], &statement) == TCL_ERROR) {
+					return TCL_ERROR;
+				}
+
+				future = cass_session_execute (ct->session, statement);
+			}
 
 			if (casstcl_createFutureObjectCommand (ct, future, callbackObj) == TCL_ERROR) {
 				resultCode = TCL_ERROR;
