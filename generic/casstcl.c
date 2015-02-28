@@ -2167,9 +2167,9 @@ printf ("error from casstcl_obj_to_compound_cass_value_types\n");
 
 
 		tclReturn = casstcl_bind_tcl_obj (ct, statement, i / 2, valueType, valueSubType1, valueSubType2, valueObj);
-printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
+// printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
 		if (tclReturn == TCL_ERROR) {
-printf ("error from casstcl_bind_tcl_obj\n");
+			Tcl_AppendResult (interp, " while attempting to bind field '", varName, "' referencing table '", table, "'", NULL);
 			masterReturn = TCL_ERROR;
 			break;
 		}
@@ -2810,11 +2810,14 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 
 			
 			resultCode = casstcl_make_upsert_statement (bcd->ct, tableName, listObj, &statement);
-			CassError cassError = cass_batch_add_statement (bcd->batch, statement);
-			cass_statement_free (statement);
+			if (resultCode != TCL_ERROR) {
+				CassError cassError;
+				cassError = cass_batch_add_statement (bcd->batch, statement);
+				cass_statement_free (statement);
 
-			if (cassError != CASS_OK) {
-				return casstcl_cass_error_to_tcl (bcd->ct, cassError);
+				if (cassError != CASS_OK) {
+					return casstcl_cass_error_to_tcl (bcd->ct, cassError);
+				}
 			}
 
 			break;
