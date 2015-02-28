@@ -808,7 +808,7 @@ int casstcl_cass_error_to_tcl (casstcl_sessionClientData *ct, CassError cassErro
 
 	const char *cassErrorCodeString = casstcl_cass_error_to_errorcode_string (cassError);
 	const char *cassErrorDesc = cass_error_desc (cassError);
-	Tcl_SetErrorCode (ct->interp, "CASSANDRA", cassErrorCodeString, cassErrorDesc);
+	Tcl_SetErrorCode (ct->interp, "CASSANDRA", cassErrorCodeString, cassErrorDesc, NULL);
     Tcl_SetObjResult (ct->interp, Tcl_NewStringObj (cassErrorDesc, -1));
 	return TCL_ERROR;
 }
