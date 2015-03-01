@@ -37,6 +37,14 @@ casstcl_cassObjectDelete (ClientData clientData)
 	cass_ssl_free (ct->ssl);
     cass_cluster_free (ct->cluster);
     cass_session_free (ct->session);
+
+	Tcl_HashSearch hashSearch;
+	Tcl_HashEntry *hashEntry;
+
+	// free the casstcl_validatorHashInfo structures we allocated, if any
+	for (hashEntry = Tcl_FirstHashEntry (ct->validatorTypeHash, &hashSearch); hashEntry != NULL; hashEntry = Tcl_NextHashEntry (&hashSearch)) {
+		ckfree (Tcl_GetHashValue (hashEntry));
+	}
 	Tcl_DeleteHashTable (ct->validatorTypeHash);
 
     ckfree((char *)clientData);
