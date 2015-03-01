@@ -36,7 +36,7 @@ typedef struct casstcl_sessionClientData
     Tcl_Command cmdToken;
 	Tcl_ThreadId threadId;
 	Tcl_Obj *loggingCallbackObj;
-	Tcl_HashTable *validatorTypeHash;
+	Tcl_HashTable validatorTypeHash;
 } casstcl_sessionClientData;
 
 typedef struct casstcl_futureClientData

@@ -42,10 +42,10 @@ casstcl_cassObjectDelete (ClientData clientData)
 	Tcl_HashEntry *hashEntry;
 
 	// free the casstcl_validatorHashInfo structures we allocated, if any
-	for (hashEntry = Tcl_FirstHashEntry (ct->validatorTypeHash, &hashSearch); hashEntry != NULL; hashEntry = Tcl_NextHashEntry (&hashSearch)) {
+	for (hashEntry = Tcl_FirstHashEntry (&ct->validatorTypeHash, &hashSearch); hashEntry != NULL; hashEntry = Tcl_NextHashEntry (&hashSearch)) {
 		ckfree (Tcl_GetHashValue (hashEntry));
 	}
-	Tcl_DeleteHashTable (ct->validatorTypeHash);
+	Tcl_DeleteHashTable (&ct->validatorTypeHash);
 
     ckfree((char *)clientData);
 }
@@ -2109,7 +2109,7 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
  */
 int
 casstcl_type_index_name_to_cass_value_types (casstcl_sessionClientData *ct, char *typeIndexName, CassValueType *valueType, CassValueType *valueSubType1, CassValueType *valueSubType2) {
-	Tcl_HashEntry *hashEntry = Tcl_FindHashEntry (ct->validatorTypeHash, typeIndexName);
+	Tcl_HashEntry *hashEntry = Tcl_FindHashEntry (&ct->validatorTypeHash, typeIndexName);
 	Tcl_Interp *interp = ct->interp;
 
 	if (hashEntry != NULL) {
@@ -2123,20 +2123,26 @@ casstcl_type_index_name_to_cass_value_types (casstcl_sessionClientData *ct, char
 	Tcl_Obj *typeObj = Tcl_GetVar2Ex (interp, "::casstcl::columnTypeMap", typeIndexName, (TCL_GLOBAL_ONLY|TCL_LEAVE_ERR_MSG));
 
 	if (typeObj == NULL) {
+#if 0
 		Tcl_AppendResult (interp, " while trying to look up the data type for type index '", typeIndexName, "'", NULL);
 		return TCL_ERROR;
+#else
+		return TCL_CONTINUE;
+#endif
 	}
 
 	int tclReturn = casstcl_obj_to_compound_cass_value_types (ct, typeObj, valueType, valueSubType1, valueSubType2);
 
 	if (tclReturn == TCL_OK) {
+		int new = 0;
 		// stuff the value types into the hash cache
 		casstcl_validatorHashInfo *hashInfo = (casstcl_validatorHashInfo *)ckalloc(sizeof (casstcl_validatorHashInfo));
 		hashInfo->cassValueType = *valueType;
 		hashInfo->valueSubType1 = *valueSubType1;
 		hashInfo->valueSubType2 = *valueSubType2;
 
-		Tcl_CreateHashEntry (ct->validatorTypeHash, typeIndexName, (ClientData) hashInfo);
+		hashEntry = Tcl_CreateHashEntry (&ct->validatorTypeHash, typeIndexName, &new);
+		Tcl_SetHashValue (hashEntry, hashInfo);
 	}
 
 	return tclReturn;
@@ -2199,20 +2205,19 @@ casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char 
 
 		snprintf (typeIndexName, typeIndexSize, "%s.%s", table, varName);
 
-		// get the type
-		Tcl_Obj *typeObj = Tcl_GetVar2Ex (interp, "::casstcl::columnTypeMap", typeIndexName, (TCL_GLOBAL_ONLY|TCL_LEAVE_ERR_MSG));
-
-		if (typeObj == NULL) {
-			Tcl_AppendResult (interp, " while trying to look up the data type for column '", varName, "', ", table, "', ", table, "' in the type map", NULL);
-			masterReturn = TCL_ERROR;
-			break;
-		}
-
-		tclReturn = casstcl_obj_to_compound_cass_value_types (ct, typeObj, &valueType, &valueSubType1, &valueSubType2);
+		tclReturn = casstcl_type_index_name_to_cass_value_types (ct, typeIndexName, &valueType, &valueSubType1, &valueSubType2);
 
 		if (tclReturn == TCL_ERROR) {
 			masterReturn = TCL_ERROR;
 			break;
+		}
+
+		// if the index name wasn't found in the row we get TCL_CONTINUE back.
+		// NB we can either treat it as an error or not
+		// NB eventually we can accumulate unrecognized types into a map
+		if (tclReturn == TCL_CONTINUE) {
+			tclReturn = TCL_OK;
+			continue;
 		}
 
 		// get the value out of the array
@@ -2286,27 +2291,18 @@ casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *
 		snprintf (typeIndexName, typeIndexSize, "%s.%s", table, varName);
 //printf ("typeIndexName '%s', typeIndexSize %d, table '%s', varName '%s'\n", typeIndexName, typeIndexSize, table, varName);
 
-		// get the type
-		Tcl_Obj *typeObj = Tcl_GetVar2Ex (interp, "::casstcl::columnTypeMap", typeIndexName, (TCL_GLOBAL_ONLY|TCL_LEAVE_ERR_MSG));
-
-		if (typeObj == NULL) {
-#if 0
-//printf ("error from getvar2 '%s' not found\n", typeIndexName);
-			Tcl_AppendResult (interp, " while trying to look up the data type for column '", varName, "' table '", table, "' in the type map (", typeIndexName, ")", NULL);
-			masterReturn = TCL_ERROR;
-			break;
-#else
-			continue;
-#endif
-		}
-
-//printf ("looking up type '%s'\n", Tcl_GetString (typeObj));
-		tclReturn = casstcl_obj_to_compound_cass_value_types (ct, typeObj, &valueType, &valueSubType1, &valueSubType2);
+		tclReturn = casstcl_type_index_name_to_cass_value_types (ct, typeIndexName, &valueType, &valueSubType1, &valueSubType2);
 
 		if (tclReturn == TCL_ERROR) {
 //printf ("error from casstcl_obj_to_compound_cass_value_types\n");
 			masterReturn = TCL_ERROR;
 			break;
+		}
+
+		// failed to find it?
+		if (tclReturn == TCL_CONTINUE) {
+			tclReturn = TCL_OK;
+			continue;
 		}
 
 		// get the value out of the list
@@ -4176,7 +4172,7 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
 			ct->session = cass_session_new ();
 			ct->cluster = cass_cluster_new ();
 			ct->ssl = cass_ssl_new ();
-			Tcl_InitHashTable (ct->validatorTypeHash, TCL_STRING_KEYS);
+			Tcl_InitHashTable (&ct->validatorTypeHash, TCL_STRING_KEYS);
 
 			ct->threadId = Tcl_GetCurrentThread();
 
