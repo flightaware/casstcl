@@ -41,11 +41,11 @@ casstcl_cassObjectDelete (ClientData clientData)
 	Tcl_HashSearch hashSearch;
 	Tcl_HashEntry *hashEntry;
 
-	// free the casstcl_validatorHashInfo structures we allocated, if any
-	for (hashEntry = Tcl_FirstHashEntry (&ct->validatorTypeHash, &hashSearch); hashEntry != NULL; hashEntry = Tcl_NextHashEntry (&hashSearch)) {
+	// free the casstcl_cassTypeInfo structures we allocated, if any
+	for (hashEntry = Tcl_FirstHashEntry (&ct->cassTypeHash, &hashSearch); hashEntry != NULL; hashEntry = Tcl_NextHashEntry (&hashSearch)) {
 		ckfree (Tcl_GetHashValue (hashEntry));
 	}
-	Tcl_DeleteHashTable (&ct->validatorTypeHash);
+	Tcl_DeleteHashTable (&ct->cassTypeHash);
 
     ckfree((char *)clientData);
 }
@@ -2205,11 +2205,11 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
  */
 int
 casstcl_type_index_name_to_cass_value_types (casstcl_sessionClientData *ct, char *typeIndexName, CassValueType *valueType, CassValueType *valueSubType1, CassValueType *valueSubType2) {
-	Tcl_HashEntry *hashEntry = Tcl_FindHashEntry (&ct->validatorTypeHash, typeIndexName);
+	Tcl_HashEntry *hashEntry = Tcl_FindHashEntry (&ct->cassTypeHash, typeIndexName);
 	Tcl_Interp *interp = ct->interp;
 
 	if (hashEntry != NULL) {
-		casstcl_validatorHashInfo *hashInfo = (casstcl_validatorHashInfo *)Tcl_GetHashValue (hashEntry);
+		casstcl_cassTypeInfo *hashInfo = (casstcl_cassTypeInfo *)Tcl_GetHashValue (hashEntry);
 		*valueType = hashInfo->cassValueType;
 		*valueSubType1 = hashInfo->valueSubType1;
 		*valueSubType2 = hashInfo->valueSubType2;
@@ -2232,12 +2232,12 @@ casstcl_type_index_name_to_cass_value_types (casstcl_sessionClientData *ct, char
 	if (tclReturn == TCL_OK) {
 		int new = 0;
 		// stuff the value types into the hash cache
-		casstcl_validatorHashInfo *hashInfo = (casstcl_validatorHashInfo *)ckalloc(sizeof (casstcl_validatorHashInfo));
+		casstcl_cassTypeInfo *hashInfo = (casstcl_cassTypeInfo *)ckalloc(sizeof (casstcl_cassTypeInfo));
 		hashInfo->cassValueType = *valueType;
 		hashInfo->valueSubType1 = *valueSubType1;
 		hashInfo->valueSubType2 = *valueSubType2;
 
-		hashEntry = Tcl_CreateHashEntry (&ct->validatorTypeHash, typeIndexName, &new);
+		hashEntry = Tcl_CreateHashEntry (&ct->cassTypeHash, typeIndexName, &new);
 		Tcl_SetHashValue (hashEntry, hashInfo);
 	}
 
@@ -4268,7 +4268,7 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
 			ct->session = cass_session_new ();
 			ct->cluster = cass_cluster_new ();
 			ct->ssl = cass_ssl_new ();
-			Tcl_InitHashTable (&ct->validatorTypeHash, TCL_STRING_KEYS);
+			Tcl_InitHashTable (&ct->cassTypeHash, TCL_STRING_KEYS);
 
 			ct->threadId = Tcl_GetCurrentThread();
 

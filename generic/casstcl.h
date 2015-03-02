@@ -20,11 +20,11 @@
 extern int
 casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[]);
 
-typedef struct casstcl_validatorHashInfo {
+typedef struct casstcl_cassTypeInfo {
 	CassValueType cassValueType;
 	CassValueType valueSubType1;
 	CassValueType valueSubType2;
-} casstcl_validatorHashInfo;
+} casstcl_cassTypeInfo;
 
 typedef struct casstcl_sessionClientData
 {
@@ -36,7 +36,7 @@ typedef struct casstcl_sessionClientData
     Tcl_Command cmdToken;
 	Tcl_ThreadId threadId;
 	Tcl_Obj *loggingCallbackObj;
-	Tcl_HashTable validatorTypeHash;
+	Tcl_HashTable cassTypeHash;
 } casstcl_sessionClientData;
 
 typedef struct casstcl_futureClientData
