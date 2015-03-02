@@ -434,7 +434,7 @@ casstcl_cass_log_level_to_string (CassLogLevel severity) {
  *--------------------------------------------------------------
  */
 int
-casstcl_obj_to_cass_value_type (casstcl_sessionClientData *ct, Tcl_Obj *tclObj, CassValueType *cassValueType) {
+casstcl_obj_to_cass_value_type (Tcl_Interp *interp, Tcl_Obj *tclObj, CassValueType *cassValueType) {
     int                 typeIndex;
 
     static CONST char *valueTypes[] = {
@@ -487,7 +487,7 @@ casstcl_obj_to_cass_value_type (casstcl_sessionClientData *ct, Tcl_Obj *tclObj, 
 	};
 
     // argument must be one of the options defined above
-    if (Tcl_GetIndexFromObj (ct->interp, tclObj, valueTypes, "valueTypes",
+    if (Tcl_GetIndexFromObj (interp, tclObj, valueTypes, "valueTypes",
         TCL_EXACT, &typeIndex) != TCL_OK) {
         return TCL_ERROR;
     }
@@ -704,7 +704,7 @@ casstcl_obj_to_compound_cass_value_types (casstcl_sessionClientData *ct, Tcl_Obj
 	*valueSubType1 = CASS_VALUE_TYPE_UNKNOWN;
 	*valueSubType2 = CASS_VALUE_TYPE_UNKNOWN;
 
-	if (casstcl_obj_to_cass_value_type (ct, tclObj, cassValueType) == TCL_OK) {
+	if (casstcl_obj_to_cass_value_type (interp, tclObj, cassValueType) == TCL_OK) {
 		return TCL_OK;
 	}
 
@@ -718,7 +718,7 @@ casstcl_obj_to_compound_cass_value_types (casstcl_sessionClientData *ct, Tcl_Obj
 
 	// the list parsed, now look up the first element, if we don't find it
 	// in the type list, we have a bad tyupe
-	if (casstcl_obj_to_cass_value_type (ct, listObjv[0], cassValueType) == TCL_ERROR) {
+	if (casstcl_obj_to_cass_value_type (interp, listObjv[0], cassValueType) == TCL_ERROR) {
 		Tcl_AppendResult (interp, " while parsing cassandra data type '", Tcl_GetString (listObjv[0]), "'", NULL);
 		return TCL_ERROR;
 	}
@@ -729,12 +729,12 @@ casstcl_obj_to_compound_cass_value_types (casstcl_sessionClientData *ct, Tcl_Obj
 			return TCL_ERROR;
 		}
 
-		if (casstcl_obj_to_cass_value_type (ct, listObjv[1], valueSubType1) != TCL_OK) {
+		if (casstcl_obj_to_cass_value_type (interp, listObjv[1], valueSubType1) != TCL_OK) {
 			Tcl_AppendResult (interp, "while looking up value for sub type 1", NULL);
 			return TCL_ERROR;
 		}
 
-		if (casstcl_obj_to_cass_value_type (ct, listObjv[2], valueSubType2) != TCL_OK) {
+		if (casstcl_obj_to_cass_value_type (interp, listObjv[2], valueSubType2) != TCL_OK) {
 			Tcl_AppendResult (interp, "while looking up value for sub type 2", NULL);
 			return TCL_ERROR;
 		}
@@ -744,7 +744,7 @@ casstcl_obj_to_compound_cass_value_types (casstcl_sessionClientData *ct, Tcl_Obj
 			return TCL_ERROR;
 		}
 
-		if (casstcl_obj_to_cass_value_type (ct, listObjv[1], valueSubType1) != TCL_OK) {
+		if (casstcl_obj_to_cass_value_type (interp, listObjv[1], valueSubType1) != TCL_OK) {
 			Tcl_AppendResult (interp, "while looking up value for sub type 1", NULL);
 			return TCL_ERROR;
 		}

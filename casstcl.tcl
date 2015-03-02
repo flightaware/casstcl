@@ -68,6 +68,13 @@ proc validator_to_type {validator} {
 	}
 }
 
+#
+# import_column_type_map - given a casstcl object, traverse the metadata
+#   identifying the keyspaces and, for each keyspace, the table and, for
+#   each table, the columns.  For eacch column write the keyspace, table,
+#   and column as the key of the columnTypeMap array with the textual
+#   type being the value.
+#
 proc import_column_type_map {obj} {
 	variable columnTypeMap
 
