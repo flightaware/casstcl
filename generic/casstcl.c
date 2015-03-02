@@ -975,7 +975,10 @@ casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **ob
 		CassString name;
 		const CassSchemaMeta *tableMeta = cass_iterator_get_schema_meta (iterator);
 
+		assert (cass_schema_meta_type(tableMeta) == CASS_SCHEMA_META_TYPE_TABLE);
+
 		const CassSchemaMetaField* field = cass_schema_meta_get_field(tableMeta, "columnfamily_name");
+		assert (field != NULL);
 		cass_value_get_string(cass_schema_meta_field_value(field), &name);
 		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
 			tclReturn = TCL_ERROR;
@@ -1036,19 +1039,31 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 		CassString name;
 		const CassSchemaMeta *columnMeta = cass_iterator_get_schema_meta (iterator);
 
+		assert (cass_schema_meta_type(columnMeta) == CASS_SCHEMA_META_TYPE_COLUMN);
+
 		// get the field name and append it to the list we are creating
 		const CassSchemaMetaField* field = cass_schema_meta_get_field(columnMeta, "column_name");
-		cass_value_get_string(cass_schema_meta_field_value(field), &name);
+		assert (field != NULL);
+		const CassValue *fieldValue = cass_schema_meta_field_value(field);
+		CassValueType valueType = cass_value_type (fieldValue);
+
+		// it's a crash if you don't check the data type of valueType
+		// there's something fishy in system.IndexInfo, a field that
+		// doesn't  have a column name
+		if (valueType != CASS_VALUE_TYPE_VARCHAR) {
+			continue;
+		}
+		cass_value_get_string(fieldValue, &name);
 		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
 			tclReturn = TCL_ERROR;
 			break;
 		}
-
 		// if including types then get the data type and append it to the
 		// list too
 		if (includeTypes) {
 			CassString name;
 			const CassSchemaMetaField* field = cass_schema_meta_get_field (columnMeta, "validator");
+			assert (field != NULL);
 
 			cass_value_get_string(cass_schema_meta_field_value(field), &name);
 
@@ -3544,7 +3559,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 
 			rc = cass_future_error_code (future);
 			if (rc == CASS_OK) {
-				casstcl_reimport_column_type_map (ct);
+				// casstcl_reimport_column_type_map (ct);
 			} else {
 				resultCode = casstcl_cass_error_to_tcl (ct, rc);
 			}
