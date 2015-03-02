@@ -2750,7 +2750,7 @@ casstcl_futureObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_O
         "isready",
         "wait",
         "foreach",
-		"error_code",
+		"status",
 		"error_message",
 		"delete",
         NULL
@@ -2760,7 +2760,7 @@ casstcl_futureObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_O
         OPT_ISREADY,
         OPT_WAIT,
         OPT_FOREACH,
-		OPT_ERRORCODE,
+		OPT_STATUS,
 		OPT_ERRORMESSAGE,
 		OPT_DELETE
     };
@@ -2826,7 +2826,7 @@ casstcl_futureObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_O
 			break;
 		}
 
-		case OPT_ERRORCODE: {
+		case OPT_STATUS: {
 			const char *cassErrorCodeString = casstcl_cass_error_to_errorcode_string (cass_future_error_code (fcd->future));
 
 			Tcl_SetObjResult (fcd->ct->interp, Tcl_NewStringObj (cassErrorCodeString, -1));

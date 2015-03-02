@@ -288,7 +288,7 @@ set future [$cassObj async "select * from wx_metar where airport = 'KHOU' order 
 
 # see if the request was successful
 if {[$future isready]} {
-	if {[$future error_code] != "CASS_OK"} {
+	if {[$future status] != "CASS_OK"} {
 		set errorString [$future error_message]
 	}
 }
@@ -306,9 +306,9 @@ Waits for the request to complete.  If the optional argument us is specified, ti
 
 Iterate through the query results, filling the named array with the columns of the row and their values and executing code thereupon.
 
-* *$future* **error_code**
+* *$future* **status**
 
-Return the cassandra error code converted back to a string, like CASS_OK and CASS_ERROR_SSL_NO_PEER_CERT and whatnot.
+Return the cassandra status code converted back to a string, like CASS_OK and CASS_ERROR_SSL_NO_PEER_CERT and whatnot.  If it's anything other than CASS_OK then whatever you did didn't work.
 
 * *$future* **error_message**
 
