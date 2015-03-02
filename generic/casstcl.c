@@ -38,15 +38,6 @@ casstcl_cassObjectDelete (ClientData clientData)
     cass_cluster_free (ct->cluster);
     cass_session_free (ct->session);
 
-	Tcl_HashSearch hashSearch;
-	Tcl_HashEntry *hashEntry;
-
-	// free the casstcl_cassTypeInfo structures we allocated, if any
-	for (hashEntry = Tcl_FirstHashEntry (&ct->cassTypeHash, &hashSearch); hashEntry != NULL; hashEntry = Tcl_NextHashEntry (&hashSearch)) {
-		ckfree (Tcl_GetHashValue (hashEntry));
-	}
-	Tcl_DeleteHashTable (&ct->cassTypeHash);
-
     ckfree((char *)clientData);
 }
 
@@ -514,193 +505,6 @@ casstcl_string_to_cass_value_type (char *string) {
 /*
  *--------------------------------------------------------------
  *
- * casstcl_obj_to_cass_value_type -- lookup a string in a Tcl object
- *   to be one of the cass value type strings for CassValueType and set
- *   a pointer to a passed-in CassValueType value to the corresponding
- *   type such as CASS_VALUE_TYPE_DOUBLE, etc
- *
- * Results:
- *      ...cass value type gets set
- *      ...a standard Tcl result is returned
- *
- * Side effects:
- *      None.
- *
- *--------------------------------------------------------------
- */
-int
-casstcl_obj_to_cass_value_type (Tcl_Interp *interp, Tcl_Obj *tclObj, CassValueType *cassValueType) {
-    int                 typeIndex;
-
-    static CONST char *valueTypes[] = {
-        "unknown",
-        "custom",
-        "ascii",
-        "bigint",
-        "blob",
-        "boolean",
-        "counter",
-        "decimal",
-        "double",
-        "float",
-        "int",
-        "text",
-        "timestamp",
-        "uuid",
-        "varchar",
-        "varint",
-        "timeuuid",
-        "inet",
-        "list",
-        "map",
-        "set",
-        NULL
-    };
-
-    enum valueTypes {
-		OPT_CASS_VALUE_TYPE_UNKNOWN,
-		OPT_CASS_VALUE_TYPE_CUSTOM,
-		OPT_CASS_VALUE_TYPE_ASCII,
-		OPT_CASS_VALUE_TYPE_BIGINT,
-		OPT_CASS_VALUE_TYPE_BLOB,
-		OPT_CASS_VALUE_TYPE_BOOLEAN,
-		OPT_CASS_VALUE_TYPE_COUNTER,
-		OPT_CASS_VALUE_TYPE_DECIMAL,
-		OPT_CASS_VALUE_TYPE_DOUBLE,
-		OPT_CASS_VALUE_TYPE_FLOAT,
-		OPT_CASS_VALUE_TYPE_INT,
-		OPT_CASS_VALUE_TYPE_TEXT,
-		OPT_CASS_VALUE_TYPE_TIMESTAMP,
-		OPT_CASS_VALUE_TYPE_UUID,
-		OPT_CASS_VALUE_TYPE_VARCHAR,
-		OPT_CASS_VALUE_TYPE_VARINT,
-		OPT_CASS_VALUE_TYPE_TIMEUUID,
-		OPT_CASS_VALUE_TYPE_INET,
-		OPT_CASS_VALUE_TYPE_LIST,
-		OPT_CASS_VALUE_TYPE_MAP,
-		OPT_CASS_VALUE_TYPE_SET
-	};
-
-    // argument must be one of the options defined above
-    if (Tcl_GetIndexFromObj (interp, tclObj, valueTypes, "valueTypes",
-        TCL_EXACT, &typeIndex) != TCL_OK) {
-        return TCL_ERROR;
-    }
-
-
-    switch ((enum valueTypes) typeIndex) {
-		case OPT_CASS_VALUE_TYPE_UNKNOWN: {
-			*cassValueType = CASS_VALUE_TYPE_UNKNOWN;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_CUSTOM: {
-			*cassValueType = CASS_VALUE_TYPE_CUSTOM;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_ASCII: {
-			*cassValueType = CASS_VALUE_TYPE_ASCII;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_BIGINT: {
-			*cassValueType = CASS_VALUE_TYPE_BIGINT;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_BLOB: {
-			*cassValueType = CASS_VALUE_TYPE_BLOB;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_BOOLEAN: {
-			*cassValueType = CASS_VALUE_TYPE_BOOLEAN;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_COUNTER: {
-			*cassValueType = CASS_VALUE_TYPE_COUNTER;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_DECIMAL: {
-			*cassValueType = CASS_VALUE_TYPE_DECIMAL;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_DOUBLE: {
-			*cassValueType = CASS_VALUE_TYPE_DOUBLE;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_FLOAT: {
-			*cassValueType = CASS_VALUE_TYPE_FLOAT;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_INT: {
-			*cassValueType = CASS_VALUE_TYPE_INT;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_TEXT: {
-			*cassValueType = CASS_VALUE_TYPE_TEXT;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_TIMESTAMP: {
-			*cassValueType = CASS_VALUE_TYPE_TIMESTAMP;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_UUID: {
-			*cassValueType = CASS_VALUE_TYPE_UUID;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_VARCHAR: {
-			*cassValueType = CASS_VALUE_TYPE_VARCHAR;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_VARINT: {
-			*cassValueType = CASS_VALUE_TYPE_VARINT;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_TIMEUUID: {
-			*cassValueType = CASS_VALUE_TYPE_TIMEUUID;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_INET: {
-			*cassValueType = CASS_VALUE_TYPE_INET;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_LIST: {
-			*cassValueType = CASS_VALUE_TYPE_LIST;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_MAP: {
-			*cassValueType = CASS_VALUE_TYPE_MAP;
-			break;
-		}
-
-		case OPT_CASS_VALUE_TYPE_SET: {
-			*cassValueType = CASS_VALUE_TYPE_SET;
-			break;
-		}
-	}
-
-	return TCL_OK;
-}
-
-/*
- *--------------------------------------------------------------
- *
  * casstcl_cass_value_type_to_string -- given a CassConsistency,
  *   return a const char * to a character string of equivalent
  *   meaning
@@ -770,7 +574,7 @@ casstcl_cass_value_type_to_string (CassConsistency consistency) {
  *
  * casstcl_obj_to_compound_cass_value_types
  *
- * Lookup a string from a Tcl object and identify it as one of the cass 
+ * Lookup a string from a Tcl object and identify it as one of the cass
  * value type strings for CassValueType (int, text uuid, etc.) and set
  * a pointer to a passed-in CassValueType value to the corresponding
  * type such as CASS_VALUE_TYPE_DOUBLE, etc
@@ -2190,6 +1994,67 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
 	return masterReturn;
 }
 
+// Tcl type definition for caching CassValueType
+
+// we don't have to free any internal representation because our representation
+// fits into the exist Tcl_Obj definition without a pointer to anything else
+
+// we never invalidate the string representation so we can set the
+// UpdateStringOf... function pointer to null
+
+void DupCassTypeTypeInternalRep (Tcl_Obj *srcPtr, Tcl_Obj *copyPtr);
+int SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj);
+
+// Tcl object type definition for the internal representation of a
+// cassTypeTclType.  this allows us to cache the lookup of a type
+// like "int" to CASS_VALUE_TYPE_INT or
+// "map int text" to
+// CASS_VALUE_TYPE_MAP CASS_VALUE_TYPE_INT CASS_VALUE_TYPE_TEXT
+//
+Tcl_ObjType casstcl_cassTypeTclType = {
+	"CassType",
+	NULL,
+	DupCassTypeTypeInternalRep,
+	NULL,
+	SetCassTypeTypeFromAny
+};
+
+// copy the internal representation of a cassTypeTclType Tcl object
+// to a new Tcl object
+void
+DupCassTypeTypeInternalRep (Tcl_Obj *srcPtr, Tcl_Obj *copyPtr)
+{
+	// not much to this... since we use the wide int representation,
+	// all we have to do is copy the wide into from the source to the copy
+	copyPtr->internalRep.wideValue = srcPtr->internalRep.wideValue;
+	copyPtr->typePtr = &casstcl_cassTypeTclType;
+}
+
+// convert any tcl object to be a cassTypeTclType
+int
+SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj)
+{
+	casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&obj->internalRep.wideValue;
+
+	// convert it using our handy routine for doing that
+	// if we get TCL_ERROR, it's an error
+	// if we get TCL_OK we need to set the object's type pointer to point
+	// to our custom type.
+	//
+	// after this if the object isn't altered future calls to
+	// Tcl_ConvertToType will not do anything and access to the
+	// internal representation will be quick
+	//
+	// see casstcl_type_index_name_to_cass_value_types
+	//
+	if (casstcl_obj_to_compound_cass_value_types (interp, obj, &typeInfo->cassValueType, &typeInfo->valueSubType1, &typeInfo->valueSubType2) == TCL_OK) {
+		obj->typePtr = &casstcl_cassTypeTclType;
+		return TCL_OK;
+	}
+	return TCL_ERROR;
+}
+
+
 /*
  *----------------------------------------------------------------------
  *
@@ -2204,18 +2069,7 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
  *----------------------------------------------------------------------
  */
 int
-casstcl_type_index_name_to_cass_value_types (casstcl_sessionClientData *ct, char *typeIndexName, CassValueType *valueType, CassValueType *valueSubType1, CassValueType *valueSubType2) {
-	Tcl_HashEntry *hashEntry = Tcl_FindHashEntry (&ct->cassTypeHash, typeIndexName);
-	Tcl_Interp *interp = ct->interp;
-
-	if (hashEntry != NULL) {
-		casstcl_cassTypeInfo *hashInfo = (casstcl_cassTypeInfo *)Tcl_GetHashValue (hashEntry);
-		*valueType = hashInfo->cassValueType;
-		*valueSubType1 = hashInfo->valueSubType1;
-		*valueSubType2 = hashInfo->valueSubType2;
-		return TCL_OK;
-	}
-
+casstcl_type_index_name_to_cass_value_types (Tcl_Interp *interp, char *typeIndexName, CassValueType *valueType, CassValueType *valueSubType1, CassValueType *valueSubType2) {
 	Tcl_Obj *typeObj = Tcl_GetVar2Ex (interp, "::casstcl::columnTypeMap", typeIndexName, (TCL_GLOBAL_ONLY|TCL_LEAVE_ERR_MSG));
 
 	if (typeObj == NULL) {
@@ -2227,21 +2081,15 @@ casstcl_type_index_name_to_cass_value_types (casstcl_sessionClientData *ct, char
 #endif
 	}
 
-	int tclReturn = casstcl_obj_to_compound_cass_value_types (interp, typeObj, valueType, valueSubType1, valueSubType2);
-
-	if (tclReturn == TCL_OK) {
-		int new = 0;
-		// stuff the value types into the hash cache
-		casstcl_cassTypeInfo *hashInfo = (casstcl_cassTypeInfo *)ckalloc(sizeof (casstcl_cassTypeInfo));
-		hashInfo->cassValueType = *valueType;
-		hashInfo->valueSubType1 = *valueSubType1;
-		hashInfo->valueSubType2 = *valueSubType2;
-
-		hashEntry = Tcl_CreateHashEntry (&ct->cassTypeHash, typeIndexName, &new);
-		Tcl_SetHashValue (hashEntry, hashInfo);
+	if (Tcl_ConvertToType (interp, typeObj, &casstcl_cassTypeTclType) == TCL_ERROR) {
+		return TCL_ERROR;
 	}
 
-	return tclReturn;
+	casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&typeObj->internalRep.wideValue;
+	*valueType = typeInfo->cassValueType;
+	*valueSubType1 = typeInfo->valueSubType1;
+	*valueSubType2 = typeInfo->valueSubType2;
+	return TCL_OK;
 }
 
 /*
@@ -2301,7 +2149,7 @@ casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char 
 
 		snprintf (typeIndexName, typeIndexSize, "%s.%s", table, varName);
 
-		tclReturn = casstcl_type_index_name_to_cass_value_types (ct, typeIndexName, &valueType, &valueSubType1, &valueSubType2);
+		tclReturn = casstcl_type_index_name_to_cass_value_types (interp, typeIndexName, &valueType, &valueSubType1, &valueSubType2);
 
 		if (tclReturn == TCL_ERROR) {
 			masterReturn = TCL_ERROR;
@@ -2346,7 +2194,7 @@ casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char 
  * casstcl_bind_names_from_list --
  *
  *   fully qualified table name
- *   name of the table 
+ *   name of the table
  *   and a pointer to a pointer to a cassandra statement
  *
  *   It creates a cassandra statement
@@ -2387,7 +2235,7 @@ casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *
 		snprintf (typeIndexName, typeIndexSize, "%s.%s", table, varName);
 //printf ("typeIndexName '%s', typeIndexSize %d, table '%s', varName '%s'\n", typeIndexName, typeIndexSize, table, varName);
 
-		tclReturn = casstcl_type_index_name_to_cass_value_types (ct, typeIndexName, &valueType, &valueSubType1, &valueSubType2);
+		tclReturn = casstcl_type_index_name_to_cass_value_types (interp, typeIndexName, &valueType, &valueSubType1, &valueSubType2);
 
 		if (tclReturn == TCL_ERROR) {
 //printf ("error from casstcl_obj_to_compound_cass_value_types\n");
@@ -4268,7 +4116,6 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
 			ct->session = cass_session_new ();
 			ct->cluster = cass_cluster_new ();
 			ct->ssl = cass_ssl_new ();
-			Tcl_InitHashTable (&ct->cassTypeHash, TCL_STRING_KEYS);
 
 			ct->threadId = Tcl_GetCurrentThread();
 

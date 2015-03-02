@@ -17,6 +17,8 @@
 #define CASS_BATCH_MAGIC 14215469
 #define CASS_PREPARED_MAGIC 713832281
 
+extern Tcl_ObjType casstcl_cassTypeTclType;
+
 extern int
 casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[]);
 
@@ -36,7 +38,6 @@ typedef struct casstcl_sessionClientData
     Tcl_Command cmdToken;
 	Tcl_ThreadId threadId;
 	Tcl_Obj *loggingCallbackObj;
-	Tcl_HashTable cassTypeHash;
 } casstcl_sessionClientData;
 
 typedef struct casstcl_futureClientData

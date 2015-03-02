@@ -19,7 +19,7 @@
  *
  * Casstcl_Init --
  *
- *	Initialize the casstcl extension.  The string "casstcl" 
+ *	Initialize the casstcl extension.  The string "casstcl"
  *      in the function name must match the PACKAGE declaration at the top of
  *	configure.in.
  *
@@ -51,6 +51,8 @@ Casstcl_Init(Tcl_Interp *interp)
     if (Tcl_PkgProvide(interp, PACKAGE_NAME, PACKAGE_VERSION) != TCL_OK) {
 		return TCL_ERROR;
     }
+
+	Tcl_RegisterObjType(&casstcl_cassTypeTclType);
 
     namespace = Tcl_CreateNamespace (interp, "::casstcl", NULL, NULL);
 
