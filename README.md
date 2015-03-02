@@ -249,6 +249,10 @@ A typical usage would be:
 $batch upsert wx.wx_metar [array get row]
 ```
 
+* *$batch* **count**
+
+Return the number of rows added to the batch using *add* or *upsert*.
+
 * *$batch* **reset**
 
 Reset the batch by deleting all of its data.

@@ -2864,6 +2864,7 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
     static CONST char *options[] = {
         "add",
 		"upsert",
+		"count",
         "consistency",
 		"reset",
         "delete",
@@ -2873,6 +2874,7 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
     enum options {
         OPT_ADD,
         OPT_UPSERT,
+		OPT_COUNT,
         OPT_CONSISTENCY,
 		OPT_RESET,
 		OPT_DELETE
@@ -2898,7 +2900,10 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 			CassError cassError = cass_batch_add_statement (bcd->batch, statement);
 			cass_statement_free (statement);
 
-			if (cassError != CASS_OK) {
+			if (cassError == CASS_OK) {
+				bcd->count++;
+			} else {
+				Tcl_AppendResult (interp, " while adding statement to batch", NULL);
 				return casstcl_cass_error_to_tcl (bcd->ct, cassError);
 			}
 
@@ -2924,13 +2929,27 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 				cass_statement_free (statement);
 //printf("returned from cass_batch_add_statement, cassError %d\n", cassError);
 
-				if (cassError != CASS_OK) {
+				if (cassError == CASS_OK) {
+				bcd->count++;
+				} else {
 					return casstcl_cass_error_to_tcl (bcd->ct, cassError);
 				}
 			}
 
 			break;
 		}
+
+		// count - return a count of rows in the batch
+		case OPT_COUNT: {
+			if (objc != 2) {
+				Tcl_WrongNumArgs (interp, 2, objv, "");
+				return TCL_ERROR;
+			}
+
+			Tcl_SetObjResult (interp, Tcl_NewIntObj (bcd->count));
+			break;
+		}
+
 
 		case OPT_CONSISTENCY: {
 			CassConsistency cassConsistency;
@@ -2965,6 +2984,7 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 
 			cass_batch_free (bcd->batch);
 			bcd->batch = cass_batch_new (bcd->batchType);
+			bcd->count = 0;
 			CassError cassError = cass_batch_set_consistency (bcd->batch, bcd->consistency);
 			if (cassError != CASS_OK) {
 				return casstcl_cass_error_to_tcl (bcd->ct, cassError);
@@ -3643,6 +3663,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			bcd->batch = cass_batch_new (cassBatchType);
 			bcd->batchType = cassBatchType;
 			bcd->consistency = CASS_CONSISTENCY_ONE;
+			bcd->count = 0;
 
 			char *commandName = Tcl_GetString (objv[2]);
 
