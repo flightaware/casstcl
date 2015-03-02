@@ -3031,6 +3031,52 @@ casstcl_preparedObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl
 /*
  *----------------------------------------------------------------------
  *
+ * casstcl_reimport_column_type_map --
+ *    Call out to the Tcl interpreter to invoke
+ *    ::casstcl::import_column_type_map from the casstcl library;
+ *    the proc resides in source file is casstcl.tcl.
+ *
+ *    This convenience function gets called from a method of the
+ *    casstcl cass object and is invoked upon connection as well
+ *
+ * Results:
+ *    The program compiles.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_reimport_column_type_map (casstcl_sessionClientData *ct)
+{
+	int tclReturnCode;
+	Tcl_Interp *interp = ct->interp;
+	Tcl_Obj *evalObjv[2];
+
+	// construct an objv we'll pass to eval.
+	// first is the callback command
+	// second is the name of the future object this callback is related to
+	evalObjv[0] = Tcl_NewStringObj ("::casstcl::import_column_type_map", -1);
+	evalObjv[1] = Tcl_NewObj();
+	Tcl_GetCommandFullName(interp, ct->cmdToken, evalObjv[1]);
+
+	// eval the command.  it should be the callback we were told as the
+	// first argument and the future object we created, like future0, as
+	// the second.  go ahead and ask for direct, i.e. don't compile into
+	// bytecodes, because our little single two-argument call is ephemeral
+
+	Tcl_IncrRefCount (evalObjv[0]);
+	Tcl_IncrRefCount (evalObjv[1]);
+
+	tclReturnCode = Tcl_EvalObjv (interp, 2, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
+
+	Tcl_DecrRefCount(evalObjv[0]);
+	Tcl_DecrRefCount(evalObjv[1]);
+
+	return tclReturnCode;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
  * casstcl_EventSetupProc --
  *    This routine is a required argument to Tcl_CreateEventSource
  *
@@ -3251,6 +3297,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		"list_tables",
 		"list_columns",
 		"list_column_types",
+		"reimport_column_type_map",
         "set_contact_points",
         "set_port",
         "set_protocol_version",
@@ -3289,6 +3336,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		OPT_LIST_TABLES,
 		OPT_LIST_COLUMNS,
 		OPT_LIST_COLUMN_TYPES,
+		OPT_REIMPORT_COLUMN_TYPE_MAP,
         OPT_SET_CONTACT_POINTS,
         OPT_SET_PORT,
         OPT_SET_PROTOCOL_VERSION,
@@ -3495,7 +3543,9 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			cass_future_wait (future);
 
 			rc = cass_future_error_code (future);
-			if (rc != CASS_OK) {
+			if (rc == CASS_OK) {
+				casstcl_reimport_column_type_map (ct);
+			} else {
 				resultCode = casstcl_cass_error_to_tcl (ct, rc);
 			}
 			break;
@@ -3641,6 +3691,15 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			resultCode = casstcl_list_columns (ct, keyspace, table, (optIndex == OPT_LIST_COLUMN_TYPES), &obj);
 			Tcl_SetObjResult (ct->interp, obj);
 			break;
+		}
+
+		case OPT_REIMPORT_COLUMN_TYPE_MAP: {
+			if (objc != 2) {
+				Tcl_WrongNumArgs (interp, 2, objv, "");
+				return TCL_ERROR;
+			}
+
+			resultCode = casstcl_reimport_column_type_map (ct);
 		}
 
 		case OPT_SET_CONTACT_POINTS: {
