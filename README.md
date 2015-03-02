@@ -123,6 +123,10 @@ Returns a list of key-value pairs consisting of all of the columns and their Cas
 
 All of the schema-accessing functions, *list_keyspaces*, *list_tables*, *list_columns* and *list_column_types* locate this information using the metadata access capabilities provided by the cpp-driver.  As the cpp-driver will update its metadata on the fly as changes to the schema are made, the schema-accessing functions likewise will reflect any changes in the schema if called subsequently to schema changes occurring.
 
+* *$cassdb* **reimport_type_map**
+
+Casstcl maintains the data type of each column for each table for each schema in the cluster.  As the metadata can change on the fly, long-running programs that want to try to adapt to changes in the cluster schema can invoke this to regenerate casstcl's column-to-datatype mapping cache.
+
 * *$cassdb* **set_contact_points** *$addressList*
 
 Provide a list of one or more addresses to contact the cluster at.
