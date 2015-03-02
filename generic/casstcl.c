@@ -416,6 +416,101 @@ casstcl_cass_log_level_to_string (CassLogLevel severity) {
 	}
 }
 
+
+/*
+ *--------------------------------------------------------------
+ *
+ * casstcl_string_to_cass_value_type -- lookup a string
+ *   to be one of the cass value type strings for CassValueType and set
+ *   a pointer to a passed-in CassValueType value to the corresponding
+ *   type such as CASS_VALUE_TYPE_DOUBLE, etc
+ *
+ * Results:
+ *      ...cass value type gets returned
+ *      CASS_VALUE_TYPE_UNKNOWN is returned if nothing matches
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+CassValueType
+casstcl_string_to_cass_value_type (char *string) {
+	switch (*string) {
+		case 'a': {
+			if (strcmp (string, "ascii") == 0) return CASS_VALUE_TYPE_ASCII;
+			break;
+		}
+
+		case 'b': {
+			if (strcmp (string, "bigint") == 0) return CASS_VALUE_TYPE_BIGINT;
+			if (strcmp (string, "blob") == 0) return CASS_VALUE_TYPE_BLOB;
+			if (strcmp (string, "boolean") == 0) return CASS_VALUE_TYPE_BOOLEAN;
+			break;
+		}
+
+		case 'c': {
+			if (strcmp (string, "counter") == 0) return CASS_VALUE_TYPE_COUNTER;
+			if (strcmp (string, "custom") == 0) return CASS_VALUE_TYPE_CUSTOM;
+			break;
+		}
+
+		case 'd': {
+			if (strcmp (string, "decimal") == 0) return CASS_VALUE_TYPE_DECIMAL;
+			if (strcmp (string, "double") == 0) return CASS_VALUE_TYPE_DOUBLE;
+			break;
+		}
+
+		case 'f': {
+			if (strcmp (string, "float") == 0) return CASS_VALUE_TYPE_FLOAT;
+			break;
+		}
+
+		case 'i': {
+			if (strcmp (string, "int") == 0) return CASS_VALUE_TYPE_INT;
+			if (strcmp (string, "inet") == 0) return CASS_VALUE_TYPE_INET;
+			break;
+		}
+
+		case 'l': {
+			if (strcmp (string, "list") == 0) return CASS_VALUE_TYPE_LIST;
+			break;
+		}
+
+		case 'm': {
+			if (strcmp (string, "map") == 0) return CASS_VALUE_TYPE_MAP;
+			break;
+		}
+
+		case 's': {
+			if (strcmp (string, "set") == 0) return CASS_VALUE_TYPE_SET;
+			break;
+		}
+
+		case 't': {
+			if (strcmp (string, "text") == 0) return CASS_VALUE_TYPE_TEXT;
+			if (strcmp (string, "timestamp") == 0) return CASS_VALUE_TYPE_TIMESTAMP;
+			if (strcmp (string, "timeuuid") == 0) return CASS_VALUE_TYPE_TIMEUUID;
+			break;
+		}
+
+		case 'u': {
+			if (strcmp (string, "uuid") == 0) return CASS_VALUE_TYPE_UUID;
+			if (strcmp (string, "unknown") == 0) return CASS_VALUE_TYPE_UNKNOWN;
+			break;
+		}
+
+		case 'v': {
+			if (strcmp (string, "varchar") == 0) return CASS_VALUE_TYPE_VARCHAR;
+			if (strcmp (string, "varint") == 0) return CASS_VALUE_TYPE_VARINT;
+			break;
+		}
+		return CASS_VALUE_TYPE_UNKNOWN;
+	}
+
+	return CASS_VALUE_TYPE_UNKNOWN;
+}
+
 /*
  *--------------------------------------------------------------
  *
@@ -695,21 +790,23 @@ casstcl_cass_value_type_to_string (CassConsistency consistency) {
  *--------------------------------------------------------------
  */
 int
-casstcl_obj_to_compound_cass_value_types (casstcl_sessionClientData *ct, Tcl_Obj *tclObj, CassValueType *cassValueType, CassValueType *valueSubType1, CassValueType *valueSubType2) {
+casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, CassValueType *cassValueType, CassValueType *valueSubType1, CassValueType *valueSubType2) {
 	int listObjc;
 	Tcl_Obj **listObjv;
-	Tcl_Interp *interp = ct->interp;
 
 	*cassValueType = CASS_VALUE_TYPE_UNKNOWN;
 	*valueSubType1 = CASS_VALUE_TYPE_UNKNOWN;
 	*valueSubType2 = CASS_VALUE_TYPE_UNKNOWN;
 
-	if (casstcl_obj_to_cass_value_type (interp, tclObj, cassValueType) == TCL_OK) {
+	// try straight lookup.  this should get everything except for
+	// maps, sets and lists
+	char *string = Tcl_GetString (tclObj);
+	CassValueType valueType = casstcl_string_to_cass_value_type (string);
+
+	if (valueType != CASS_VALUE_TYPE_UNKNOWN) {
+		*cassValueType = valueType;
 		return TCL_OK;
 	}
-
-	// clear error from previous function's failure to decode the type
-	Tcl_ResetResult (interp);
 
 	if (Tcl_ListObjGetElements (interp, tclObj, &listObjc, &listObjv) == TCL_ERROR) {
 		Tcl_AppendResult (interp, " while parsing cassandra data type", NULL);
@@ -718,37 +815,36 @@ casstcl_obj_to_compound_cass_value_types (casstcl_sessionClientData *ct, Tcl_Obj
 
 	// the list parsed, now look up the first element, if we don't find it
 	// in the type list, we have a bad tyupe
-	if (casstcl_obj_to_cass_value_type (interp, listObjv[0], cassValueType) == TCL_ERROR) {
-		Tcl_AppendResult (interp, " while parsing cassandra data type '", Tcl_GetString (listObjv[0]), "'", NULL);
+	string = Tcl_GetString (listObjv[0]);
+	valueType = casstcl_string_to_cass_value_type (string);
+
+	if ((valueType != CASS_VALUE_TYPE_MAP) && (valueType != CASS_VALUE_TYPE_SET) && (valueType != CASS_VALUE_TYPE_LIST)) {
+		Tcl_AppendResult (interp, "cassandra type spec is invalid", NULL);
 		return TCL_ERROR;
 	}
 
-	if (*cassValueType == CASS_VALUE_TYPE_MAP) {
-		if (listObjc != 3) {
-			Tcl_AppendResult (interp, "map type doesn't have 3 args", NULL);
-			return TCL_ERROR;
-		}
+	if ((valueType == CASS_VALUE_TYPE_MAP && listObjc != 3) || (listObjc != 2)) {
+		Tcl_AppendResult (interp, "cassandra type spec wrong # of values", NULL);
+		return TCL_ERROR;
+	}
 
-		if (casstcl_obj_to_cass_value_type (interp, listObjv[1], valueSubType1) != TCL_OK) {
-			Tcl_AppendResult (interp, "while looking up value for sub type 1", NULL);
-			return TCL_ERROR;
-		}
+	// at this point it's a colleciton and the list count is correct so
+	// there is at least one subType that has to be looked up successfully
 
-		if (casstcl_obj_to_cass_value_type (interp, listObjv[2], valueSubType2) != TCL_OK) {
-			Tcl_AppendResult (interp, "while looking up value for sub type 2", NULL);
-			return TCL_ERROR;
-		}
-	} else if ((*cassValueType == CASS_VALUE_TYPE_SET) || (*cassValueType == CASS_VALUE_TYPE_LIST)) {
-		if (listObjc != 2) {
-			Tcl_AppendResult (interp, "list or set type doesn't have 2 args", NULL);
-			return TCL_ERROR;
-		}
+	*valueSubType1 = casstcl_string_to_cass_value_type (Tcl_GetString(listObjv[1]));
+	if (*valueSubType1 == CASS_VALUE_TYPE_UNKNOWN) {
+		Tcl_AppendResult (interp, "cassandra type spec unrecognized collection subtype", NULL);
+		return TCL_ERROR;
+	}
 
-		if (casstcl_obj_to_cass_value_type (interp, listObjv[1], valueSubType1) != TCL_OK) {
-			Tcl_AppendResult (interp, "while looking up value for sub type 1", NULL);
+	// only for maps there is a second subType to be checked, converted
+	if (valueType == CASS_VALUE_TYPE_MAP) {
+		*valueSubType2 = casstcl_string_to_cass_value_type (Tcl_GetString(listObjv[2]));
+		if (*valueSubType2 == CASS_VALUE_TYPE_UNKNOWN) {
+			Tcl_AppendResult (interp, "cassandra type spec unrecognized map collection value subtype", NULL);
 			return TCL_ERROR;
 		}
-	};
+	}
 
 	return TCL_OK;
 }
@@ -2072,7 +2168,7 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
 	CassStatement *statement = cass_statement_new(cass_string_init(query), objc / 2);
 
 	for (i = 0; i < objc; i += 2) {
-		tclReturn = casstcl_obj_to_compound_cass_value_types (ct, objv[i+1], &valueType, &valueSubType1, &valueSubType2);
+		tclReturn = casstcl_obj_to_compound_cass_value_types (interp, objv[i+1], &valueType, &valueSubType1, &valueSubType2);
 
 		if (tclReturn == TCL_ERROR) {
 			masterReturn = TCL_ERROR;
@@ -2131,7 +2227,7 @@ casstcl_type_index_name_to_cass_value_types (casstcl_sessionClientData *ct, char
 #endif
 	}
 
-	int tclReturn = casstcl_obj_to_compound_cass_value_types (ct, typeObj, valueType, valueSubType1, valueSubType2);
+	int tclReturn = casstcl_obj_to_compound_cass_value_types (interp, typeObj, valueType, valueSubType1, valueSubType2);
 
 	if (tclReturn == TCL_OK) {
 		int new = 0;
