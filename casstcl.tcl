@@ -80,9 +80,9 @@ proc import_column_type_map {obj} {
 
 	unset -nocomplain columnTypeMap
 
-	foreach keyspace [$obj list_keyspaces] {
-		foreach table [$obj list_tables $keyspace] {
-			foreach "column type" [$obj list_column_types $keyspace $table] {
+	foreach keyspace [$obj keyspaces] {
+		foreach table [$obj tables $keyspace] {
+			foreach "column type" [$obj columns_with_types $keyspace $table] {
 				set columnTypeMap($keyspace.$table.$column) $type
 			}
 		}

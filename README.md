@@ -105,19 +105,19 @@ $cassdb exec "use wx;"
 
 Prepare the specified statement.  Although this command will probably work, the casstcl infrastructure in support of prepared statements including binding values into statements does not (yet) exist.
 
-* *$cassdb* **list_keyspaces**
+* *$cassdb* **keyspaces**
 
 Return a list of all of the keyspaces known to the cluster.
 
-* *$cassdb* **list_tables** *$keyspace*
+* *$cassdb* **tables** *$keyspace*
 
 Return a list of all of the tables within the named keyspace.
 
-* *$cassdb* **list_columns** *$keyspace* *$table*
+* *$cassdb* **columns** *$keyspace* *$table*
 
 Returns a list of the names of all of the columns within the specified table within the specified keyspace.
 
-* *$cassdb* **list_column_types** *$keyspace* *$table*
+* *$cassdb* **columns_with_types** *$keyspace* *$table*
 
 Returns a list of key-value pairs consisting of all of the columns and their Cassandra data types.
 

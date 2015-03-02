@@ -3308,10 +3308,10 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
         "connect",
 		"prepare",
 		"batch",
-		"list_keyspaces",
-		"list_tables",
-		"list_columns",
-		"list_column_types",
+		"keyspaces",
+		"tables",
+		"columns",
+		"columns_with_types",
 		"reimport_column_type_map",
         "set_contact_points",
         "set_port",
@@ -3559,7 +3559,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 
 			rc = cass_future_error_code (future);
 			if (rc == CASS_OK) {
-				// casstcl_reimport_column_type_map (ct);
+				casstcl_reimport_column_type_map (ct);
 			} else {
 				resultCode = casstcl_cass_error_to_tcl (ct, rc);
 			}
