@@ -3456,29 +3456,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			return casstcl_select (ct, query, arrayName, code, pagingSize);
 		}
 
-		case OPT_EXEC: {
-			CassStatement* statement = NULL;
-			CassFuture *future = NULL;
-			CassError rc = CASS_OK;
-
-			if (casstcl_make_statement_from_objv (ct, objc - 2, &objv[2], &statement) == TCL_ERROR) {
-				return TCL_ERROR;
-			}
-
-			future = cass_session_execute (ct->session, statement);
-			cass_future_wait (future);
-
-			rc = cass_future_error_code (future);
-			if (rc != CASS_OK) {
-				resultCode = casstcl_cass_error_to_tcl (ct, rc);
-			}
-
-			cass_future_free (future);
-			cass_statement_free (statement);
-
-			break;
-		}
-
+		case OPT_EXEC:
 		case OPT_ASYNC: {
 			CassStatement* statement = NULL;
 			CassFuture *future = NULL;
@@ -3551,8 +3529,22 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				cass_statement_free (statement);
 			}
 
-			if (casstcl_createFutureObjectCommand (ct, future, callbackObj) == TCL_ERROR) {
-				resultCode = TCL_ERROR;
+			// even with exec if you use -callback it's asynchronous
+			if (((enum options) optIndex == OPT_EXEC) && (callbackObj == NULL)) {
+				// synchronous
+				cass_future_wait (future);
+
+				CassError rc = cass_future_error_code (future);
+				if (rc != CASS_OK) {
+					resultCode = casstcl_cass_error_to_tcl (ct, rc);
+				}
+
+				cass_future_free (future);
+			} else {
+				// asynchronous
+				if (casstcl_createFutureObjectCommand (ct, future, callbackObj) == TCL_ERROR) {
+					resultCode = TCL_ERROR;
+				}
 			}
 
 			break;
@@ -3579,6 +3571,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 
 			rc = cass_future_error_code (future);
 			if (rc == CASS_OK) {
+				// import the schema keyspaces, tables, columns and types
 				casstcl_reimport_column_type_map (ct);
 			} else {
 				resultCode = casstcl_cass_error_to_tcl (ct, rc);

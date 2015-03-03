@@ -65,17 +65,23 @@ Methods of cassandra cluster interface object
     set ::cassdb [::cassandra::connect args]
 ```
 
-* *$cassdb* **exec** *$statement**
 
-Perform the requested CQL statement.  Waits for it to complete. Either it works or you get a Tcl error.
+
+* *$cassdb* **exec** *?-callback callbackRoutine?* *?-table tableName?* *?-array arrayName?* *?-batch batchObjectName? *$statement* *?arg...?*
 
 * *$cassdb* **async** *?-callback callbackRoutine?* *?-table tableName?* *?-array arrayName?* *?-batch batchObjectName?* *?$statement?* *?arg...?*
 
-Perform the requested CQL statement.  Does not wait.  Creates a result object called a *future* object that you can use the methods of to find out the status of your statement and iterate over select results. Allows for considerable performance gains over exec at the cost of greater code complexity.
+Perform the requested CQL statement.  Waits for it to complete if **exec** is used without **-callback** (synchronous).   Does not wait if **async** is used or **exec** is used with **-callback** (asynchronous).
+
+If synchronous then calltcl waits for the cassandra call to complete and gives you back an error.
+
+If used asynchronously then the request is issued to cassandra and a result object called a *future* object is created and returned.
+
+You you can use the methods of the future object to find out the status of your statement, iterate over select results, etc. Asynchronous operation allows for considerable performance gains over synchronous at the cost of greater code complexity.
 
 If the **-callback** argument is specified then the next argument is a callback routine that will be invoked when the Cassandra request has completed or errored or whatnot.  The callback routine will be invoked with a single argument, which is the name of the future object created (such as *::future17*) when the request was made.
 
-If -batch is specified the argument is a batch object and that is used as the source.
+If -batch is specified the argument is a batch object and that is used as the source of the statement(s).
 
 If *-table* is specified it is the fully qualified name of a table and *-array* is also required, and vice versa.  These specify the affected table name and an array that the data elements will come from.  Args are zero or more arguments which are element names for the array and also legal column names for the table.  This technology will infer the data types and handle them behind your back as long as import_column_type_map has been run on the connection.
 
