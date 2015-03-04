@@ -2019,6 +2019,7 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
 
 void DupCassTypeTypeInternalRep (Tcl_Obj *srcPtr, Tcl_Obj *copyPtr);
 int SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj);
+void UpdateCassTypeString (Tcl_Obj *obj);
 
 // Tcl object type definition for the internal representation of a
 // cassTypeTclType.  this allows us to cache the lookup of a type
@@ -2030,7 +2031,7 @@ Tcl_ObjType casstcl_cassTypeTclType = {
 	"CassType",
 	NULL,
 	DupCassTypeTypeInternalRep,
-	NULL,
+	UpdateCassTypeString,
 	SetCassTypeTypeFromAny
 };
 
@@ -2050,6 +2051,7 @@ int
 SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj)
 {
 	casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&obj->internalRep.wideValue;
+	casstcl_cassTypeInfo localTypeInfo;
 
 	// convert it using our handy routine for doing that
 	// if we get TCL_ERROR, it's an error
@@ -2062,11 +2064,59 @@ SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj)
 	//
 	// see casstcl_typename_obj_to_cass_value_types
 	//
-	if (casstcl_obj_to_compound_cass_value_types (interp, obj, &typeInfo->cassValueType, &typeInfo->valueSubType1, &typeInfo->valueSubType2) == TCL_OK) {
+	if (casstcl_obj_to_compound_cass_value_types (interp, obj, &localTypeInfo.cassValueType, &localTypeInfo.valueSubType1, &localTypeInfo.valueSubType2) == TCL_OK) {
+		*typeInfo = localTypeInfo;
 		obj->typePtr = &casstcl_cassTypeTclType;
 		return TCL_OK;
 	}
 	return TCL_ERROR;
+}
+
+void UpdateCassTypeString (Tcl_Obj *obj) {
+	casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&obj->internalRep.wideValue;
+	CassValueType cassType = typeInfo->cassValueType;
+	const char *string = casstcl_cass_consistency_to_string (cassType);
+	int len = strlen(string);
+
+	if (cassType != CASS_VALUE_TYPE_MAP && cassType != CASS_VALUE_TYPE_SET && cassType != CASS_VALUE_TYPE_LIST) {
+		char *newString = ckalloc (len + 1);
+		strncpy (newString, string, len);
+		obj->bytes = newString;
+		obj->length = len;
+		return;
+	}
+
+	// it's set, map or list, decode the second type
+	const char *subString1 = casstcl_cass_consistency_to_string (typeInfo->valueSubType1);
+	int len1 = strlen(subString1);
+
+	if (cassType != CASS_VALUE_TYPE_MAP) {
+		int newStringSize = len + 1 + len1 + 1;
+		char *newString = ckalloc (newStringSize);
+		strncpy (newString, string, len);
+		newString[len] = ' ';
+		strncpy (&newString[len+1], subString1, len1);
+
+		obj->bytes = newString;
+		obj->length = newStringSize - 1;
+		return;
+	}
+
+	const char *subString2 = casstcl_cass_consistency_to_string (typeInfo->valueSubType2);
+	int len2 = strlen(subString2);
+	int newStringSize = len + 1 + len1 + 1 + len2 + 1;
+	char *newString = ckalloc (newStringSize);
+	strncpy (newString, string, len);
+	newString[len] = ' ';
+	strncpy (&newString[len+1], subString1, len1);
+	newString[len+1+len1] = ' ';
+	strncpy (&newString[len+1+len1+1], subString2, len2);
+
+	obj->bytes = newString;
+	obj->length = newStringSize - 1;
+
+
+	// ok it's a map, a little more complicated because three strings
 }
 
 
