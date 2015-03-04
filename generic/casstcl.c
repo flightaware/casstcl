@@ -1243,6 +1243,72 @@ casstcl_batch_command_to_batchClientData (casstcl_sessionClientData *ct, char *b
 }
 
 /*
+ *--------------------------------------------------------------
+ *
+ * casstcl_invoke_callback_with_argument --
+ *
+ *     The twist here is that a callback object might be a list, not
+ *     just a command name, like the argument to -callback might be
+ *     more than just a function name, like it could be an object name
+ *     and a method name and an argument or whatever.
+ *
+ *     This code splits out that list and generates up an eval thingie
+ *     and invokes it with the additional argument tacked onto the end,
+ *     a future object or the like.
+ *
+ * Results:
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+int
+casstcl_invoke_callback_with_argument (Tcl_Interp *interp, Tcl_Obj *callbackObj, Tcl_Obj *argumentObj) {
+	int callbackListObjc;
+	Tcl_Obj **callbackListObjv;
+	int tclReturnCode;
+
+	int evalObjc;
+	Tcl_Obj **evalObjv;
+
+	int i;
+
+	if (Tcl_ListObjGetElements (interp, callbackObj, &callbackListObjc, &callbackListObjv) == TCL_ERROR) {
+		Tcl_AppendResult (interp, " while converting callback argument", NULL);
+		return TCL_ERROR;
+	}
+
+	evalObjc = callbackListObjc + 1;
+	evalObjv = (Tcl_Obj **)ckalloc (sizeof (Tcl_Obj *) * evalObjc);
+
+	for (i = 0; i < callbackListObjc; i++) {
+		evalObjv[i] = callbackListObjv[i];
+		Tcl_IncrRefCount (evalObjv[i]);
+	}
+
+	evalObjv[evalObjc - 1] = argumentObj;
+	Tcl_IncrRefCount (evalObjv[evalObjc - 1]);
+
+	tclReturnCode = Tcl_EvalObjv (interp, evalObjc, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
+
+	// if we got a Tcl error, since we initiated the event, it doesn't
+	// have anything to traceback further from here to, we must initiate
+	// a background error, which will generally cause the bgerror proc
+	// to get invoked
+	if (tclReturnCode == TCL_ERROR) {
+		Tcl_BackgroundException (interp, TCL_ERROR);
+	}
+
+	for (i = 0; i < evalObjc; i++) {
+		Tcl_DecrRefCount (evalObjv[i]);
+	}
+
+	ckfree ((char *)evalObjv);
+	return tclReturnCode;
+}
+
+/*
  *----------------------------------------------------------------------
  *
  * casstcl_logging_eventProc --
@@ -1268,10 +1334,8 @@ casstcl_logging_eventProc (Tcl_Event *tevPtr, int flags) {
 	int tclReturnCode;
 	Tcl_Interp *interp = evPtr->interp;
 
-#define CASSTCL_LOG_CALLBACK_ARGCOUNT 2
 #define CASSTCL_LOG_CALLBACK_LISTCOUNT 12
 
-	Tcl_Obj *evalObjv[CASSTCL_LOG_CALLBACK_ARGCOUNT];
 	Tcl_Obj *listObjv[CASSTCL_LOG_CALLBACK_LISTCOUNT];
 
 	// probably won't happen but if we get a logging callback and have
@@ -1304,27 +1368,10 @@ casstcl_logging_eventProc (Tcl_Event *tevPtr, int flags) {
 
 	Tcl_Obj *listObj = Tcl_NewListObj (CASSTCL_LOG_CALLBACK_LISTCOUNT, listObjv);
 
-	// construct an objv we'll pass to eval.
-	// first is the callback command
-	// second is the list we just created
-	evalObjv[0] = casstcl_loggingCallbackObj;
-	evalObjv[1] = listObj;
-
-	// invoke the logging callback command
-	Tcl_IncrRefCount (evalObjv[0]);
-	Tcl_IncrRefCount (evalObjv[1]);
-	tclReturnCode = Tcl_EvalObjv (interp, CASSTCL_LOG_CALLBACK_ARGCOUNT, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
-
-	// if we got a Tcl error, since we initiated the event, it doesn't
-	// have anything to traceback further from here to, we must initiate
-	// a background error, which will generally cause the bgerror proc
-	// to get invoked
-	if (tclReturnCode == TCL_ERROR) {
-		Tcl_BackgroundException (interp, TCL_ERROR);
-	}
-
-	Tcl_DecrRefCount(evalObjv[0]);
-	Tcl_DecrRefCount(evalObjv[1]);
+	// even if this fails we still want the event taken off the queue
+	// this function will do the background error thing if there is a tcl
+	// error running the callback
+	tclReturnCode = casstcl_invoke_callback_with_argument (interp, casstcl_loggingCallbackObj, listObj);
 
 	// tell the dispatcher we handled it.  0 would mean we didn't deal with
 	// it and don't want it removed from the queue
@@ -3241,31 +3288,18 @@ casstcl_future_eventProc (Tcl_Event *tevPtr, int flags) {
 	int tclReturnCode;
 	Tcl_Interp *interp = fcd->ct->interp;
 
-	Tcl_Obj *evalObjv[2];
+	Tcl_Obj *futureObj;
 
-	// construct an objv we'll pass to eval.
-	// first is the callback command
-	// second is the name of the future object this callback is related to
-	evalObjv[0] = fcd->callbackObj;
-	evalObjv[1] = Tcl_NewObj();
-	Tcl_GetCommandFullName(interp, fcd->cmdToken, evalObjv[1]);
+	// get the name of the future object this callback is related to
+	// into an object
+	futureObj = Tcl_NewObj();
+	Tcl_GetCommandFullName(interp, fcd->cmdToken, futureObj);
 
 	// eval the command.  it should be the callback we were told as the
 	// first argument and the future object we created, like future0, as
-	// the second.  go ahead and ask for direct, i.e. don't compile into
-	// bytecodes, because our little single two-argument call is ephemeral
+	// the second.
 
-	Tcl_IncrRefCount (evalObjv[0]);
-	Tcl_IncrRefCount (evalObjv[1]);
-
-	tclReturnCode = Tcl_EvalObjv (interp, 2, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
-
-	if (tclReturnCode == TCL_ERROR) {
-		Tcl_BackgroundException (interp, TCL_ERROR);
-	}
-
-	Tcl_DecrRefCount(evalObjv[0]);
-	Tcl_DecrRefCount(evalObjv[1]);
+	tclReturnCode = casstcl_invoke_callback_with_argument (interp, fcd->callbackObj, futureObj);
 
 	// tell the dispatcher we handled it.  0 would mean we didn't deal with
 	// it and don't want it removed from the queue
