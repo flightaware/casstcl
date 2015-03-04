@@ -2066,12 +2066,23 @@ SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj)
 	//
 	if (casstcl_obj_to_compound_cass_value_types (interp, obj, &localTypeInfo.cassValueType, &localTypeInfo.valueSubType1, &localTypeInfo.valueSubType2) == TCL_OK) {
 		*typeInfo = localTypeInfo;
+		// we manage the data type of this object now
 		obj->typePtr = &casstcl_cassTypeTclType;
 		return TCL_OK;
 	}
 	return TCL_ERROR;
 }
 
+// this converts our internal data type to a string
+// it is probably not needed and will not be unless you some day
+// write a casstcl_cassTypeInfo into a Tcl object that you didn't
+// create with a string or copy to (like for the int data type an object
+// that is the target of a calculation will get its int set and its
+// string rep invalidated and regenerated later
+//
+// this also probably means that the routine is buggy because it probably
+// hasn't ever been called
+//
 void UpdateCassTypeString (Tcl_Obj *obj) {
 	casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&obj->internalRep.wideValue;
 	CassValueType cassType = typeInfo->cassValueType;
@@ -3131,16 +3142,14 @@ casstcl_reimport_column_type_map (casstcl_sessionClientData *ct)
 	Tcl_Obj *evalObjv[2];
 
 	// construct an objv we'll pass to eval.
-	// first is the callback command
-	// second is the name of the future object this callback is related to
+	// first is the command
+	// second is the name of cassandra connection object
 	evalObjv[0] = Tcl_NewStringObj ("::casstcl::import_column_type_map", -1);
 	evalObjv[1] = Tcl_NewObj();
 	Tcl_GetCommandFullName(interp, ct->cmdToken, evalObjv[1]);
 
-	// eval the command.  it should be the callback we were told as the
-	// first argument and the future object we created, like future0, as
-	// the second.  go ahead and ask for direct, i.e. don't compile into
-	// bytecodes, because our little single two-argument call is ephemeral
+	// eval the command.  this should traverse the metadata and extract
+	// the types of all the columns of all the tables of all the keyspaces
 
 	Tcl_IncrRefCount (evalObjv[0]);
 	Tcl_IncrRefCount (evalObjv[1]);
