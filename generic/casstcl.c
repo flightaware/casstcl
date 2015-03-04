@@ -2060,7 +2060,7 @@ SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj)
 	// Tcl_ConvertToType will not do anything and access to the
 	// internal representation will be quick
 	//
-	// see casstcl_type_index_name_to_cass_value_types
+	// see casstcl_typename_obj_to_cass_value_types
 	//
 	if (casstcl_obj_to_compound_cass_value_types (interp, obj, &typeInfo->cassValueType, &typeInfo->valueSubType1, &typeInfo->valueSubType2) == TCL_OK) {
 		obj->typePtr = &casstcl_cassTypeTclType;
@@ -2073,7 +2073,7 @@ SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj)
 /*
  *----------------------------------------------------------------------
  *
- * casstcl_type_index_name_to_cass_value_types --
+ * casstcl_typename_obj_to_cass_value_types --
  *
  *   Look up the validator in the column type map and decode it into
  *   three CassValueType entries, with extremely fast caching
@@ -2081,19 +2081,28 @@ SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj)
  * Results:
  *      A standard Tcl result.
  *
+ *      TCL_CONTINUE is returned if the type index name isn't found
+ *
  *----------------------------------------------------------------------
  */
 int
-casstcl_type_index_name_to_cass_value_types (Tcl_Interp *interp, char *typeIndexName, CassValueType *valueType, CassValueType *valueSubType1, CassValueType *valueSubType2) {
+casstcl_typename_obj_to_cass_value_types (Tcl_Interp *interp, char *table, Tcl_Obj *typenameObj, CassValueType *valueType, CassValueType *valueSubType1, CassValueType *valueSubType2) {
+	int varNameSize = 0;
+	char *varName = Tcl_GetStringFromObj (typenameObj, &varNameSize);
+	// add two bytes, one for a period and one for a null byte
+	int typeIndexSize = strlen (table) + 2 + varNameSize;
+	char *typeIndexName = ckalloc (typeIndexSize);
+
+	snprintf (typeIndexName, typeIndexSize, "%s.%s", table, varName);
+
 	Tcl_Obj *typeObj = Tcl_GetVar2Ex (interp, "::casstcl::columnTypeMap", typeIndexName, (TCL_GLOBAL_ONLY|TCL_LEAVE_ERR_MSG));
 
+	ckfree (typeIndexName);
+
+	// if not found, the type didn't exist, but it might not be an error,
+	// return TCL_CONTINUE to differentiate it from TCL_OK
 	if (typeObj == NULL) {
-#if 0
-		Tcl_AppendResult (interp, " while trying to look up the data type for type index '", typeIndexName, "'", NULL);
-		return TCL_ERROR;
-#else
 		return TCL_CONTINUE;
-#endif
 	}
 
 	if (Tcl_ConvertToType (interp, typeObj, &casstcl_cassTypeTclType) == TCL_ERROR) {
@@ -2157,14 +2166,7 @@ casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char 
 	CassStatement *statement = cass_statement_new(cass_string_init(query), objc);
 
 	for (i = 0; i < objc; i ++) {
-		int varNameSize = 0;
-		char *varName = Tcl_GetStringFromObj (objv[i], &varNameSize);
-		int typeIndexSize = strlen (table) + 8 + varNameSize;
-		char *typeIndexName = ckalloc (typeIndexSize);
-
-		snprintf (typeIndexName, typeIndexSize, "%s.%s", table, varName);
-
-		tclReturn = casstcl_type_index_name_to_cass_value_types (interp, typeIndexName, &valueType, &valueSubType1, &valueSubType2);
+		tclReturn = casstcl_typename_obj_to_cass_value_types (interp, table, objv[i], &valueType, &valueSubType1, &valueSubType2);
 
 		if (tclReturn == TCL_ERROR) {
 			masterReturn = TCL_ERROR;
@@ -2180,7 +2182,8 @@ casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char 
 		}
 
 		// get the value out of the array
-		Tcl_Obj *valueObj = Tcl_GetVar2Ex (interp, tclArray, Tcl_GetString (objv[i]), (TCL_GLOBAL_ONLY|TCL_LEAVE_ERR_MSG));
+		char *varName = Tcl_GetString (objv[i]);
+		Tcl_Obj *valueObj = Tcl_GetVar2Ex (interp, tclArray, varName, (TCL_GLOBAL_ONLY|TCL_LEAVE_ERR_MSG));
 
 		if (valueObj == NULL) {
 			Tcl_AppendResult (interp, " while trying to look up the data value for column '", varName, "', ", table, "', ", table, "' from array '", tclArray, "'", NULL);
@@ -2240,17 +2243,8 @@ casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *
 //printf("objc = %d\n", objc);
 	for (i = 0; i < objc; i += 2) {
 //printf("i = %d\n", i);
-		int varNameSize = 0;
-		char *varName = Tcl_GetStringFromObj (objv[i], &varNameSize);
 
-		// this can be factored and shared with casstcl_bind_names_from_list
-		int typeIndexSize = strlen (table) + 8 + varNameSize;
-		char *typeIndexName = ckalloc (typeIndexSize);
-
-		snprintf (typeIndexName, typeIndexSize, "%s.%s", table, varName);
-//printf ("typeIndexName '%s', typeIndexSize %d, table '%s', varName '%s'\n", typeIndexName, typeIndexSize, table, varName);
-
-		tclReturn = casstcl_type_index_name_to_cass_value_types (interp, typeIndexName, &valueType, &valueSubType1, &valueSubType2);
+		tclReturn = casstcl_typename_obj_to_cass_value_types (interp, table, objv[i], &valueType, &valueSubType1, &valueSubType2);
 
 		if (tclReturn == TCL_ERROR) {
 //printf ("error from casstcl_obj_to_compound_cass_value_types\n");
@@ -2272,7 +2266,7 @@ casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *
 //printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
 		if (tclReturn == TCL_ERROR) {
 //printf ("error from casstcl_bind_tcl_obj\n");
-			Tcl_AppendResult (interp, " while attempting to bind field '", varName, "' referencing table '", table, "'", NULL);
+			Tcl_AppendResult (interp, " while attempting to bind field  of type '", Tcl_GetString (objv[i]), "' referencing table '", table, "'", NULL);
 			masterReturn = TCL_ERROR;
 			break;
 		}
