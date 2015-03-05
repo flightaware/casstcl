@@ -627,9 +627,16 @@ casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, C
 		return TCL_ERROR;
 	}
 
-	if ((valueType == CASS_VALUE_TYPE_MAP && listObjc != 3) || (listObjc != 2)) {
-		Tcl_AppendResult (interp, "cassandra type spec wrong # of values", NULL);
-		return TCL_ERROR;
+	if (valueType == CASS_VALUE_TYPE_MAP) {
+		if (listObjc != 3) {
+			Tcl_AppendResult (interp, "cassandra map type must contain three type values", NULL);
+			return TCL_ERROR;
+		}
+	} else {
+		if (listObjc != 3) {
+			Tcl_AppendResult (interp, "cassandra ", string, " type must contain two values", NULL);
+			return TCL_ERROR;
+		}
 	}
 
 	// at this point it's a colleciton and the list count is correct so
@@ -637,7 +644,7 @@ casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, C
 
 	*valueSubType1 = casstcl_string_to_cass_value_type (Tcl_GetString(listObjv[1]));
 	if (*valueSubType1 == CASS_VALUE_TYPE_UNKNOWN) {
-		Tcl_AppendResult (interp, "cassandra type spec unrecognized collection subtype", NULL);
+		Tcl_AppendResult (interp, "cassandra ", string, " type spec unrecognized subtype '", Tcl_GetString (listObjv[1]), "'", NULL);
 		return TCL_ERROR;
 	}
 
@@ -645,7 +652,7 @@ casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, C
 	if (valueType == CASS_VALUE_TYPE_MAP) {
 		*valueSubType2 = casstcl_string_to_cass_value_type (Tcl_GetString(listObjv[2]));
 		if (*valueSubType2 == CASS_VALUE_TYPE_UNKNOWN) {
-			Tcl_AppendResult (interp, "cassandra type spec unrecognized map collection value subtype", NULL);
+			Tcl_AppendResult (interp, "cassandra map type spec unrecognized second subtype '", Tcl_GetString(listObjv[2]), "'", NULL);
 			return TCL_ERROR;
 		}
 	}
@@ -680,7 +687,7 @@ int casstcl_cass_error_to_tcl (casstcl_sessionClientData *ct, CassError cassErro
 	const char *cassErrorDesc = cass_error_desc (cassError);
 	Tcl_ResetResult (ct->interp);
 	Tcl_SetErrorCode (ct->interp, "CASSANDRA", cassErrorCodeString, cassErrorDesc, NULL);
-	Tcl_AppendResult (ct->interp, "cassandra error: ", cassErrorDesc, NULL);
+	Tcl_AppendResult (ct->interp, "cassandra error: ", cassErrorCodeString, ": ", cassErrorDesc, NULL);
 	return TCL_ERROR;
 }
 
@@ -1226,7 +1233,7 @@ casstcl_batch_command_to_batchClientData (casstcl_sessionClientData *ct, char *b
 {
 	Tcl_CmdInfo batchCmdInfo;
 	Tcl_Interp *interp = ct->interp;
-	
+
 	if (!Tcl_GetCommandInfo (interp, batchCommandName, &batchCmdInfo)) {
 //printf("batchCommandName lookup failed for '%s'\n", batchCommandName);
 		return NULL;
@@ -3022,7 +3029,6 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 			char *tableName = Tcl_GetString (objv[2]);
 			Tcl_Obj *listObj = objv[3];
 
-			
 			resultCode = casstcl_make_upsert_statement (bcd->ct, tableName, listObj, &statement);
 			if (resultCode != TCL_ERROR) {
 //printf("calling cass_batch_add_statement\n");
