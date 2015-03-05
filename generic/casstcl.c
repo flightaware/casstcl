@@ -627,6 +627,12 @@ casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, C
 		return TCL_ERROR;
 	}
 
+	// it's a collection, so it will have one or two sub values depending
+	// on if it's a list or set (1) or a map (2).
+	// anyway, set the first type to the map, list or set type that we
+	// figured out.
+	*cassValueType = valueType;
+
 	if (valueType == CASS_VALUE_TYPE_MAP) {
 		if (listObjc != 3) {
 			Tcl_AppendResult (interp, "cassandra map type must contain three type values", NULL);
@@ -656,7 +662,7 @@ casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, C
 			return TCL_ERROR;
 		}
 	}
-
+// printf("casstcl_obj_to_compound_cass_value_types took '%s' and made %d, %d, %d\n", Tcl_GetString (tclObj), *cassValueType, *valueSubType1, *valueSubType2);
 	return TCL_OK;
 }
 
@@ -1796,6 +1802,7 @@ int casstcl_append_tcl_obj_to_collection (casstcl_sessionClientData *ct, CassCol
 
 int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statement, cass_size_t index, CassValueType valueType, CassValueType valueSubType1, CassValueType valueSubType2, Tcl_Obj *obj)
 {
+// printf("casstcl_bind_tcl_obj called, index %d, valueType %d\n", index, valueType);
 	Tcl_Interp *interp = ct->interp;
 	CassError cassError = CASS_OK;
 
@@ -1961,6 +1968,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 				return TCL_ERROR;
 			}
 
+// printf("map collection accumulation started, %d elements\n", listObjc);
 			CassCollection *collection = cass_collection_new (CASS_COLLECTION_TYPE_MAP, listObjc);
 
 			for (i = 0; i < listObjc; i += 2) {
@@ -1977,6 +1985,8 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 
 			cassError = cass_statement_bind_collection (statement, index, collection);
 			cass_collection_free (collection);
+
+// printf("bound map collection of %d elements as to statement index %d\n", listObjc, index);
 
 			break;
 		}
@@ -2228,6 +2238,8 @@ casstcl_typename_obj_to_cass_value_types (Tcl_Interp *interp, char *table, Tcl_O
 	*valueType = typeInfo->cassValueType;
 	*valueSubType1 = typeInfo->valueSubType1;
 	*valueSubType2 = typeInfo->valueSubType2;
+
+// printf("casstcl_typename_obj_to_cass_value_types took table '%s' type '%s' and produced %x, %x, %x\n", table, Tcl_GetString (typenameObj), *valueType, *valueSubType1, *valueSubType2);
 	return TCL_OK;
 }
 
