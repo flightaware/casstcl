@@ -693,7 +693,7 @@ int casstcl_cass_error_to_tcl (casstcl_sessionClientData *ct, CassError cassErro
 	const char *cassErrorDesc = cass_error_desc (cassError);
 	Tcl_ResetResult (ct->interp);
 	Tcl_SetErrorCode (ct->interp, "CASSANDRA", cassErrorCodeString, cassErrorDesc, NULL);
-	Tcl_AppendResult (ct->interp, "cassandra error: ", cassErrorCodeString, ": ", cassErrorDesc, NULL);
+	Tcl_AppendResult (ct->interp, "cassandra error: ", cassErrorDesc, NULL);
 	return TCL_ERROR;
 }
 
