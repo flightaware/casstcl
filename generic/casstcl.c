@@ -1024,13 +1024,13 @@ casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **ob
 int
 casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table, int includeTypes, Tcl_Obj **objPtr) {
 	const CassSchema *schema = cass_session_get_schema(ct->session);
+	Tcl_Interp *interp = ct->interp;
 
 	// locate the keyspace
 	const CassSchemaMeta *keyspaceMeta = cass_schema_get_keyspace (schema, keyspace);
-	Tcl_Interp *interp = ct->interp;
 
 	if (keyspaceMeta == NULL) {
-		Tcl_AppendResult (ct->interp, "keyspace '", keyspace, "' not found", NULL);
+		Tcl_AppendResult (interp, "keyspace '", keyspace, "' not found", NULL);
 		return TCL_ERROR;
 	}
 
@@ -1038,7 +1038,7 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 	const CassSchemaMeta *tableMeta = cass_schema_meta_get_entry (keyspaceMeta, table);
 
 	if (tableMeta == NULL) {
-		Tcl_AppendResult (ct->interp, "table '", table, "' not found in keyspace '", keyspace, "'", NULL);
+		Tcl_AppendResult (interp, "table '", table, "' not found in keyspace '", keyspace, "'", NULL);
 		return TCL_ERROR;
 	}
 
@@ -1067,7 +1067,7 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 			continue;
 		}
 		cass_value_get_string(fieldValue, &name);
-		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
+		if (Tcl_ListObjAppendElement (interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
 			tclReturn = TCL_ERROR;
 			break;
 		}
@@ -1096,7 +1096,7 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 
 				Tcl_IncrRefCount (evalObjv[0]);
 				Tcl_IncrRefCount (evalObjv[1]);
-				tclReturn = Tcl_EvalObjv (ct->interp, 2, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
+				tclReturn = Tcl_EvalObjv (interp, 2, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
 				Tcl_DecrRefCount(evalObjv[0]);
 				Tcl_DecrRefCount(evalObjv[1]);
 
@@ -1105,7 +1105,7 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 				}
 				tclReturn = TCL_OK;
 
-				elementObj = Tcl_GetObjResult (ct->interp);
+				elementObj = Tcl_GetObjResult (interp);
 				Tcl_IncrRefCount(elementObj);
 				// Tcl_ResetResult (interp);
 			}
@@ -1114,7 +1114,7 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 			// from the ::casstcl::validatorTypeLookCache array or
 			// by invoking eval on ::casstcl::validator_to_type
 
-			if (Tcl_ListObjAppendElement (ct->interp, listObj, elementObj) == TCL_ERROR) {
+			if (Tcl_ListObjAppendElement (interp, listObj, elementObj) == TCL_ERROR) {
 				tclReturn = TCL_ERROR;
 				break;
 			}
@@ -1437,6 +1437,8 @@ void casstcl_logging_callback (const CassLogMessage *message, void *data) {
 int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValue *cassValue, Tcl_Obj **tclObj)
 {
 	CassValueType valueType = cass_value_type (cassValue);
+	Tcl_Interp *interp = ct->interp;
+
 	switch (valueType) {
 
 		case CASS_VALUE_TYPE_UNKNOWN: {
@@ -1594,8 +1596,8 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 
 				// if we successfully converted both values, add to the list
 				if (mapKey != NULL && mapValue != NULL) {
-					Tcl_ListObjAppendElement (ct->interp, listObj, mapKey);
-					Tcl_ListObjAppendElement (ct->interp, listObj, mapValue);
+					Tcl_ListObjAppendElement (interp, listObj, mapKey);
+					Tcl_ListObjAppendElement (interp, listObj, mapValue);
 				}
 			}
 
@@ -1619,7 +1621,7 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 				}
 
 				if (collectionValue != NULL) {
-					Tcl_ListObjAppendElement (ct->interp, listObj, collectionValue);
+					Tcl_ListObjAppendElement (interp, listObj, collectionValue);
 				}
 			}
 
@@ -2569,7 +2571,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 
 		// OK so we aren't going to accept anything starting with - that
 		// isn't in our option list
-		if (Tcl_GetIndexFromObj (ct->interp, objv[arg++], options, "options",
+		if (Tcl_GetIndexFromObj (interp, objv[arg++], options, "options",
 			TCL_EXACT, &optIndex) != TCL_OK) {
 			return TCL_ERROR;
 		}
@@ -2654,6 +2656,7 @@ casstcl_iterate_over_future (casstcl_sessionClientData *ct, CassFuture *future, 
 	CassIterator* iterator;
 	result = cass_future_get_result(future);
 	iterator = cass_iterator_from_result(result);
+	Tcl_Interp *interp = ct->interp;
 
 	int columnCount = cass_result_column_count (result);
 
@@ -2675,7 +2678,7 @@ casstcl_iterate_over_future (casstcl_sessionClientData *ct, CassFuture *future, 
 			columnValue = cass_row_get_column (row, i);
 
 			if (cass_value_is_null (columnValue)) {
-				Tcl_UnsetVar2 (ct->interp, arrayName, columnName, 0);
+				Tcl_UnsetVar2 (interp, arrayName, columnName, 0);
 				continue;
 			}
 
@@ -2685,17 +2688,18 @@ casstcl_iterate_over_future (casstcl_sessionClientData *ct, CassFuture *future, 
 			}
 
 			if (newObj == NULL) {
-				Tcl_UnsetVar2 (ct->interp, arrayName, columnName, 0);
+				Tcl_UnsetVar2 (interp, arrayName, columnName, 0);
 			} else {
-				if (Tcl_SetVar2Ex (ct->interp, arrayName, columnName, newObj, (TCL_LEAVE_ERR_MSG)) == NULL) {
+				if (Tcl_SetVar2Ex (interp, arrayName, columnName, newObj, (TCL_LEAVE_ERR_MSG)) == NULL) {
 					tclReturn = TCL_ERROR;
 					break;
 				}
 			}
 		}
 
-		// now execute the code body
-		int evalReturnCode = Tcl_EvalObjEx(ct->interp, codeObj, 0);
+		// now execute the code body (this version of eval does not
+		// require any reference count management of the object)
+		int evalReturnCode = Tcl_EvalObjEx(interp, codeObj, 0);
 		if ((evalReturnCode != TCL_OK) && (evalReturnCode != TCL_CONTINUE)) {
 			if (evalReturnCode == TCL_BREAK) {
 				tclReturn = TCL_BREAK;
@@ -2707,8 +2711,8 @@ casstcl_iterate_over_future (casstcl_sessionClientData *ct, CassFuture *future, 
 				tclReturn = TCL_ERROR;
 
 				sprintf(msg, "\n    (\"select\" body line %d)",
-						Tcl_GetErrorLine(ct->interp));
-				Tcl_AddErrorInfo(ct->interp, msg);
+						Tcl_GetErrorLine(interp));
+				Tcl_AddErrorInfo(interp, msg);
 			}
 
 			break;
@@ -2742,6 +2746,7 @@ casstcl_iterate_over_future (casstcl_sessionClientData *ct, CassFuture *future, 
 int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName, Tcl_Obj *codeObj, int pagingSize) {
 	CassStatement* statement = NULL;
 	int tclReturn = TCL_OK;
+	Tcl_Interp *interp = ct->interp;
 
 	statement = cass_statement_new(cass_string_init(query), 0);
 
@@ -2788,7 +2793,7 @@ int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName,
 				columnValue = cass_row_get_column (row, i);
 
 				if (cass_value_is_null (columnValue)) {
-					Tcl_UnsetVar2 (ct->interp, arrayName, columnName, 0);
+					Tcl_UnsetVar2 (interp, arrayName, columnName, 0);
 					continue;
 				}
 
@@ -2798,9 +2803,9 @@ int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName,
 				}
 
 				if (newObj == NULL) {
-					Tcl_UnsetVar2 (ct->interp, arrayName, columnName, 0);
+					Tcl_UnsetVar2 (interp, arrayName, columnName, 0);
 				} else {
-					if (Tcl_SetVar2Ex (ct->interp, arrayName, columnName, newObj, (TCL_LEAVE_ERR_MSG)) == NULL) {
+					if (Tcl_SetVar2Ex (interp, arrayName, columnName, newObj, (TCL_LEAVE_ERR_MSG)) == NULL) {
 						tclReturn = TCL_ERROR;
 						break;
 					}
@@ -2808,7 +2813,7 @@ int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName,
 			}
 
 			// now execute the code body
-			int evalReturnCode = Tcl_EvalObjEx(ct->interp, codeObj, 0);
+			int evalReturnCode = Tcl_EvalObjEx(interp, codeObj, 0);
 			if ((evalReturnCode != TCL_OK) && (evalReturnCode != TCL_CONTINUE)) {
 				if (evalReturnCode == TCL_BREAK) {
 					tclReturn = TCL_BREAK;
@@ -2820,8 +2825,8 @@ int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName,
 					tclReturn = TCL_ERROR;
 
 					sprintf(msg, "\n    (\"select\" body line %d)",
-							Tcl_GetErrorLine(ct->interp));
-					Tcl_AddErrorInfo(ct->interp, msg);
+							Tcl_GetErrorLine(interp));
+					Tcl_AddErrorInfo(interp, msg);
 				}
 
 				break;
@@ -2839,7 +2844,7 @@ int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName,
 	} while (has_more_pages && tclReturn == TCL_OK);
 
 	cass_statement_free(statement);
-	Tcl_UnsetVar (ct->interp, arrayName, 0);
+	Tcl_UnsetVar (interp, arrayName, 0);
 
 	if (tclReturn == TCL_BREAK) {
 		tclReturn = TCL_OK;
@@ -2911,7 +2916,7 @@ casstcl_futureObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_O
 			}
 
 			if (objc == 3) {
-				if (Tcl_GetIntFromObj (fcd->ct->interp, objv[2], &microSeconds) == TCL_ERROR) {
+				if (Tcl_GetIntFromObj (interp, objv[2], &microSeconds) == TCL_ERROR) {
 					Tcl_AppendResult (interp, " while converting microseconds element", NULL);
 					return TCL_ERROR;
 				}
@@ -2941,7 +2946,7 @@ casstcl_futureObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_O
 				return TCL_ERROR;
 			}
 
-			if (Tcl_DeleteCommandFromToken (fcd->ct->interp, fcd->cmdToken) == TCL_ERROR) {
+			if (Tcl_DeleteCommandFromToken (interp, fcd->cmdToken) == TCL_ERROR) {
 				resultCode = TCL_ERROR;
 			}
 			break;
@@ -2950,7 +2955,7 @@ casstcl_futureObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_O
 		case OPT_STATUS: {
 			const char *cassErrorCodeString = casstcl_cass_error_to_errorcode_string (cass_future_error_code (fcd->future));
 
-			Tcl_SetObjResult (fcd->ct->interp, Tcl_NewStringObj (cassErrorCodeString, -1));
+			Tcl_SetObjResult (interp, Tcl_NewStringObj (cassErrorCodeString, -1));
 			break;
 		}
 
@@ -3381,6 +3386,7 @@ casstcl_createFutureObjectCommand (casstcl_sessionClientData *ct, CassFuture *fu
     fcd->cass_future_magic = CASS_FUTURE_MAGIC;
 	fcd->ct = ct;
 	fcd->future = future;
+	Tcl_Interp *interp = ct->interp;
 
 	if (callbackObj != NULL) {
 		Tcl_IncrRefCount(callbackObj);
@@ -3401,8 +3407,8 @@ casstcl_createFutureObjectCommand (casstcl_sessionClientData *ct, CassFuture *fu
 	snprintf (commandName, baseNameLength, "%s%lu", FUTURESTRING, nextAutoCounter++);
 
     // create a Tcl command to interface to cass
-    fcd->cmdToken = Tcl_CreateObjCommand (fcd->ct->interp, commandName, casstcl_futureObjectObjCmd, fcd, casstcl_futureObjectDelete);
-    Tcl_SetObjResult (ct->interp, Tcl_NewStringObj (commandName, -1));
+    fcd->cmdToken = Tcl_CreateObjCommand (interp, commandName, casstcl_futureObjectObjCmd, fcd, casstcl_futureObjectDelete);
+    Tcl_SetObjResult (interp, Tcl_NewStringObj (commandName, -1));
 	ckfree(commandName);
     return TCL_OK;
 }
