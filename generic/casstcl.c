@@ -3901,6 +3901,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			rc = cass_future_error_code (future);
 			if (rc != CASS_OK) {
 				resultCode = casstcl_cass_error_to_tcl (ct, rc);
+				break;
 			}
 
 			const CassPrepared *cassPrepared = cass_future_get_prepared (future);
