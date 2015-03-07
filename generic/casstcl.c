@@ -575,9 +575,9 @@ casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, C
 			return TCL_ERROR;
 		}
 	} else {
-		if (listObjc != 3) {
+		if (listObjc != 2) {
 			Tcl_ResetResult (interp);
-			Tcl_AppendResult (interp, "cassandra ", string, " type must contain two values", NULL);
+			Tcl_AppendResult (interp, "cassandra ", string, " type ('", Tcl_GetString (tclObj), "') must contain two values", NULL);
 			return TCL_ERROR;
 		}
 	}
@@ -2469,7 +2469,7 @@ casstcl_bind_names_from_prepared (casstcl_preparedClientData *pcd, int objc, Tcl
 
 //printf("objc = %d\n", objc);
 	for (i = 0; i < objc; i += 2) {
-//printf("i = %d\n", i);
+// printf("i = %d, objv[i] = '%s', objc = %d\n", i, Tcl_GetString(objv[i]), objc);
 
 		tclReturn = casstcl_typename_obj_to_cass_value_types (interp, table, objv[i], &valueType, &valueSubType1, &valueSubType2);
 
@@ -2479,18 +2479,21 @@ casstcl_bind_names_from_prepared (casstcl_preparedClientData *pcd, int objc, Tcl
 			break;
 		}
 
-		// failed to find it?
+		// failed to find it?  in this case it's an error
 		if (tclReturn == TCL_CONTINUE) {
-			tclReturn = TCL_OK;
-			continue;
+			Tcl_ResetResult (interp);
+			Tcl_AppendResult (interp, "couldn't look up data type for column '", Tcl_GetString (objv[i]), "' from table '", table, "'", NULL);
+			masterReturn = TCL_ERROR;
+			break;
 		}
 
 		// get the value out of the list
 		Tcl_Obj *valueObj = objv[i+1];
 		char *name = Tcl_GetString (objv[i]);
 
+// printf("requesting bind by name for '%s', valueType %d\n", name, valueType);
 		tclReturn = casstcl_bind_tcl_obj (ct, statement, name, 0, valueType, valueSubType1, valueSubType2, valueObj);
-//printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
+// printf ("tried to bind arg '%s' as type %d %d %d value '%s'\n", name, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
 		if (tclReturn == TCL_ERROR) {
 //printf ("error from casstcl_bind_tcl_obj\n");
 			Tcl_AppendResult (interp, " while attempting to bind field name of '", name, "' of type '", Tcl_GetString (objv[i]), "' referencing table '", table, "'", NULL);
@@ -2772,6 +2775,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 				}
 
 				preparedName = Tcl_GetString (objv[arg++]);
+// printf("saw prepared case, name = '%s'\n", preparedName);
 				break;
 			}
 		}
@@ -2790,7 +2794,11 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 		return TCL_ERROR;
 	}
 
+	// if prepared, handle it
 	if (preparedName != NULL) {
+// printf("prepared case branch, name = '%s'\n", preparedName);
+
+		// locate the prepared statement structure we created earlier
 		casstcl_preparedClientData * pcd = casstcl_prepared_command_to_preparedClientData (ct, preparedName);
 
 		if (pcd == NULL) {
@@ -2799,17 +2807,18 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 			return TCL_ERROR;
 		}
 
+		// split out the column_name-value pairs of names and values
 		int listObjc;
 		Tcl_Obj **listObjv;
 
 		if (Tcl_ListObjGetElements (interp, objv[arg++], &listObjc, &listObjv) == TCL_ERROR) {
-			Tcl_AppendResult (interp, " while parsing list of key-value pairs", NULL);
+			Tcl_AppendResult (interp, " while parsing list of column-value pairs", NULL);
 			return TCL_ERROR;
 		}
 
 		if (listObjc & 1) {
 			Tcl_ResetResult (interp);
-			Tcl_AppendResult (interp, "must contain an even number of elements", NULL);
+			Tcl_AppendResult (interp, "list must contain an even number of elements", NULL);
 			return TCL_ERROR;
 		}
 		return casstcl_bind_names_from_prepared (pcd, listObjc, listObjv, statementPtr);
@@ -3805,9 +3814,13 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			while (arg + 1 < objc) {
-				if (Tcl_GetIndexFromObj (interp, objv[arg++], subOptions, "subOption", TCL_EXACT, &subOptIndex) != TCL_OK) {
+				// stop as soon as you don't match something, leaving arg
+				// at the not-matched thing (i.e. don't use arg++ in
+				// this statement)
+				if (Tcl_GetIndexFromObj (interp, objv[arg], subOptions, "subOption", TCL_EXACT, &subOptIndex) != TCL_OK) {
 					break;
 				}
+				arg++;
 
 				switch ((enum subOptions) subOptIndex) {
 					case SUBOPT_CALLBACK: {
