@@ -114,6 +114,7 @@ casstcl_preparedObjectDelete (ClientData clientData)
     assert (pcd->cass_prepared_magic == CASS_PREPARED_MAGIC);
 
 	cass_prepared_free (pcd->prepared);
+	Tcl_DecrRefCount (pcd->tableNameObj);
     ckfree((char *)clientData);
 }
 
@@ -3901,6 +3902,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			rc = cass_future_error_code (future);
 			if (rc != CASS_OK) {
 				resultCode = casstcl_cass_error_to_tcl (ct, rc);
+				Tcl_AppendResult (interp, " while attempting to prepare statement '", query, "'", NULL);
 				break;
 			}
 
