@@ -1223,8 +1223,8 @@ const char *casstcl_batch_type_to_batch_type_string (CassBatchType cassBatchType
 /*
  *--------------------------------------------------------------
  *
- * casstcl_batchClientData -- given a batch command name, find it
- *   in the interpreter and return a pointer to its batch client
+ *   casstcl_batch_command_to_batchClientData -- given a batch command name,
+ *   find it in the interpreter and return a pointer to its batch client
  *   data or NULL
  *
  * Results:
@@ -1253,6 +1253,39 @@ casstcl_batch_command_to_batchClientData (casstcl_sessionClientData *ct, char *b
 
 //printf("batchCommandName lookup succeeded for '%s'\n", batchCommandName);
 	return bcd;
+}
+
+/*
+ *--------------------------------------------------------------
+ *
+ * casstcl_prepared_command_to_preparedClientData -- given a "prepared"
+ * command name like prepared0, find it
+ *   in the interpreter and return a pointer to its prepared client
+ *   data or NULL
+ *
+ * Results:
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+casstcl_preparedClientData *
+casstcl_prepared_command_to_preparedClientData (casstcl_sessionClientData *ct, char *preparedCommandName)
+{
+	Tcl_CmdInfo preparedCmdInfo;
+	Tcl_Interp *interp = ct->interp;
+
+	if (!Tcl_GetCommandInfo (interp, preparedCommandName, &preparedCmdInfo)) {
+		return NULL;
+	}
+
+	casstcl_preparedClientData *pcd = (casstcl_preparedClientData *)preparedCmdInfo.objClientData;
+    if (pcd->cass_prepared_magic != CASS_PREPARED_MAGIC) {
+		return NULL;
+	}
+
+	return pcd;
 }
 
 /*
@@ -1802,7 +1835,7 @@ int casstcl_append_tcl_obj_to_collection (casstcl_sessionClientData *ct, CassCol
  *----------------------------------------------------------------------
  */
 
-int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statement, cass_size_t index, CassValueType valueType, CassValueType valueSubType1, CassValueType valueSubType2, Tcl_Obj *obj)
+int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statement, char *name, cass_size_t index, CassValueType valueType, CassValueType valueSubType1, CassValueType valueSubType2, Tcl_Obj *obj)
 {
 // printf("casstcl_bind_tcl_obj called, index %d, valueType %d\n", index, valueType);
 	Tcl_Interp *interp = ct->interp;
@@ -1815,7 +1848,11 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 			int length = 0;
 			char *value = Tcl_GetStringFromObj (obj, &length);
 
-			cassError = cass_statement_bind_string (statement, index, cass_string_init(value));
+			if (name == NULL) {
+				cassError = cass_statement_bind_string (statement, index, cass_string_init(value));
+			} else {
+				cassError = cass_statement_bind_string_by_name (statement, name, cass_string_init(value));
+			}
 			break;
 		}
 
@@ -1828,7 +1865,11 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 			unsigned char *value = Tcl_GetByteArrayFromObj (obj, &length);
 			cass_byte_t *copyBuffer = NULL;
 
-			cassError = cass_statement_bind_custom (statement, index, length, &copyBuffer);
+			if (name == NULL) {
+				cassError = cass_statement_bind_custom (statement, index, length, &copyBuffer);
+			} else {
+				cassError = cass_statement_bind_custom_by_name (statement, name, length, &copyBuffer);
+			}
 
 			if (cassError == CASS_OK) {
 				memcpy (copyBuffer, value, length);
@@ -1841,7 +1882,11 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 			int length = 0;
 			unsigned char *value = Tcl_GetByteArrayFromObj (obj, &length);
 
-			cassError = cass_statement_bind_bytes (statement, index, cass_bytes_init(value, length));
+			if (name == NULL) {
+				cassError = cass_statement_bind_bytes (statement, index, cass_bytes_init(value, length));
+			} else {
+				cassError = cass_statement_bind_bytes_by_name (statement, name, cass_bytes_init(value, length));
+			}
 			break;
 		}
 
@@ -1853,7 +1898,11 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 				return TCL_ERROR;
 			}
 
-			cassError = cass_statement_bind_bool (statement, index, value);
+			if (name == NULL) {
+				cassError = cass_statement_bind_bool (statement, index, value);
+			} else {
+				cassError = cass_statement_bind_bool_by_name (statement, name, value);
+			}
 			break;
 		}
 
@@ -1867,7 +1916,11 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 				return TCL_ERROR;
 			}
 
-			cassError = cass_statement_bind_int64 (statement, index, wideValue);
+			if (name == NULL) {
+				cassError = cass_statement_bind_int64 (statement, index, wideValue);
+			} else {
+				cassError = cass_statement_bind_int64_by_name (statement, name, wideValue);
+			}
 			break;
 		}
 
@@ -1883,7 +1936,11 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 				return TCL_ERROR;
 			}
 
-			cassError = cass_statement_bind_double (statement, index, value);
+			if (name == NULL) {
+				cassError = cass_statement_bind_double (statement, index, value);
+			} else {
+				cassError = cass_statement_bind_double_by_name (statement, name, value);
+			}
 			break;
 		}
 
@@ -1895,7 +1952,11 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 				return TCL_ERROR;
 			}
 
+			if (name == NULL) {
+			} else {
+			}
 			cassError = cass_statement_bind_float (statement, index, value);
+			cassError = cass_statement_bind_float_by_name (statement, name, value);
 			break;
 		}
 
@@ -1907,7 +1968,11 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 				return TCL_ERROR;
 			}
 
-			cassError = cass_statement_bind_int32 (statement, index, value);
+			if (name == NULL) {
+				cassError = cass_statement_bind_int32 (statement, index, value);
+			} else {
+				cassError = cass_statement_bind_int32_by_name (statement, name, value);
+			}
 			break;
 		}
 
@@ -1949,7 +2014,11 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 				}
 			}
 
-			cassError = cass_statement_bind_collection (statement, index, collection);
+			if (name == NULL) {
+				cassError = cass_statement_bind_collection (statement, index, collection);
+			} else {
+				cassError = cass_statement_bind_collection_by_name (statement, name, collection);
+			}
 			cass_collection_free (collection);
 
 			break;
@@ -1985,7 +2054,11 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 				}
 			}
 
-			cassError = cass_statement_bind_collection (statement, index, collection);
+			if (name == NULL) {
+				cassError = cass_statement_bind_collection (statement, index, collection);
+			} else {
+				cassError = cass_statement_bind_collection_by_name (statement, name, collection);
+			}
 			cass_collection_free (collection);
 
 // printf("bound map collection of %d elements as to statement index %d\n", listObjc, index);
@@ -2060,7 +2133,7 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
 			break;
 		}
 
-		tclReturn = casstcl_bind_tcl_obj (ct, statement, i / 2, valueType, valueSubType1, valueSubType2, objv[i]);
+		tclReturn = casstcl_bind_tcl_obj (ct, statement, NULL, i / 2, valueType, valueSubType1, valueSubType2, objv[i]);
 
 		if (tclReturn == TCL_ERROR) {
 			masterReturn = TCL_ERROR;
@@ -2320,7 +2393,7 @@ casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char 
 			break;
 		}
 
-		tclReturn = casstcl_bind_tcl_obj (ct, statement, i, valueType, valueSubType1, valueSubType2, valueObj);
+		tclReturn = casstcl_bind_tcl_obj (ct, statement, NULL, i, valueType, valueSubType1, valueSubType2, valueObj);
 // printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
 		if (tclReturn == TCL_ERROR) {
 			masterReturn = TCL_ERROR;
@@ -2332,6 +2405,89 @@ casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char 
 		*statementPtr = statement;
 	}
 
+	return masterReturn;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_bind_names_from_prepared --
+ *
+ *   binds names into a prepared statement
+ *
+ *   takes a prepared statement client data, a Tcl list of key-value
+ *   pairs and a pointer to a pointer to a cassandra statement
+ *
+ *   It creates a cassandra statement
+ *
+ *   Similar to casstcl_bind_names_from_array and casstcl_bind_names_from_list
+ *
+ *   Works a little differently because it binds the parameters by name
+ *   as specified in the key-value pairs.  This capability is only available
+ *   to prepared statements, and makes things a little easier on the
+ *   developer.
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_bind_names_from_prepared (casstcl_preparedClientData *pcd, int objc, Tcl_Obj *CONST objv[], CassStatement **statementPtr)
+{
+	Tcl_Interp *interp = pcd->ct->interp;
+	CassStatement *statement = cass_prepared_bind (pcd->prepared);
+	casstcl_sessionClientData *ct = pcd->ct;
+	int i;
+	int masterReturn = TCL_OK;
+	int tclReturn = TCL_OK;
+	char *table = Tcl_GetString (pcd->tableNameObj);
+
+	CassValueType valueType;
+	CassValueType valueSubType1;
+	CassValueType valueSubType2;
+
+	*statementPtr = NULL;
+
+//printf("objc = %d\n", objc);
+	for (i = 0; i < objc; i += 2) {
+//printf("i = %d\n", i);
+
+		tclReturn = casstcl_typename_obj_to_cass_value_types (interp, table, objv[i], &valueType, &valueSubType1, &valueSubType2);
+
+		if (tclReturn == TCL_ERROR) {
+//printf ("error from casstcl_obj_to_compound_cass_value_types\n");
+			masterReturn = TCL_ERROR;
+			break;
+		}
+
+		// failed to find it?
+		if (tclReturn == TCL_CONTINUE) {
+			tclReturn = TCL_OK;
+			continue;
+		}
+
+		// get the value out of the list
+		Tcl_Obj *valueObj = objv[i+1];
+		char *name = Tcl_GetString (objv[i]);
+
+		tclReturn = casstcl_bind_tcl_obj (ct, statement, name, 0, valueType, valueSubType1, valueSubType2, valueObj);
+//printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
+		if (tclReturn == TCL_ERROR) {
+//printf ("error from casstcl_bind_tcl_obj\n");
+			Tcl_AppendResult (interp, " while attempting to bind field name of '", name, "' of type '", Tcl_GetString (objv[i]), "' referencing table '", table, "'", NULL);
+			masterReturn = TCL_ERROR;
+			break;
+		}
+	}
+
+//printf("finished the loop, i = %d, objc = %d\n", i, objc);
+	if (masterReturn == TCL_OK) {
+//printf("theoretically got a good statement\n");
+		*statementPtr = statement;
+	}
+
+//printf("return code is %d\n", masterReturn);
 	return masterReturn;
 }
 
@@ -2391,7 +2547,7 @@ casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *
 		Tcl_Obj *valueObj = objv[i+1];
 
 
-		tclReturn = casstcl_bind_tcl_obj (ct, statement, i / 2, valueType, valueSubType1, valueSubType2, valueObj);
+		tclReturn = casstcl_bind_tcl_obj (ct, statement, NULL, i / 2, valueType, valueSubType1, valueSubType2, valueObj);
 //printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
 		if (tclReturn == TCL_ERROR) {
 //printf ("error from casstcl_bind_tcl_obj\n");
@@ -2536,17 +2692,20 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 	int arrayStyle = 0;
 	char *arrayName = NULL;
 	char *tableName = NULL;
+	char *preparedName = NULL;
 	Tcl_Interp *interp = ct->interp;
 
     static CONST char *options[] = {
         "-array",
 		"-table",
+		"-prepared",
         NULL
     };
 
     enum options {
         OPT_ARRAY,
-		OPT_TABLE
+		OPT_TABLE,
+		OPT_PREPARED
 	};
 
 	int optIndex;
@@ -2554,7 +2713,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 
 	if (objc < 1) {
 	  wrong_numargs:
-		Tcl_WrongNumArgs (interp, 2, objv, "?-array arrayName? ?-table tableName? query ?arg...?");
+		Tcl_WrongNumArgs (interp, 2, objv, "?-array arrayName? ?-table tableName? ?-prepared prepared? ?query? ?arg...?");
 		return TCL_ERROR;
 	}
 
@@ -2596,14 +2755,51 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 				arrayStyle = 1;
 				break;
 			}
+
+			case OPT_PREPARED: {
+				if (arg + 1 >= objc) {
+					goto wrong_numargs;
+				}
+
+				preparedName = Tcl_GetString (objv[arg++]);
+				break;
+			}
 		}
 	}
 
 //printf ("looking for query, arg %d, objc %d\n", arg, objc);
 
-	// there must at least be a query string left
+	// there must at least be a query string or prepared arglist left
 	if (arg >= objc) {
 		goto wrong_numargs;
+	}
+
+	if (preparedName != NULL && arrayStyle) {
+		Tcl_AppendResult (interp, "-prepared cannot be used with -table / -array", NULL);
+		return TCL_ERROR;
+	}
+
+	if (preparedName != NULL) {
+		casstcl_preparedClientData * pcd = casstcl_prepared_command_to_preparedClientData (ct, preparedName);
+
+		if (pcd == NULL) {
+			Tcl_AppendResult (interp, "-prepared argument '", preparedName, "' isn't a valid prepared statement object", NULL);
+			return TCL_ERROR;
+		}
+
+		int listObjc;
+		Tcl_Obj **listObjv;
+
+		if (Tcl_ListObjGetElements (interp, objv[arg++], &listObjc, &listObjv) == TCL_ERROR) {
+			Tcl_AppendResult (interp, " while parsing list of key-value pairs", NULL);
+			return TCL_ERROR;
+		}
+
+		if (listObjc & 1) {
+			Tcl_AppendResult (interp, "must contain an even number of elements", NULL);
+			return TCL_ERROR;
+		}
+		return casstcl_bind_names_from_prepared (pcd, listObjc, listObjv, statementPtr);
 	}
 
 	char *query = Tcl_GetString (objv[arg++]);
@@ -3695,12 +3891,12 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			CassError rc = CASS_OK;
 			CassFuture *future;
 
-			if (objc != 4) {
-				Tcl_WrongNumArgs (interp, 2, objv, "name statement");
+			if (objc != 5) {
+				Tcl_WrongNumArgs (interp, 2, objv, "name table statement");
 				return TCL_ERROR;
 			}
 
-			query = Tcl_GetString (objv[3]);
+			query = Tcl_GetString (objv[4]);
 
 			future = cass_session_prepare (ct->session, cass_string_init(query));
 
@@ -3721,6 +3917,10 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			pcd->cass_prepared_magic = CASS_PREPARED_MAGIC;
 			pcd->ct = ct;
 			pcd->prepared = cassPrepared;
+
+			pcd->tableNameObj = objv[3];
+			Tcl_IncrRefCount (pcd->tableNameObj);
+
 
 			char *commandName = Tcl_GetString (objv[2]);
 
@@ -4345,7 +4545,7 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
 			break;
 		}
 
-		case OPT_SET_LOGGING_CALLBACK: {
+		case OPT_LOGGING_CALLBACK: {
 			if (objc != 3) {
 				Tcl_WrongNumArgs (interp, 1, objv, "option arg");
 				return TCL_ERROR;

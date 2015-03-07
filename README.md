@@ -67,13 +67,13 @@ Methods of cassandra cluster interface object
 
 
 
-* *$cassdb* **exec** *?-callback callbackRoutine?* *?-table tableName?* *?-array arrayName?* *?-batch batchObjectName? *$statement* *?arg...?*
+* *$cassdb* **exec** *?-callback callbackRoutine?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName? *$statement* *?arg...?*
 
-* *$cassdb* **async** *?-callback callbackRoutine?* *?-table tableName?* *?-array arrayName?* *?-batch batchObjectName?* *?$statement?* *?arg...?*
+* *$cassdb* **async** *?-callback callbackRoutine?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName?* *?-prepared preparedObjectName? *?$statement?* *?arg...?*
 
 Perform the requested CQL statement.  Waits for it to complete if **exec** is used without **-callback** (synchronous).   Does not wait if **async** is used or **exec** is used with **-callback** (asynchronous).
 
-If synchronous then calltcl waits for the cassandra call to complete and gives you back an error.
+If synchronous then tcl waits for the cassandra call to complete and gives you back an error if an error occurs.
 
 If used asynchronously then the request is issued to cassandra and a result object called a *future* object is created and returned.
 
@@ -81,11 +81,13 @@ You you can use the methods of the future object to find out the status of your 
 
 If the **-callback** argument is specified then the next argument is a callback routine that will be invoked when the Cassandra request has completed or errored or whatnot.  The callback routine will be invoked with a single argument, which is the name of the future object created (such as *::future17*) when the request was made.
 
-If -batch is specified the argument is a batch object and that is used as the source of the statement(s).
+If **-batch** is specified the argument is a batch object and that is used as the source of the statement(s).
 
-If *-table* is specified it is the fully qualified name of a table and *-array* is also required, and vice versa.  These specify the affected table name and an array that the data elements will come from.  Args are zero or more arguments which are element names for the array and also legal column names for the table.  This technology will infer the data types and handle them behind your back as long as import_column_type_map has been run on the connection.
+If **-table** is specified it is the fully qualified name of a table and *-array* is also required, and vice versa.  These specify the affected table name and an array that the data elements will come from.  Args are zero or more arguments which are element names for the array and also legal column names for the table.  This technology will infer the data types and handle them behind your back as long as import_column_type_map has been run on the connection.
 
-If neither *-table*, *-array* or *-batch* has been specified, the arguments to the right of the statement need to be alternating between data and data type, like *14 int 3.7 float*.  This is the simplest for casstcl but requires the code to be more intimate with the data types than it otherwise would be.  If you use this style and you change a data type in the schema you also have to change it in the code.  So we don't like it.
+If **-prepared** is specified it is the name of a prepared statement object and the final argument is a list of key value pairs where the key corresponds to the name of a value in the prepared statement and the value is to be correspondingly bound to the matching **?** argument in the statement.
+
+If neither *-table*, *-array*, *-batch* or *-prepared* has been specified, the arguments to the right of the statement need to be alternating between data and data type, like *14 int 3.7 float*.  This is the simplest for casstcl but requires the code to be more intimate with the data types than it otherwise would be.  If you use this style and you change a data type in the schema you also have to change it in the code.  So we don't like it.
 
 See also the future object.
 
@@ -107,9 +109,11 @@ Connect to the cassandra cluster.  Use the specified keyspace if the keyspace ar
 $cassdb exec "use wx;"
 ```
 
-* *$cassdb* **prepare** *$statement*
+* *$cassdb* **prepare** *tableName* *$statement*
 
-Prepare the specified statement.  Although this command will probably work, the casstcl infrastructure in support of prepared statements including binding values into statements does not (yet) exist.
+Prepare the specified statement.  Although the table name shouldn't technically need to be specified, since the cpp-driver API doesn't provide access to the data types of the elements of the statement (yet; they have a ticket open to do it), we need the table name so we can look up the data types of the values being substituted when a prepared statement is being bound.  (It's OK to specify the table name since Cassandra doesn't support joins and whatnot so there shouldn't be more than one table referenced.)
+
+The result is a prepared statement object that currently has a single method, **delete**, which does the needful, but the statement can also be passed as an argument to adding a statement to a batch or execing or asyncing a statement.
 
 * *$cassdb* **keyspaces**
 
@@ -237,9 +241,9 @@ set mybatch [$cassdb create #auto]
 
 Both styles work.
 
-* *$batch* **add** *$statement*
+* *$batch* **add** *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName? ?args..?
 
-Adds the specified statement to the batch.
+Adds the specified statement to the batch. Processes arguments similarly to the **exec** and **async** methods.
 
 * *$batch* **consistency** *?$consistencyLevel?*
 

@@ -65,6 +65,7 @@ typedef struct casstcl_preparedClientData
     int cass_prepared_magic;
 	casstcl_sessionClientData *ct;
 	const CassPrepared *prepared;
+	Tcl_Obj *tableNameObj;
 	Tcl_Command cmdToken;
 } casstcl_preparedClientData;
 
