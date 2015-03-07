@@ -1953,10 +1953,10 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 			}
 
 			if (name == NULL) {
+				cassError = cass_statement_bind_float (statement, index, value);
 			} else {
+				cassError = cass_statement_bind_float_by_name (statement, name, value);
 			}
-			cassError = cass_statement_bind_float (statement, index, value);
-			cassError = cass_statement_bind_float_by_name (statement, name, value);
 			break;
 		}
 
