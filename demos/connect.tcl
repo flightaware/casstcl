@@ -22,9 +22,11 @@ if {![info exists ::params(port)]} {
 
 proc import_casstclrc {} {
 	if {[file readable ~/.casstclrc]} {
-		source ~/.casstclrc
+		uplevel #0 source ~/.casstclrc
 	}
 }
+
+import_casstclrc
 
 proc cass_connect {} {
 	set ::cass [::casstcl::cass create #auto]

@@ -15,10 +15,9 @@ proc insert_numbers {n} {
 	set row(mymap) [array get ::numbers]
 
 	set query "insert into casstcl_test.numbers (row, mylist, myset, mymap) values (?, ?, ?, ?);"
-	set query "insert into casstcl_test.numbers (row) values (?);"
 	set prepared [$::cass prepare #auto casstcl_test.numbers $query]
 
-	#$::cass exec -prepared $prepared [array get row]
+	$::cass exec -prepared $prepared [array get row]
 }
 
 source connect.tcl

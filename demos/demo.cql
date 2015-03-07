@@ -1,10 +1,10 @@
 
 
-DROP KEYSPACE IF EXISTS casstcl_tests;
+DROP KEYSPACE IF EXISTS casstcl_test;
 
-CREATE KEYSPACE casstcl_tests WITH replication = {'class': 'SimpleStrategy', 'replication_factor':1};
+CREATE KEYSPACE casstcl_test WITH replication = {'class': 'SimpleStrategy', 'replication_factor':1};
 
-USE casstcl_tests;
+USE casstcl_test;
 
 DROP TABLE IF EXISTS numbers;
 
