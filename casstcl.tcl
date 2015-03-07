@@ -4,7 +4,7 @@
 #
 #
 
-package provide casstcl
+#package provide casstcl
 
 namespace eval ::casstcl {
 	variable schemaDict
@@ -89,13 +89,15 @@ proc import_column_type_map {obj} {
 	}
 }
 
-} ;# namespace ::casstcl
-
-# vim: set ts=4 sw=4 sts=4 noet :
-
-package require cmdline
-
+#
+# ::casstcl::connect - convenience function to create a cassandra object
+#   with optional specification of host and port
+#
+#   set cassHandle [::casstcl::connect -host $host -port $port]
+#
 proc connect {args} {
+	package require cmdline
+
 	set options {
 		{host.arg "127.0.0.1" "address of cluster host"}
 		{port.arg "9042" "port of cluster host"}
@@ -103,14 +105,20 @@ proc connect {args} {
 
 	set usage "connect ?-host host? ?-port port?"
 
-	if {[catch {array set ::params [::cmdline::getKnownOptions argv $options $usage]} catchResult] == 1} {
-		puts stderr $catchResult
-		exit 1
+	if {[catch {array set params [::cmdline::getKnownOptions argv $options $usage]} catchResult] == 1} {
+		error $catchResult
 	}
 
-	cass_connect
+    set cass [::casstcl::cass create #auto]
+
+    $cass contact_points $::params(host)
+    $cass port $::params(port)
+    $cass connect
+
+    return $cass
 }
 
-if {!$tcl_interactive} {
-	main $argv
-}
+} ;# namespace ::casstcl
+
+# vim: set ts=4 sw=4 sts=4 noet :
+

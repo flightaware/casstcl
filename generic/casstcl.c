@@ -505,7 +505,7 @@ casstcl_string_to_cass_value_type (char *string) {
 /*
  *--------------------------------------------------------------
  *
- * casstcl_cass_value_type_to_string -- given a CassConsistency,
+ * casstcl_cass_consistency_to_string -- given a CassConsistency,
  *   return a const char * to a character string of equivalent
  *   meaning
  *
@@ -518,7 +518,7 @@ casstcl_string_to_cass_value_type (char *string) {
  *--------------------------------------------------------------
  */
 const char *
-casstcl_cass_value_type_to_string (CassConsistency consistency) {
+casstcl_cass_consistency_to_string (CassConsistency consistency) {
 	switch (consistency) {
 		case CASS_CONSISTENCY_ANY: {
 			return "any";
@@ -806,7 +806,7 @@ casstcl_obj_to_cass_consistency(casstcl_sessionClientData *ct, Tcl_Obj *tclObj, 
 /*
  *--------------------------------------------------------------
  *
- * casstcl_cass_consistency_to_string -- given a CassValueType,
+ * casstcl_cass_value_type_to_string -- given a CassValueType,
  *   return a const char * to a character string of equivalent
  *   meaning
  *
@@ -819,7 +819,7 @@ casstcl_obj_to_cass_consistency(casstcl_sessionClientData *ct, Tcl_Obj *tclObj, 
  *--------------------------------------------------------------
  */
 const char *
-casstcl_cass_consistency_to_string (CassValueType valueType) {
+casstcl_cass_value_type_to_string (CassValueType valueType) {
 	switch (valueType) {
 		case CASS_VALUE_TYPE_UNKNOWN: {
 			return "unknown";
@@ -2225,7 +2225,7 @@ SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj)
 void UpdateCassTypeString (Tcl_Obj *obj) {
 	casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&obj->internalRep.wideValue;
 	CassValueType cassType = typeInfo->cassValueType;
-	const char *string = casstcl_cass_consistency_to_string (cassType);
+	const char *string = casstcl_cass_value_type_to_string (cassType);
 	int len = strlen(string);
 
 	if (cassType != CASS_VALUE_TYPE_MAP && cassType != CASS_VALUE_TYPE_SET && cassType != CASS_VALUE_TYPE_LIST) {
@@ -2237,7 +2237,7 @@ void UpdateCassTypeString (Tcl_Obj *obj) {
 	}
 
 	// it's set, map or list, decode the second type
-	const char *subString1 = casstcl_cass_consistency_to_string (typeInfo->valueSubType1);
+	const char *subString1 = casstcl_cass_value_type_to_string (typeInfo->valueSubType1);
 	int len1 = strlen(subString1);
 
 	if (cassType != CASS_VALUE_TYPE_MAP) {
@@ -2252,7 +2252,7 @@ void UpdateCassTypeString (Tcl_Obj *obj) {
 		return;
 	}
 
-	const char *subString2 = casstcl_cass_consistency_to_string (typeInfo->valueSubType2);
+	const char *subString2 = casstcl_cass_value_type_to_string (typeInfo->valueSubType2);
 	int len2 = strlen(subString2);
 	int newStringSize = len + 1 + len1 + 1 + len2 + 1;
 	char *newString = ckalloc (newStringSize);
@@ -2551,7 +2551,7 @@ casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *
 //printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
 		if (tclReturn == TCL_ERROR) {
 //printf ("error from casstcl_bind_tcl_obj\n");
-			Tcl_AppendResult (interp, " while attempting to bind field  of type '", Tcl_GetString (objv[i]), "' referencing table '", table, "'", NULL);
+			Tcl_AppendResult (interp, " while attempting to bind field '", Tcl_GetString (objv[i]), "' of type '", casstcl_cass_value_type_to_string (valueType), "', value '", Tcl_GetString (valueObj), "' referencing table '", table, "'", NULL);
 			masterReturn = TCL_ERROR;
 			break;
 		}
@@ -3281,7 +3281,7 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 			}
 
 			if (objc == 2) {
-				Tcl_SetObjResult (interp, Tcl_NewStringObj (casstcl_cass_value_type_to_string (bcd->consistency), -1));
+				Tcl_SetObjResult (interp, Tcl_NewStringObj (casstcl_cass_consistency_to_string (bcd->consistency), -1));
 				return TCL_OK;
 			}
 
