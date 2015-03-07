@@ -505,73 +505,6 @@ casstcl_string_to_cass_value_type (char *string) {
 /*
  *--------------------------------------------------------------
  *
- * casstcl_cass_consistency_to_string -- given a CassConsistency,
- *   return a const char * to a character string of equivalent
- *   meaning
- *
- * Results:
- *      a string gets returned
- *
- * Side effects:
- *      None.
- *
- *--------------------------------------------------------------
- */
-const char *
-casstcl_cass_consistency_to_string (CassConsistency consistency) {
-	switch (consistency) {
-		case CASS_CONSISTENCY_ANY: {
-			return "any";
-		}
-
-		case CASS_CONSISTENCY_ONE: {
-			return "one";
-		}
-
-		case CASS_CONSISTENCY_TWO: {
-			return "two";
-		}
-
-		case CASS_CONSISTENCY_THREE: {
-			return "three";
-		}
-
-		case CASS_CONSISTENCY_QUORUM: {
-			return "quorum";
-		}
-
-		case CASS_CONSISTENCY_ALL: {
-			return "all";
-		}
-
-		case CASS_CONSISTENCY_LOCAL_QUORUM: {
-			return "local_quorum";
-		}
-
-		case CASS_CONSISTENCY_EACH_QUORUM: {
-			return "each_quorum";
-		}
-
-		case CASS_CONSISTENCY_SERIAL: {
-			return "serial";
-		}
-
-		case CASS_CONSISTENCY_LOCAL_SERIAL: {
-			return "local_serial";
-		}
-
-		case CASS_CONSISTENCY_LOCAL_ONE: {
-			return "local_one";
-		}
-
-		default:
-			return "unknown";
-	}
-}
-
-/*
- *--------------------------------------------------------------
- *
  * casstcl_obj_to_compound_cass_value_types
  *
  * Lookup a string from a Tcl object and identify it as one of the cass
@@ -756,51 +689,128 @@ casstcl_obj_to_cass_consistency(casstcl_sessionClientData *ct, Tcl_Obj *tclObj, 
     switch ((enum consistencies) conIndex) {
         case OPT_ANY: {
 			*cassConsistency = CASS_CONSISTENCY_ANY;
+			break;
 		}
 
         case OPT_ONE: {
 			*cassConsistency = CASS_CONSISTENCY_ONE;
+			break;
 		}
 
         case OPT_TWO: {
 			*cassConsistency = CASS_CONSISTENCY_TWO;
+			break;
 		}
 
 		case OPT_THREE: {
 			*cassConsistency = CASS_CONSISTENCY_THREE;
+			break;
 		}
 
         case OPT_QUORUM: {
 			*cassConsistency = CASS_CONSISTENCY_QUORUM;
+			break;
 		}
 
         case OPT_ALL: {
 			*cassConsistency = CASS_CONSISTENCY_ALL;
+			break;
 		}
 
         case OPT_LOCAL_QUORUM: {
 			*cassConsistency = CASS_CONSISTENCY_LOCAL_QUORUM;
+			break;
 		}
 
 		case OPT_EACH_QUORUM: {
 			*cassConsistency = CASS_CONSISTENCY_EACH_QUORUM;
+			break;
 		}
 
 		case OPT_SERIAL: {
 			*cassConsistency = CASS_CONSISTENCY_SERIAL;
+			break;
 		}
 
 		case OPT_LOCAL_SERIAL: {
 			*cassConsistency = CASS_CONSISTENCY_LOCAL_SERIAL;
+			break;
 		}
 
 		case OPT_LOCAL_ONE: {
 			*cassConsistency = CASS_CONSISTENCY_LOCAL_ONE;
+			break;
 		}
-
 	}
 
 	return TCL_OK;
+}
+
+/*
+ *--------------------------------------------------------------
+ *
+ * casstcl_cass_consistency_to_string -- given a CassConsistency,
+ *   return a const char * to a character string of equivalent
+ *   meaning
+ *
+ * Results:
+ *      a string gets returned
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+const char *
+casstcl_cass_consistency_to_string (CassConsistency consistency) {
+	switch (consistency) {
+		case CASS_CONSISTENCY_ANY: {
+			return "any";
+		}
+
+		case CASS_CONSISTENCY_ONE: {
+			return "one";
+		}
+
+		case CASS_CONSISTENCY_TWO: {
+			return "two";
+		}
+
+		case CASS_CONSISTENCY_THREE: {
+			return "three";
+		}
+
+		case CASS_CONSISTENCY_QUORUM: {
+			return "quorum";
+		}
+
+		case CASS_CONSISTENCY_ALL: {
+			return "all";
+		}
+
+		case CASS_CONSISTENCY_LOCAL_QUORUM: {
+			return "local_quorum";
+		}
+
+		case CASS_CONSISTENCY_EACH_QUORUM: {
+			return "each_quorum";
+		}
+
+		case CASS_CONSISTENCY_SERIAL: {
+			return "serial";
+		}
+
+		case CASS_CONSISTENCY_LOCAL_SERIAL: {
+			return "local_serial";
+		}
+
+		case CASS_CONSISTENCY_LOCAL_ONE: {
+			return "local_one";
+		}
+
+		default:
+			return "unknown";
+	}
 }
 
 /*
@@ -1241,17 +1251,14 @@ casstcl_batch_command_to_batchClientData (casstcl_sessionClientData *ct, char *b
 	Tcl_Interp *interp = ct->interp;
 
 	if (!Tcl_GetCommandInfo (interp, batchCommandName, &batchCmdInfo)) {
-//printf("batchCommandName lookup failed for '%s'\n", batchCommandName);
 		return NULL;
 	}
 
 	casstcl_batchClientData *bcd = (casstcl_batchClientData *)batchCmdInfo.objClientData;
     if (bcd->cass_batch_magic != CASS_BATCH_MAGIC) {
-//printf("batch magic check failed\n");
 		return NULL;
 	}
 
-//printf("batchCommandName lookup succeeded for '%s'\n", batchCommandName);
 	return bcd;
 }
 
@@ -2525,14 +2532,10 @@ casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *
 
 	CassStatement *statement = cass_statement_new(cass_string_init(query), objc / 2);
 
-//printf("objc = %d\n", objc);
 	for (i = 0; i < objc; i += 2) {
-//printf("i = %d\n", i);
-
 		tclReturn = casstcl_typename_obj_to_cass_value_types (interp, table, objv[i], &valueType, &valueSubType1, &valueSubType2);
 
 		if (tclReturn == TCL_ERROR) {
-//printf ("error from casstcl_obj_to_compound_cass_value_types\n");
 			masterReturn = TCL_ERROR;
 			break;
 		}
@@ -2548,22 +2551,17 @@ casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *
 
 
 		tclReturn = casstcl_bind_tcl_obj (ct, statement, NULL, i / 2, valueType, valueSubType1, valueSubType2, valueObj);
-//printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
 		if (tclReturn == TCL_ERROR) {
-//printf ("error from casstcl_bind_tcl_obj\n");
 			Tcl_AppendResult (interp, " while attempting to bind field '", Tcl_GetString (objv[i]), "' of type '", casstcl_cass_value_type_to_string (valueType), "', value '", Tcl_GetString (valueObj), "' referencing table '", table, "'", NULL);
 			masterReturn = TCL_ERROR;
 			break;
 		}
 	}
 
-//printf("finished the loop, i = %d, objc = %d\n", i, objc);
 	if (masterReturn == TCL_OK) {
-//printf("theoretically got a good statement\n");
 		*statementPtr = statement;
 	}
 
-//printf("return code is %d\n", masterReturn);
 	return masterReturn;
 }
 
@@ -3821,9 +3819,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				}
 				const CassBatch *batch = bcd->batch;
 
-//printf("executing batch %lx\n", batch);
 				future = cass_session_execute_batch (ct->session, batch);
-//printf("returned from executing batch\n");
 
 			} else {
 				// it's a statement, possibly with arguments
@@ -3948,7 +3944,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			CassBatchType cassBatchType = CASS_BATCH_TYPE_LOGGED;
 
 			if (objc < 3 || objc > 4) {
-				Tcl_WrongNumArgs (interp, 1, objv, "name ?consistency?");
+				Tcl_WrongNumArgs (interp, 1, objv, "name ?type?");
 				return TCL_ERROR;
 			}
 
