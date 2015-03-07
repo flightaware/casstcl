@@ -89,6 +89,77 @@ proc import_column_type_map {obj} {
 	}
 }
 
+proc typeof {name {subType ""}} {
+	variable columnTypeMap
+
+	if {$subType == ""} {
+		return $columnTypeMap($name)
+	}
+
+	set list $columnTypeMap($name)
+
+	switch -exact -- [lindex $list 0] {
+		"list" -
+		"set" {
+			if {$subType != "value"} {
+				error "[lindex $list 0] subtype of '$subType' must be value if specified"
+			}
+			return [lindex $List 1]
+		}
+
+		"map" {
+			switch $subType {
+				"key" {
+					return [lindex $list 1]
+				}
+
+				"value" {
+					return [lindex $list 2]
+				}
+
+				default {
+					error "map subtype must be 'key' or 'value', you said '$subType'"
+				}
+			}
+		}
+
+		default {
+			error "invalid column type '$list'"
+		}
+	}
+
+	error "bug"
+}
+
+#
+# quote - quote a cassandra element based on the data type of the element
+#
+proc quote {value {type text}} {
+    switch $type {
+		"ascii" -
+		"varchar" -
+        "text" {
+            return "'[string map {' ''} $value]'"
+        }
+
+        "boolean" {
+            return [expr {$value ? "true" : "false"}]
+        }
+
+        default {
+            return $value
+        }
+    }
+}
+
+#
+# quote_typeof - quote_typeof wx.wx_metar $vlaue
+#
+proc quote_typeof {tableColumn value {subType ""}} {
+	set type [typeof $tableColumn $subType]
+	return [quote $value $type]
+}
+
 #
 # ::casstcl::connect - convenience function to create a cassandra object
 #   with optional specification of host and port

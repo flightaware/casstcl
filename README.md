@@ -392,6 +392,16 @@ The library functions such as *download_schema*, *list_schema*, *list_tables*, e
 
 Given a validator type such as "org.apache.cassandra.db.marshal.AsciiType" and return the corresponding Cassandra type.  Can decode complex type references including reversed, list, set, and map.  This function is used by casstcl's *list_column_types* method.
 
+* **::casstcl::quote** *$value* *$type*
+
+Return a quote of the specified value according to the specified cassandra type.
+
+* **casstcl::typeof** *table.columnName*
+
+* **casstcl::quote_typeof** *table.columnName* *value* *?subType?*
+
+Quote the value according to the field *columnName* in table *table*.  *subType* can be **key** for collection sets and lists and can be **key** or **value** for collection maps.  For these usages it returns the corresponding data type.  If the subType is specified and the column is a collection you get a list back like *list text* and *map int text*.
+
 Bugs
 ---
 
