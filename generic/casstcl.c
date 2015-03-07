@@ -842,15 +842,15 @@ casstcl_cass_value_type_to_string (CassValueType valueType) {
 		}
 
 		case CASS_VALUE_TYPE_CUSTOM: {
-			return "unknown";
-		}
-
-		case CASS_VALUE_TYPE_ASCII: {
 			return "custom";
 		}
 
-		case CASS_VALUE_TYPE_BIGINT: {
+		case CASS_VALUE_TYPE_ASCII: {
 			return "ascii";
+		}
+
+		case CASS_VALUE_TYPE_BIGINT: {
+			return "bigint";
 		}
 
 		case CASS_VALUE_TYPE_BLOB: {
@@ -925,7 +925,6 @@ casstcl_cass_value_type_to_string (CassValueType valueType) {
 			return "unknown";
 	}
 }
-
 
 /*
  *----------------------------------------------------------------------
