@@ -5,15 +5,19 @@
 # your desired cassandra cluster
 #
 
+if {[lsearch /usr/local/lib $auto_path] < 0} {
+	lappend auto_path /usr/local/lib
+}
+
 package require casstcl
 
 proc cass_connect {} {
-	set cass [::casstcl::cass create #auto]
+	set ::cass [::casstcl::cass create #auto]
 
-	$cass set_contact_points 127.0.0.1
-	$cass set_port 9042
-	$cass connect
+	$::cass set_contact_points $::params(host)
+	$::cass set_port $::params(port)
+	$::cass connect
 
-	return $cass
+	return $::cass
 }
 

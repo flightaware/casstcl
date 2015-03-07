@@ -10,7 +10,8 @@ DROP TABLE IF EXISTS numbers;
 
 CREATE TABLE numbers (
 	row int,
-	list list<text>,
-	set set<text>,
-	map<int,text>
+	mylist list<text>,
+	myset set<text>,
+	mymap map<int,text>,
+	primary key(row)
 );
