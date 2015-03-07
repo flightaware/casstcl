@@ -374,6 +374,14 @@ According to the cpp-driver documentation, logging configuration should be done 
 
 Also note that logging is global.  That is, it's not tied to a specific connection if you had more than one connection for some reason.  Also currently it is not fully cleaned up if you unload the package.
 
+It is important to at least capture this information as useful debuggin information sometimes comes back through this interface.  For example you might just get a "Query error" back from the library but then you get a logging callback that provides much more information, such as
+
+```
+:371:int32_t cass::decode_buffer_size(const cass::Buffer &)): Routing key cannot contain an empty value or a collection
+```
+
+The above messages makes the problem much more clear.  The caller probably didn't specify a value for the primary key.
+
 Casstcl library functions
 ---
 
