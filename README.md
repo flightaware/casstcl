@@ -133,73 +133,73 @@ All of the schema-accessing functions, *list_keyspaces*, *list_tables*, *list_co
 
 Casstcl maintains the data type of each column for each table for each schema in the cluster.  As the metadata can change on the fly, long-running programs that want to try to adapt to changes in the cluster schema can invoke this to regenerate casstcl's column-to-datatype mapping cache.
 
-* *$cassdb* **set_contact_points** *$addressList*
+* *$cassdb* **contact_points** *$addressList*
 
 Provide a list of one or more addresses to contact the cluster at.
 
 The first call sets the contact points and any subsequent calls appends additional contact points. Passing an empty string will clear the contact points. White space is striped from the contact points.
 
-* *$cassdb* **set_port** *$port*
+* *$cassdb* **port** *$port*
 
 Specify a port to connect to the cluster on.  Since the cpp-driver uses the native binary CQL protocol, this would normally be 9042.
 
-* *$cassdb* **set_protocol_version** *$protocolVersion*
+* *$cassdb* **protocol_version** *$protocolVersion*
 
 Sets the protocol version. This will theoretically automatically downgrade to protocol version 1 if necessary.  The default value is 2.
 
-* *$cassdb* **set_num_threads_io** *$numThreads*
+* *$cassdb* **num_threads_io** *$numThreads*
 
 Set the number of IO threads. This is the number of threads that will handle query requests.  The default is 1.
 
-* *$cassdb* **set_queue_size_io** *$queueSize*
+* *$cassdb* **queue_size_io** *$queueSize*
 
 Sets the size of the the fixed size queue that stores pending requests.  The default is 4096.
 
-* *$cassdb* **set_queue_size_event** *$queueSize*
+* *$cassdb* **queue_size_event** *$queueSize*
 
 Sets the size of the the fixed size queue that stores pending requests.  The default is 4096.
 
-* *$cassdb* **set_queue_size_log** *$logSize*
+* *$cassdb* **queue_size_log** *$logSize*
 
 Sets the size of the the fixed size queue that stores log messages.  The default is 4096.
 
-* *$cassdb* **set_core_connections_per_host** *$numConnections*
+* *$cassdb* **core_connections_per_host** *$numConnections*
 
 Sets the number of connections made to each server in each IO thread.  Defaults to 1.
 
-* *$cassdb* **set_max_connections_per_host** *$numConnections*
+* *$cassdb* **max_connections_per_host** *$numConnections*
 
 Sets the maximum number of connections made to each server in each IO thread.  Defaults to 2.
 
-* *$cassdb* **set_max_concurrent_creation** *$numConnections*
+* *$cassdb* **max_concurrent_creation** *$numConnections*
 
 Sets the maximum number of connections that will be created concurrently.  Connections are created when the current connections are unable to keep up with request throughput.  The default is 1.
 
-* *$cassdb* **set_max_concurrent_requests_threshold** *$numRequests*
+* *$cassdb* **max_concurrent_requests_threshold** *$numRequests*
 
 Sets the threshold for the maximum number of concurrent requests in-flight on a connection before creating a new connection.  The number of new connections created will not exceed max_connections_per_host.  Default 100.
 
-* *$cassdb* **set_connect_timeout** *$timeoutMS*
+* *$cassdb* **connect_timeout** *$timeoutMS*
 
 Sets the timeout for connecting to a node.  Timeout is in milliseconds.  The default is 5000 ms.
 
-* *$cassdb* **set_request_timeout** *$timeoutMS*
+* *$cassdb* **request_timeout** *$timeoutMS*
 
 Sets the timeout for waiting for a response from a node.  Timeout is in milliseconds.  The default is 12000 ms.
 
-* *$cassdb* **set_reconnect_wait_time** *$timeoutMS*
+* *$cassdb* **reconnect_wait_time** *$timeoutMS*
 
 Sets the amount of time to wait before attempting to reconnect.  Default 2000 ms.
 
-* *$cassdb* **set_credentials** *$user $password*
+* *$cassdb* **credentials** *$user $password*
 
 Set credentials for plaintext authentication.
 
-* *$cassdb* **set_tcp_nodelay** *$enabled*
+* *$cassdb* **tcp_nodelay** *$enabled*
 
 Enable/Disable Nagel's algorithm on connections.  The default is disabled.
 
-* *$cassdb* **set_token_aware_routing** *$enabled*
+* *$cassdb* **token_aware_routing** *$enabled*
 
 Configures the cluster to use Token-aware request routing, or not.
 
@@ -209,7 +209,7 @@ The default is enabled.
 
 This routing policy composes the base routing policy, routing requests first to replicas on nodes considered local by the base load balancing policy.
 
-* *$cassdb* **set_tcp_keepalive** *$enabled $delaySecs*
+* *$cassdb* **tcp_keepalive** *$enabled $delaySecs*
 
 Enables/Disables TCP keep-alive.  Default is disabled.  delaySecs is the initial delay in seconds; it is ignored when disabled.
 
@@ -270,11 +270,11 @@ Delete the batch object and all of its data.
 Configuring SSL Connections
 ---
 
-* *$cassdb* **set_ssl_cert** *$pemFormattedCertString*
+* *$cassdb* **ssl_cert** *$pemFormattedCertString*
 
 This sets the client-side certificate chain.  This is used by the server to authenticate the client.  This should contain the entire certificate chain starting with the certificate itself.
 
-* *$cassdb* **set_ssl_private_key** *$pemFormattedCertString $password*
+* *$cassdb* **ssl_private_key** *$pemFormattedCertString $password*
 
 This sets the client-side private key.  This is by the server to authenticate the client.
 
@@ -282,7 +282,7 @@ This sets the client-side private key.  This is by the server to authenticate th
 
 This adds a trusted certificate.  This is used to verify the peer's certificate.
 
-* *$cassdb* **set_ssl_verify_flag** *$flag*
+* *$cassdb* **ssl_verify_flag** *$flag*
 
 This sets the verification that the client will perform on the peer's certificate.  **none** selects that no verification will be performed, while **verify_peer_certificate** will verify that a certificate is present and valid.
 
@@ -336,7 +336,7 @@ The Cassandra cpp-driver supports custom logging callbacks to allow an applicati
 The logging callback is defined like this:
 
 ```tcl
-::casstcl::cass set_logging_callback callbackFunction
+::casstcl::cass logging_callback callbackFunction
 ```
 
 When a log message callback occurs from the Cassandra cpp-driver, casstcl will obtain that and invoke the specified callback function one argument containing a list of key value pairs representing the (currently six) things that are received in a logging object:
@@ -363,7 +363,7 @@ proc logging_callback {pairList} {
     puts ""
 }
 
-casstcl::cass set_logging_callback logging_callback
+casstcl::cass logging_callback logging_callback
 ```
 
 According to the cpp-driver documentation, logging configuration should be done before calling any other driver function, so if you're going to use this, invoke it after package requiring casstcl and before invoking ::casstcl::cass create.

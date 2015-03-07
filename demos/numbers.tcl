@@ -6,6 +6,13 @@ proc number_name {number} {
 	if {[info exists ::numbers($number)]} {
 		return $::numbers($number)
 	}
-
-	
 }
+
+proc insert_numbers {n} {
+	set row(row) $n
+	set row(mylist) [array names ::numbers]
+	set row(myset) [array names ::numbers]
+	set row(mymap) [array get ::numbers]
+}
+
+source connect.tcl

@@ -6,8 +6,8 @@ package require casstcl
 
 set cass [::casstcl::cass create #auto]
 
-$cass set_contact_points 127.0.0.1
-$cass set_port 9042
+$cass contact_points 127.0.0.1
+$cass port 9042
 $cass connect
 
 $cass exec "CREATE KEYSPACE examples WITH replication = { 'class': 'SimpleStrategy', 'replication_factor': '1' };"

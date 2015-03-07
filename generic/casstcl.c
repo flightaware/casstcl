@@ -3444,28 +3444,28 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		"columns",
 		"columns_with_types",
 		"reimport_column_type_map",
-        "set_contact_points",
-        "set_port",
-        "set_protocol_version",
-		"set_num_threads_io",
-		"set_queue_size_io",
-		"set_queue_size_event",
-		"set_queue_size_log",
-		"set_core_connections_per_host",
-		"set_max_connections_per_host",
-		"set_max_concurrent_creation",
-		"set_max_concurrent_requests_threshold",
-		"set_connect_timeout",
-		"set_request_timeout",
-		"set_reconnect_wait_time",
-		"set_credentials",
-		"set_tcp_nodelay",
-		"set_token_aware_routing",
-		"set_tcp_keepalive",
+        "contact_points",
+        "port",
+        "protocol_version",
+		"num_threads_io",
+		"queue_size_io",
+		"queue_size_event",
+		"queue_size_log",
+		"core_connections_per_host",
+		"max_connections_per_host",
+		"max_concurrent_creation",
+		"max_concurrent_requests_threshold",
+		"connect_timeout",
+		"request_timeout",
+		"reconnect_wait_time",
+		"credentials",
+		"tcp_nodelay",
+		"token_aware_routing",
+		"tcp_keepalive",
 		"add_trusted_cert",
-		"set_ssl_cert",
-		"set_ssl_private_key",
-		"set_ssl_verify_flag",
+		"ssl_cert",
+		"ssl_private_key",
+		"ssl_verify_flag",
 		"delete",
 		"close",
         NULL
@@ -3483,28 +3483,28 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		OPT_LIST_COLUMNS,
 		OPT_LIST_COLUMN_TYPES,
 		OPT_REIMPORT_COLUMN_TYPE_MAP,
-        OPT_SET_CONTACT_POINTS,
-        OPT_SET_PORT,
-        OPT_SET_PROTOCOL_VERSION,
-		OPT_SET_NUM_THREADS_IO,
-		OPT_SET_QUEUE_SIZE_IO,
-		OPT_SET_QUEUE_SIZE_EVENT,
-		OPT_SET_QUEUE_SIZE_LOG,
-		OPT_SET_CORE_CONNECTIONS_PER_HOST,
-		OPT_SET_MAX_CONNECTIONS_PER_HOST,
-		OPT_SET_MAX_CONCURRENT_CREATION,
-		OPT_SET_MAX_CONCURRENT_REQUESTS_THRESHOLD,
-		OPT_SET_CONNECT_TIMEOUT,
-		OPT_SET_REQUEST_TIMEOUT,
-		OPT_SET_RECONNECT_WAIT_TIME,
-		OPT_SET_CREDENTIALS,
-		OPT_SET_TCP_NODELAY,
-		OPT_SET_TOKEN_AWARE_ROUTING,
-		OPT_SET_TCP_KEEPALIVE,
+        OPT_CONTACT_POINTS,
+        OPT_PORT,
+        OPT_PROTOCOL_VERSION,
+		OPT_NUM_THREADS_IO,
+		OPT_QUEUE_SIZE_IO,
+		OPT_QUEUE_SIZE_EVENT,
+		OPT_QUEUE_SIZE_LOG,
+		OPT_CORE_CONNECTIONS_PER_HOST,
+		OPT_MAX_CONNECTIONS_PER_HOST,
+		OPT_MAX_CONCURRENT_CREATION,
+		OPT_MAX_CONCURRENT_REQUESTS_THRESHOLD,
+		OPT_CONNECT_TIMEOUT,
+		OPT_REQUEST_TIMEOUT,
+		OPT_RECONNECT_WAIT_TIME,
+		OPT_CREDENTIALS,
+		OPT_TCP_NODELAY,
+		OPT_TOKEN_AWARE_ROUTING,
+		OPT_TCP_KEEPALIVE,
 		OPT_ADD_TRUSTED_CERT,
-		OPT_SET_SSL_CERT,
-		OPT_SET_SSL_PRIVATE_KEY,
-		OPT_SET_SSL_VERIFY_FLAG,
+		OPT_SSL_CERT,
+		OPT_SSL_PRIVATE_KEY,
+		OPT_SSL_VERIFY_FLAG,
 		OPT_DELETE,
 		OPT_CLOSE
     };
@@ -3842,7 +3842,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			resultCode = casstcl_reimport_column_type_map (ct);
 		}
 
-		case OPT_SET_CONTACT_POINTS: {
+		case OPT_CONTACT_POINTS: {
 			if (objc != 3) {
 				Tcl_WrongNumArgs (interp, 2, objv, "address_list");
 				return TCL_ERROR;
@@ -3852,7 +3852,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_PORT: {
+		case OPT_PORT: {
 			int port = 0;
 
 			if (objc != 3) {
@@ -3869,7 +3869,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_PROTOCOL_VERSION: {
+		case OPT_PROTOCOL_VERSION: {
 			int protocolVersion = 0;
 
 			if (objc != 3) {
@@ -3886,7 +3886,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_NUM_THREADS_IO: {
+		case OPT_NUM_THREADS_IO: {
 			int numThreadsIO = 0;
 
 			if (objc != 3) {
@@ -3903,7 +3903,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_QUEUE_SIZE_IO: {
+		case OPT_QUEUE_SIZE_IO: {
 			int queueSizeIO = 0;
 
 			if (objc != 3) {
@@ -3920,7 +3920,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_QUEUE_SIZE_EVENT: {
+		case OPT_QUEUE_SIZE_EVENT: {
 			int queueSizeEvent = 0;
 
 			if (objc != 3) {
@@ -3937,7 +3937,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_QUEUE_SIZE_LOG: {
+		case OPT_QUEUE_SIZE_LOG: {
 			int queueSizeLog = 0;
 
 			if (objc != 3) {
@@ -3956,7 +3956,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_CORE_CONNECTIONS_PER_HOST: {
+		case OPT_CORE_CONNECTIONS_PER_HOST: {
 			int coreConnectionsPerHost = 0;
 
 			if (objc != 3) {
@@ -3973,7 +3973,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_MAX_CONNECTIONS_PER_HOST: {
+		case OPT_MAX_CONNECTIONS_PER_HOST: {
 			int maxConnectionsPerHost = 0;
 
 			if (objc != 3) {
@@ -3990,7 +3990,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_MAX_CONCURRENT_CREATION: {
+		case OPT_MAX_CONCURRENT_CREATION: {
 			int maxConcurrentCreation = 0;
 
 			if (objc != 3) {
@@ -4007,7 +4007,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_MAX_CONCURRENT_REQUESTS_THRESHOLD: {
+		case OPT_MAX_CONCURRENT_REQUESTS_THRESHOLD: {
 			int maxConcurrentRequestsThreshold = 0;
 
 			if (objc != 3) {
@@ -4024,7 +4024,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_CONNECT_TIMEOUT: {
+		case OPT_CONNECT_TIMEOUT: {
 			int timeoutMS = 0;
 
 			if (objc != 3) {
@@ -4041,7 +4041,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_REQUEST_TIMEOUT: {
+		case OPT_REQUEST_TIMEOUT: {
 			int timeoutMS = 0;
 
 			if (objc != 3) {
@@ -4058,7 +4058,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_RECONNECT_WAIT_TIME: {
+		case OPT_RECONNECT_WAIT_TIME: {
 			int waitMS = 0;
 
 			if (objc != 3) {
@@ -4075,7 +4075,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_TCP_NODELAY: {
+		case OPT_TCP_NODELAY: {
 			int enable = 0;
 
 			if (objc != 3) {
@@ -4092,7 +4092,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_TOKEN_AWARE_ROUTING: {
+		case OPT_TOKEN_AWARE_ROUTING: {
 			int enable = 0;
 
 			if (objc != 3) {
@@ -4109,7 +4109,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_TCP_KEEPALIVE: {
+		case OPT_TCP_KEEPALIVE: {
 			int enable = 0;
 			int delaySecs = 0;
 
@@ -4133,7 +4133,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		}
 
 
-		case OPT_SET_CREDENTIALS: {
+		case OPT_CREDENTIALS: {
 			char *username = NULL;
 			char *password = NULL;
 
@@ -4160,7 +4160,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_SSL_CERT: {
+		case OPT_SSL_CERT: {
 			if (objc != 3) {
 				Tcl_WrongNumArgs (interp, 2, objv, "pemFormattedCertString");
 				return TCL_ERROR;
@@ -4170,7 +4170,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_SSL_PRIVATE_KEY: {
+		case OPT_SSL_PRIVATE_KEY: {
 			if (objc != 4) {
 				Tcl_WrongNumArgs (interp, 2, objv, "pemFormattedCertString password");
 				return TCL_ERROR;
@@ -4180,7 +4180,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			break;
 		}
 
-		case OPT_SET_SSL_VERIFY_FLAG: {
+		case OPT_SSL_VERIFY_FLAG: {
 			int         subOptIndex;
 			int flags;
 
@@ -4283,13 +4283,13 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
 
     static CONST char *options[] = {
         "create",
-        "set_logging_callback",
+        "logging_callback",
         NULL
     };
 
     enum options {
         OPT_CREATE,
-		OPT_SET_LOGGING_CALLBACK
+		OPT_LOGGING_CALLBACK
     };
 
     // basic command line processing

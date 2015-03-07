@@ -14,8 +14,8 @@ package require casstcl
 proc cass_connect {} {
 	set ::cass [::casstcl::cass create #auto]
 
-	$::cass set_contact_points $::params(host)
-	$::cass set_port $::params(port)
+	$::cass contact_points $::params(host)
+	$::cass port $::params(port)
 	$::cass connect
 
 	return $::cass

@@ -93,3 +93,24 @@ proc import_column_type_map {obj} {
 
 # vim: set ts=4 sw=4 sts=4 noet :
 
+package require cmdline
+
+proc connect {args} {
+	set options {
+		{host.arg "127.0.0.1" "address of cluster host"}
+		{port.arg "9042" "port of cluster host"}
+	}
+
+	set usage "connect ?-host host? ?-port port?"
+
+	if {[catch {array set ::params [::cmdline::getKnownOptions argv $options $usage]} catchResult] == 1} {
+		puts stderr $catchResult
+		exit 1
+	}
+
+	cass_connect
+}
+
+if {!$tcl_interactive} {
+	main $argv
+}
