@@ -5,9 +5,6 @@
 
 source connect.tcl
 
-package require cmdline
-
-
 proc read_and_run {fp} {
 	set query ""
 	while {[gets $fp line] >= 0} {
@@ -51,6 +48,8 @@ proc main {{argv ""}} {
 		puts stderr $catchResult
 		exit 1
 	}
+
+	import_casstclrc
 
 	cass_connect
 
