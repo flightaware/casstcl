@@ -557,7 +557,8 @@ casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, C
 	valueType = casstcl_string_to_cass_value_type (string);
 
 	if ((valueType != CASS_VALUE_TYPE_MAP) && (valueType != CASS_VALUE_TYPE_SET) && (valueType != CASS_VALUE_TYPE_LIST)) {
-		Tcl_AppendResult (interp, "cassandra type spec is invalid", NULL);
+		Tcl_ResetResult (interp);
+		Tcl_AppendResult (interp, "cassandra type spec '", string, "' is invalid", NULL);
 		return TCL_ERROR;
 	}
 
@@ -569,11 +570,13 @@ casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, C
 
 	if (valueType == CASS_VALUE_TYPE_MAP) {
 		if (listObjc != 3) {
+			Tcl_ResetResult (interp);
 			Tcl_AppendResult (interp, "cassandra map type must contain three type values", NULL);
 			return TCL_ERROR;
 		}
 	} else {
 		if (listObjc != 3) {
+			Tcl_ResetResult (interp);
 			Tcl_AppendResult (interp, "cassandra ", string, " type must contain two values", NULL);
 			return TCL_ERROR;
 		}
@@ -584,6 +587,7 @@ casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, C
 
 	*valueSubType1 = casstcl_string_to_cass_value_type (Tcl_GetString(listObjv[1]));
 	if (*valueSubType1 == CASS_VALUE_TYPE_UNKNOWN) {
+		Tcl_ResetResult (interp);
 		Tcl_AppendResult (interp, "cassandra ", string, " type spec unrecognized subtype '", Tcl_GetString (listObjv[1]), "'", NULL);
 		return TCL_ERROR;
 	}
@@ -592,6 +596,7 @@ casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, C
 	if (valueType == CASS_VALUE_TYPE_MAP) {
 		*valueSubType2 = casstcl_string_to_cass_value_type (Tcl_GetString(listObjv[2]));
 		if (*valueSubType2 == CASS_VALUE_TYPE_UNKNOWN) {
+			Tcl_ResetResult (interp);
 			Tcl_AppendResult (interp, "cassandra map type spec unrecognized second subtype '", Tcl_GetString(listObjv[2]), "'", NULL);
 			return TCL_ERROR;
 		}
@@ -985,9 +990,11 @@ int
 casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **objPtr) {
 	const CassSchema *schema = cass_session_get_schema(ct->session);
 	const CassSchemaMeta *keyspaceMeta = cass_schema_get_keyspace (schema, keyspace);
+	Tcl_Interp *interp = ct->interp;
 
 	if (keyspaceMeta == NULL) {
-		Tcl_AppendResult (ct->interp, "keyspace '", keyspace, "' not found", NULL);
+		Tcl_ResetResult (interp);
+		Tcl_AppendResult (interp, "keyspace '", keyspace, "' not found", NULL);
 		return TCL_ERROR;
 	}
 
@@ -1004,7 +1011,7 @@ casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **ob
 		const CassSchemaMetaField* field = cass_schema_meta_get_field(tableMeta, "columnfamily_name");
 		assert (field != NULL);
 		cass_value_get_string(cass_schema_meta_field_value(field), &name);
-		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
+		if (Tcl_ListObjAppendElement (interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
 			tclReturn = TCL_ERROR;
 			break;
 		}
@@ -1041,6 +1048,7 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 	const CassSchemaMeta *keyspaceMeta = cass_schema_get_keyspace (schema, keyspace);
 
 	if (keyspaceMeta == NULL) {
+		Tcl_ResetResult (interp);
 		Tcl_AppendResult (interp, "keyspace '", keyspace, "' not found", NULL);
 		return TCL_ERROR;
 	}
@@ -1049,6 +1057,7 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 	const CassSchemaMeta *tableMeta = cass_schema_meta_get_entry (keyspaceMeta, table);
 
 	if (tableMeta == NULL) {
+		Tcl_ResetResult (interp);
 		Tcl_AppendResult (interp, "table '", table, "' not found in keyspace '", keyspace, "'", NULL);
 		return TCL_ERROR;
 	}
@@ -2043,6 +2052,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 			}
 
 			if (listObjc & 1) {
+				Tcl_ResetResult (interp);
 				Tcl_AppendResult (interp, "list must contain an even number of elements while converting map element", NULL);
 				return TCL_ERROR;
 			}
@@ -2127,7 +2137,7 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
 	*statementPtr = NULL;
 
 	if (objc & 1) {
-		Tcl_AppendResult (interp, "values_and_types list must contain an even number of elements", NULL);
+		Tcl_SetObjResult (interp, Tcl_NewStringObj ("values_and_types list must contain an even number of elements", -1));
 		return TCL_ERROR;
 	}
 
@@ -2602,7 +2612,8 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 	}
 
 	if (listObjc & 1) {
-		Tcl_AppendResult (interp, "must contain an even number of elements", NULL);
+		Tcl_ResetResult (interp);
+		Tcl_AppendResult (interp, "key-value pair list must contain an even number of elements", NULL);
 		return TCL_ERROR;
 	}
 
@@ -2774,6 +2785,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 	}
 
 	if (preparedName != NULL && arrayStyle) {
+		Tcl_ResetResult (interp);
 		Tcl_AppendResult (interp, "-prepared cannot be used with -table / -array", NULL);
 		return TCL_ERROR;
 	}
@@ -2782,6 +2794,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 		casstcl_preparedClientData * pcd = casstcl_prepared_command_to_preparedClientData (ct, preparedName);
 
 		if (pcd == NULL) {
+			Tcl_ResetResult (interp);
 			Tcl_AppendResult (interp, "-prepared argument '", preparedName, "' isn't a valid prepared statement object", NULL);
 			return TCL_ERROR;
 		}
@@ -2795,6 +2808,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 		}
 
 		if (listObjc & 1) {
+			Tcl_ResetResult (interp);
 			Tcl_AppendResult (interp, "must contain an even number of elements", NULL);
 			return TCL_ERROR;
 		}
@@ -2806,11 +2820,13 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 
 	if (arrayStyle) {
 		if (tableName == NULL) {
+			Tcl_ResetResult (interp);
 			Tcl_AppendResult (interp, "-table must be specified if -array is specified", NULL);
 			return TCL_ERROR;
 		}
 
 		if (arrayName == NULL) {
+			Tcl_ResetResult (interp);
 			Tcl_AppendResult (interp, "-array must be specified if -table is specified", NULL);
 			return TCL_ERROR;
 		}
@@ -3808,6 +3824,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 
 			if (batchObjName != NULL) {
 				if (arg != objc) {
+					Tcl_ResetResult (interp);
 					Tcl_AppendResult (interp, "batch usage: obj ?-callback? -batch batchName", NULL);
 					return TCL_ERROR;
 				}
@@ -3815,6 +3832,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				// get the batch object from the command name we extracted
 				casstcl_batchClientData *bcd = casstcl_batch_command_to_batchClientData (ct, batchObjName);
 				if (bcd == NULL) {
+					Tcl_ResetResult (interp);
 					Tcl_AppendResult (interp, "batch object '", batchObjName, "' doesn't exist or isn't a batch object", NULL);
 					return TCL_ERROR;
 				}
