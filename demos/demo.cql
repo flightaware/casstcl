@@ -15,3 +15,9 @@ CREATE TABLE numbers (
 	mymap map<int,text>,
 	primary key(row)
 );
+
+CREATE TABLE rock_blobster (
+	row int,
+	blobbie blob,
+	primary key(row)
+);
