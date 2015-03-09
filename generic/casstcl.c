@@ -4464,7 +4464,6 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 
 			cass_session_close (ct->session);
 			Tcl_DeleteCommandFromToken (ct->interp, ct->cmdToken);
-			ckfree(ct);
 			break;
 		}
 
