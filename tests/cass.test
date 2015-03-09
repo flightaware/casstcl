@@ -140,7 +140,7 @@ test cass-5.1 {connect (failure)} -body {
   catch {$cmd delete}
 
   unset -nocomplain cmd errMsg
-} -result {1 {}}
+} -result {1 {cassandra error: No hosts available}}
 
 ###############################################################################
 
