@@ -4522,6 +4522,10 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
     };
 
     // basic command line processing
+    if (objc < 2) {
+        Tcl_WrongNumArgs (interp, 1, objv, "subcommand ?args?");
+        return TCL_ERROR;
+    }
 
     // argument must be one of the subOptions defined above
     if (Tcl_GetIndexFromObj (interp, objv[1], options, "option",
