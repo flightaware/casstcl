@@ -1,0 +1,166 @@
+# Commands covered:  casstcl::cass
+#
+# This file contains a collection of tests for one or more of the Tcl
+# package commands.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Written by Joe Mistachkin.
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+
+if {[lsearch [namespace children] ::tcltest] == -1} then {
+  package require tcltest
+  namespace import ::tcltest::*
+}
+
+set path [file normalize [file dirname [info script]]]
+package require casstcl
+
+###############################################################################
+
+if {[llength [info commands appendArgs]] == 0} then {
+  proc appendArgs { args } {
+    set result ""; eval append result $args
+  }
+}
+
+###############################################################################
+
+if {[llength [info commands getEnvVar]] == 0} then {
+  proc getEnvVar { name {default ""} } {
+    if {![info exists ::env($name)]} then {
+      tcltest::Warn [appendArgs \
+          "missing environment variable \"" $name \
+          "\", using default \"" $default \"...]
+
+      return $default
+    }
+    return $::env($name)
+  }
+}
+
+###############################################################################
+
+if {[llength [info commands getDictValue]] == 0} then {
+  proc getDictValue { dictionary name {default ""} {wrap ""} } {
+    if {[llength [info commands dict]] > 0} then {
+      if {[dict exists $dictionary $name]} then {
+        return [appendArgs $wrap [dict get $dictionary $name] $wrap]
+      }
+      return $default
+    } else {
+      foreach {pairName pairValue} $dictionary {
+        if {$pairName eq $name} then {
+          return [appendArgs $wrap $pairValue $wrap]
+        }
+      }
+      return $default
+    }
+  }
+}
+
+###############################################################################
+
+if {[llength [info commands cass_test_callback]] == 0} then {
+  proc cass_test_callback { dictionary } {
+    catch {tclLog $dictionary}
+  }
+}
+
+###############################################################################
+
+test cass-1.1 {overall command usage} -body {
+  list [catch {casstcl::cass} errMsg] $errMsg
+} -cleanup {
+  unset -nocomplain errMsg
+} -result {1 {wrong # args: should be "casstcl::cass subcommand ?args?"}}
+
+###############################################################################
+
+test cass-2.1 {create sub-command usage} -body {
+  list [catch {casstcl::cass create} errMsg] $errMsg
+} -cleanup {
+  unset -nocomplain errMsg
+} -result {1 {wrong # args: should be "casstcl::cass option arg"}}
+
+###############################################################################
+
+test cass-2.2 {logging_callback sub-command usage} -body {
+  list [catch {casstcl::cass logging_callback} errMsg] $errMsg
+} -cleanup {
+  unset -nocomplain errMsg
+} -result {1 {wrong # args: should be "casstcl::cass option arg"}}
+
+###############################################################################
+
+test cass-3.1 {set and reset logging callback} -body {
+  list [catch {
+    casstcl::cass logging_callback cass_test_callback
+    # TODO: Permit the logging callback to be unset/reset.
+    # casstcl::cass logging_callback ""
+  } errMsg] $errMsg
+} -cleanup {
+  unset -nocomplain errMsg
+} -result {0 {}}
+
+###############################################################################
+
+test cass-4.1 {create manually named command} -body {
+  list [catch {
+    set cmd cass-4.1
+    casstcl::cass create $cmd
+    rename $cmd ""
+  } errMsg] $errMsg
+} -cleanup {
+  unset -nocomplain cmd errMsg
+} -result {0 {}}
+
+###############################################################################
+
+test cass-4.2 {create automatically named command} -body {
+  list [catch {
+    set cmd [casstcl::cass create #auto]
+    rename $cmd ""
+  } errMsg] $errMsg
+} -cleanup {
+  unset -nocomplain cmd errMsg
+} -result {0 {}}
+
+###############################################################################
+
+test cass-5.1 {connect (failure)} -body {
+  list [catch {
+    set cmd [casstcl::cass create #auto]
+    $cmd contact_points 127.0.0.1
+    $cmd port 11111; # NOTE: Must be invalid for Cassandra.
+    $cmd connect
+  } errMsg] $errMsg
+} -cleanup {
+  catch {$cmd delete}
+
+  unset -nocomplain cmd errMsg
+} -result {1 {}}
+
+###############################################################################
+
+test cass-5.2 {connect (success)} -body {
+  list [catch {
+    set cmd [casstcl::cass create #auto]
+    $cmd contact_points [getEnvVar CASSTCL_CONTACT_POINTS 127.0.0.1]
+    $cmd port [getEnvVar CASSTCL_PORT 9042]
+    $cmd connect
+  } errMsg] $errMsg
+} -cleanup {
+  catch {$cmd delete}
+
+  unset -nocomplain cmd errMsg
+} -result {0 {}}
+
+###############################################################################
+
+unset -nocomplain path
+
+# cleanup
+::tcltest::cleanupTests
+return
