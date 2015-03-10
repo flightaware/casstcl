@@ -4075,6 +4075,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			resultCode = casstcl_reimport_column_type_map (ct);
+			break;
 		}
 
 		case OPT_CONTACT_POINTS: {
