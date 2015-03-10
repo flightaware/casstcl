@@ -159,8 +159,8 @@ if {[llength [info commands cass_test_service_events]] == 0} then {
 
 ###############################################################################
 
-if {[llength [info commands cass_test_cleanup]] == 0} then {
-  proc cass_test_cleanup { varName {delete true} {drop false} } {
+if {[llength [info commands cass_test_cleanup_session]] == 0} then {
+  proc cass_test_cleanup_session { varName {delete true} {drop false} } {
     upvar 1 $varName cmdName
 
     #
@@ -171,9 +171,19 @@ if {[llength [info commands cass_test_cleanup]] == 0} then {
       set keyspace [cass_test_get_keyspace]
 
       catch {$cmdName exec [subst {
-        DROP KEYSPACE $keyspace;
+        DROP KEYSPACE IF EXISTS $keyspace;
       }]}
     }
+
+    cass_test_cleanup_object cmdName $delete
+  }
+}
+
+###############################################################################
+
+if {[llength [info commands cass_test_cleanup_object]] == 0} then {
+  proc cass_test_cleanup_object { varName {delete true} } {
+    upvar 1 $varName cmdName
 
     #
     # NOTE: When the delete argument is non-zero, call the method;
@@ -247,7 +257,7 @@ test cass-3.1 {set and reset logging callback} -body {
 
 ###############################################################################
 
-test cass-4.1 {create manually named command} -body {
+test cass-4.1 {session with manual name} -body {
   list [catch {
     set cmd cass-4.1
     casstcl::cass create $cmd
@@ -259,7 +269,7 @@ test cass-4.1 {create manually named command} -body {
 
 ###############################################################################
 
-test cass-4.2 {create automatically named command} -body {
+test cass-4.2 {session with automatic name} -body {
   list [catch {
     set cmd [casstcl::cass create #auto]
     rename $cmd ""
@@ -276,7 +286,7 @@ test cass-5.1 {connect (failure)} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd
+  cass_test_cleanup_session cmd
 
   unset -nocomplain svc cmd errMsg
 } -result {1 {cassandra error: No hosts available}}
@@ -289,7 +299,7 @@ test cass-5.2 {connect (success)} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd
+  cass_test_cleanup_session cmd
 
   unset -nocomplain svc cmd errMsg
 } -result {0 {}}
@@ -303,7 +313,7 @@ test cass-6.1 {metadata: list keyspaces} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd
+  cass_test_cleanup_session cmd
 
   unset -nocomplain svc cmd errMsg
 } -match regexp -result {^0 \{.+\}$}
@@ -329,7 +339,7 @@ test cass-6.2 {metadata: list tables} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true true
+  cass_test_cleanup_session cmd true true
 
   unset -nocomplain keyspace svc cmd errMsg
 } -result {0 cass62}
@@ -355,7 +365,7 @@ test cass-6.3 {metadata: list tables with bad keyspace} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true true
+  cass_test_cleanup_session cmd true true
 
   unset -nocomplain keyspace svc cmd errMsg
 } -result {1 {keyspace 'cass_test_bad' not found}}
@@ -381,7 +391,7 @@ test cass-6.4 {metadata: list columns} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true true
+  cass_test_cleanup_session cmd true true
 
   unset -nocomplain keyspace svc cmd errMsg
 } -result {0 column_one}
@@ -407,7 +417,7 @@ test cass-6.5 {metadata: list columns with bad keyspace} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true true
+  cass_test_cleanup_session cmd true true
 
   unset -nocomplain keyspace svc cmd errMsg
 } -result {1 {keyspace 'cass_test_bad' not found}}
@@ -433,7 +443,7 @@ test cass-6.6 {metadata: list columns with bad table} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true true
+  cass_test_cleanup_session cmd true true
 
   unset -nocomplain keyspace svc cmd errMsg
 } -result [subst {1\
@@ -460,7 +470,7 @@ test cass-6.7 {metadata: list columns types} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true true
+  cass_test_cleanup_session cmd true true
 
   unset -nocomplain keyspace svc cmd errMsg
 } -result {0 {column_one text}}
@@ -486,7 +496,7 @@ test cass-6.8 {metadata: list columns types with bad keyspace} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true true
+  cass_test_cleanup_session cmd true true
 
   unset -nocomplain keyspace svc cmd errMsg
 } -result {1 {keyspace 'cass_test_bad' not found}}
@@ -512,7 +522,7 @@ test cass-6.9 {metadata: list columns types with bad table} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true true
+  cass_test_cleanup_session cmd true true
 
   unset -nocomplain keyspace svc cmd errMsg
 } -result [subst {1\
@@ -527,7 +537,7 @@ test cass-7.1 {close without delete} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd false
+  cass_test_cleanup_session cmd false
 
   unset -nocomplain svc cmd errMsg
 } -result {0 {}}
@@ -541,7 +551,7 @@ test cass-7.2 {close with delete} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true
+  cass_test_cleanup_session cmd true
 
   unset -nocomplain svc cmd errMsg
 } -result {0 {}}
@@ -564,7 +574,7 @@ test cass-8.1 {select without page size} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true
+  cass_test_cleanup_session cmd
 
   unset -nocomplain result row svc cmd errMsg
 } -match regexp -result \
@@ -588,7 +598,7 @@ test cass-8.2 {select with page size} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true
+  cass_test_cleanup_session cmd
 
   unset -nocomplain result row svc cmd errMsg
 } -match regexp -result \
@@ -605,7 +615,7 @@ test cass-9.1 {exec without callback (synchronous)} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true
+  cass_test_cleanup_session cmd
 
   unset -nocomplain svc cmd errMsg
 } -result {0 {}}
@@ -624,7 +634,7 @@ test cass-9.2 {exec with callback (asynchronous)} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true
+  cass_test_cleanup_session cmd
 
   unset -nocomplain result svc cmd errMsg
 } -match regexp -result {^0 \{1 \{\} CASS_OK \{\} \{(?:\{keyspace_name\
@@ -652,7 +662,7 @@ test cass-10.1 {async without callback} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true
+  cass_test_cleanup_session cmd true true
 
   unset -nocomplain result row svc cmd errMsg
 } -match regexp -result {^0 \{\{keyspace_name .*\}\}$}
@@ -671,7 +681,7 @@ test cass-10.2 {async with callback} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true
+  cass_test_cleanup_session cmd
 
   unset -nocomplain result svc cmd errMsg
 } -match regexp -result {^0 \{1 \{\} CASS_OK \{\} \{(?:\{keyspace_name\
