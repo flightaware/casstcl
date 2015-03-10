@@ -95,7 +95,8 @@ if {[llength [info commands cass_test_connect]] == 0} then {
         [expr {[string length $cmdName] > 0 ? $cmdName : "#auto"}]]
 
     if {[string length $points] == 0} then {
-      set points [getEnvVar CASSTCL_CONTACT_POINTS 127.0.0.1]
+      set points [getEnvVar \
+          CASSTCL_CONTACT_POINTS 127.0.0.1,127.0.0.2,127.0.0.3]
     }
 
     if {[string length $port] == 0} then {
@@ -187,7 +188,15 @@ test cass-2.2 {logging_callback sub-command usage} -body {
 test cass-3.1 {set and reset logging callback} -body {
   list [catch {
     casstcl::cass logging_callback cass_test_callback
-    # TODO: Permit the logging callback to be unset/reset.
+
+    #
+    # TODO: Permit the logging callback to be unset/reset.  This would
+    #       actually require the DataStax driver itself to be modified
+    #       as it does not currently support getting (for save/restore
+    #       semantics) or resetting/unsetting the logging callback in
+    #       any way.  Also, by default, it outputs to stderr, which
+    #       causes tcltest to believe that this test file has failed.
+    #
     # casstcl::cass logging_callback ""
   } errMsg] $errMsg
 } -cleanup {
@@ -494,6 +503,54 @@ test cass-7.2 {close with delete} -body {
 
   unset -nocomplain svc cmd errMsg
 } -result {0 {}}
+
+###############################################################################
+
+test cass-8.1 {select without page size} -body {
+  list [catch {
+    cass_test_connect cmd
+
+    set result [list]
+
+    $cmd select {
+      SELECT keyspace_name FROM system.schema_keyspaces;
+    } row {
+      lappend result [array get row]
+    }
+
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup cmd true
+
+  unset -nocomplain result rows svc cmd errMsg
+} -match regexp -result \
+{^0 \{(?:\{keyspace_name (?:.*)\}) (?:\{keyspace_name (?:.*)\})*\}$}
+
+###############################################################################
+
+test cass-8.2 {select with page size} -body {
+  list [catch {
+    cass_test_connect cmd
+
+    set result [list]
+
+    $cmd select -pagesize 1 {
+      SELECT keyspace_name FROM system.schema_keyspaces;
+    } row {
+      lappend result [array get row]
+    }
+
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup cmd true
+
+  unset -nocomplain result rows svc cmd errMsg
+} -match regexp -result \
+{^0 \{(?:\{keyspace_name (?:.*)\}) (?:\{keyspace_name (?:.*)\})*\}$}
 
 ###############################################################################
 
