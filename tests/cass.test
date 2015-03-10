@@ -25,6 +25,29 @@ if {![info exists cass_test_timeout]} then {
 
 ###############################################################################
 
+if {![info exists cass_test_cql]} then {
+  set cass_test_cql(0) {
+    CREATE KEYSPACE $keyspace WITH REPLICATION = {
+      'class' : 'SimpleStrategy', 'replication_factor' : 1
+    };
+  }
+
+  set cass_test_cql(1) {
+    SELECT keyspace_name FROM system.schema_keyspaces;
+  }
+
+  set cass_test_cql(2) {
+    SELECT keyspace_name FROM system.schema_keyspaces
+    WHERE keyspace_name = '$keyspace';
+  }
+
+  set cass_test_cql(drop) {
+    DROP KEYSPACE IF EXISTS $keyspace;
+  }
+}
+
+###############################################################################
+
 if {[llength [info commands appendArgs]] == 0} then {
   proc appendArgs { args } {
     set result ""; eval append result $args
@@ -170,9 +193,9 @@ if {[llength [info commands cass_test_cleanup_session]] == 0} then {
     if {$drop} then {
       set keyspace [cass_test_get_keyspace]
 
-      catch {$cmdName exec [subst {
-        DROP KEYSPACE IF EXISTS $keyspace;
-      }]}
+      catch {
+        $cmdName exec [subst $::cass_test_cql(drop)]
+      }
     }
 
     cass_test_cleanup_object cmdName $delete
@@ -324,11 +347,7 @@ test cass-6.2 {metadata: list tables} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [subst {
-      CREATE KEYSPACE $keyspace WITH REPLICATION = {
-        'class' : 'SimpleStrategy', 'replication_factor' : 1
-      };
-    }]
+    $cmd exec [subst $cass_test_cql(0)]
     $cmd exec [subst {
       CREATE TABLE $keyspace.cass62 (
         column_one text,
@@ -350,11 +369,7 @@ test cass-6.3 {metadata: list tables with bad keyspace} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [subst {
-      CREATE KEYSPACE $keyspace WITH REPLICATION = {
-        'class' : 'SimpleStrategy', 'replication_factor' : 1
-      };
-    }]
+    $cmd exec [subst $cass_test_cql(0)]
     $cmd exec [subst {
       CREATE TABLE $keyspace.cass63 (
         column_one text,
@@ -376,11 +391,7 @@ test cass-6.4 {metadata: list columns} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [subst {
-      CREATE KEYSPACE $keyspace WITH REPLICATION = {
-        'class' : 'SimpleStrategy', 'replication_factor' : 1
-      };
-    }]
+    $cmd exec [subst $cass_test_cql(0)]
     $cmd exec [subst {
       CREATE TABLE $keyspace.cass64 (
         column_one text,
@@ -402,11 +413,7 @@ test cass-6.5 {metadata: list columns with bad keyspace} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [subst {
-      CREATE KEYSPACE $keyspace WITH REPLICATION = {
-        'class' : 'SimpleStrategy', 'replication_factor' : 1
-      };
-    }]
+    $cmd exec [subst $cass_test_cql(0)]
     $cmd exec [subst {
       CREATE TABLE $keyspace.cass65 (
         column_one text,
@@ -428,11 +435,7 @@ test cass-6.6 {metadata: list columns with bad table} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [subst {
-      CREATE KEYSPACE $keyspace WITH REPLICATION = {
-        'class' : 'SimpleStrategy', 'replication_factor' : 1
-      };
-    }]
+    $cmd exec [subst $cass_test_cql(0)]
     $cmd exec [subst {
       CREATE TABLE $keyspace.cass66 (
         column_one text,
@@ -455,11 +458,7 @@ test cass-6.7 {metadata: list columns types} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [subst {
-      CREATE KEYSPACE $keyspace WITH REPLICATION = {
-        'class' : 'SimpleStrategy', 'replication_factor' : 1
-      };
-    }]
+    $cmd exec [subst $cass_test_cql(0)]
     $cmd exec [subst {
       CREATE TABLE $keyspace.cass67 (
         column_one text,
@@ -481,11 +480,7 @@ test cass-6.8 {metadata: list columns types with bad keyspace} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [subst {
-      CREATE KEYSPACE $keyspace WITH REPLICATION = {
-        'class' : 'SimpleStrategy', 'replication_factor' : 1
-      };
-    }]
+    $cmd exec [subst $cass_test_cql(0)]
     $cmd exec [subst {
       CREATE TABLE $keyspace.cass68 (
         column_one text,
@@ -507,11 +502,7 @@ test cass-6.9 {metadata: list columns types with bad table} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [subst {
-      CREATE KEYSPACE $keyspace WITH REPLICATION = {
-        'class' : 'SimpleStrategy', 'replication_factor' : 1
-      };
-    }]
+    $cmd exec [subst $cass_test_cql(0)]
     $cmd exec [subst {
       CREATE TABLE $keyspace.cass69 (
         column_one text,
@@ -564,9 +555,7 @@ test cass-8.1 {select without page size} -body {
 
     set result [list]
 
-    $cmd select {
-      SELECT keyspace_name FROM system.schema_keyspaces;
-    } row {
+    $cmd select $cass_test_cql(1) row {
       lappend result [array get row]
     }
 
@@ -588,9 +577,7 @@ test cass-8.2 {select with page size} -body {
 
     set result [list]
 
-    $cmd select -pagesize 1 {
-      SELECT keyspace_name FROM system.schema_keyspaces;
-    } row {
+    $cmd select -pagesize 1 $cass_test_cql(1) row {
       lappend result [array get row]
     }
 
@@ -609,9 +596,7 @@ test cass-8.2 {select with page size} -body {
 test cass-9.1 {exec without callback (synchronous)} -body {
   list [catch {
     cass_test_connect cmd
-    $cmd exec {
-      SELECT keyspace_name FROM system.schema_keyspaces;
-    }
+    $cmd exec $cass_test_cql(1)
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
@@ -626,9 +611,9 @@ test cass-9.2 {exec with callback (asynchronous)} -body {
   list [catch {
     cass_test_connect cmd
     set result [list]
-    $cmd exec -callback [list cass_test_future_callback result -1] {
-      SELECT keyspace_name FROM system.schema_keyspaces;
-    }
+    $cmd exec \
+        -callback [list cass_test_future_callback result -1] \
+        $cass_test_cql(1)
     cass_test_service_events svc
     set result
   } errMsg] $errMsg
@@ -646,16 +631,9 @@ test cass-10.1 {async without callback} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace cass101_async]
     cass_test_connect cmd
-    $cmd async [subst {
-      CREATE KEYSPACE $keyspace WITH REPLICATION = {
-        'class' : 'SimpleStrategy', 'replication_factor' : 1
-      };
-    }]
+    $cmd async [subst $cass_test_cql(0)]
     cass_test_service_events svc
-    $cmd select [subst {
-      SELECT keyspace_name FROM system.schema_keyspaces
-      WHERE keyspace_name = '$keyspace';
-    }] row {
+    $cmd select [subst $cass_test_cql(2)] row {
       lappend result [array get row]
     }
     set result
@@ -673,9 +651,9 @@ test cass-10.2 {async with callback} -body {
   list [catch {
     cass_test_connect cmd
     set result [list]
-    $cmd exec -callback [list cass_test_future_callback result -1] {
-      SELECT keyspace_name FROM system.schema_keyspaces;
-    }
+    $cmd exec \
+        -callback [list cass_test_future_callback result -1] \
+        $cass_test_cql(1)
     cass_test_service_events svc
     set result
   } errMsg] $errMsg
