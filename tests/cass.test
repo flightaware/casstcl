@@ -19,6 +19,12 @@ package require casstcl
 
 ###############################################################################
 
+if {![info exists cass_test_timeout]} then {
+  set cass_test_timeout 5000; # milliseconds
+}
+
+###############################################################################
+
 if {[llength [info commands appendArgs]] == 0} then {
   proc appendArgs { args } {
     set result ""; eval append result $args
@@ -139,7 +145,10 @@ if {[llength [info commands cass_test_connect]] == 0} then {
 ###############################################################################
 
 if {[llength [info commands cass_test_service_events]] == 0} then {
-  proc cass_test_service_events { varName {milliseconds 5000} } {
+  proc cass_test_service_events { varName {milliseconds ""} } {
+    if {[string length $milliseconds] == 0} then {
+      set milliseconds $::cass_test_timeout
+    }
     cass_test_output "starting to service events"
     uplevel 1 [list unset -nocomplain $varName]
     uplevel 1 [list after $milliseconds [list set $varName 1]]
@@ -181,8 +190,14 @@ if {[llength [info commands cass_test_cleanup]] == 0} then {
 ###############################################################################
 
 if {[llength [info commands cass_test_get_keyspace]] == 0} then {
-  proc cass_test_get_keyspace {} {
-    return [appendArgs cass_test_safe_to_delete_ [pid]]
+  proc cass_test_get_keyspace { {suffix ""} } {
+    set result [appendArgs cass_test_safe_to_delete_ [pid]]
+
+    if {[string length $suffix] > 0} then {
+      append result _ $suffix
+    }
+
+    return $result
   }
 }
 
@@ -598,6 +613,53 @@ test cass-9.1 {exec without callback (synchronous)} -body {
 ###############################################################################
 
 test cass-9.2 {exec with callback (asynchronous)} -body {
+  list [catch {
+    cass_test_connect cmd
+    set result [list]
+    $cmd exec -callback [list cass_test_future_callback result -1] {
+      SELECT keyspace_name FROM system.schema_keyspaces;
+    }
+    cass_test_service_events svc
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup cmd true
+
+  unset -nocomplain result svc cmd errMsg
+} -match regexp -result {^0 \{1 \{\} CASS_OK \{\} \{(?:\{keyspace_name\
+(?:.*)\}) (?:\{keyspace_name (?:.*)\})*\}\}$}
+
+###############################################################################
+
+test cass-10.1 {async without callback} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace cass101_async]
+    cass_test_connect cmd
+    $cmd async [subst {
+      CREATE KEYSPACE $keyspace WITH REPLICATION = {
+        'class' : 'SimpleStrategy', 'replication_factor' : 1
+      };
+    }]
+    cass_test_service_events svc
+    $cmd select [subst {
+      SELECT keyspace_name FROM system.schema_keyspaces
+      WHERE keyspace_name = '$keyspace';
+    }] row {
+      lappend result [array get row]
+    }
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup cmd true
+
+  unset -nocomplain result row svc cmd errMsg
+} -match regexp -result {^0 \{\{keyspace_name .*\}\}$}
+
+###############################################################################
+
+test cass-10.2 {async with callback} -body {
   list [catch {
     cass_test_connect cmd
     set result [list]
