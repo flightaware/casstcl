@@ -269,13 +269,13 @@ test cass-6.3 {metadata: list tables w/bad keyspace} -body {
         PRIMARY KEY(column_one)
       );
     }]
-    $cmd tables [appendArgs $keyspace _bad]
+    $cmd tables cass_test_bad
   } errMsg] $errMsg
 } -cleanup {
   cass_test_cleanup cmd true
 
   unset -nocomplain keyspace cmd errMsg
-} -result {}
+} -result {1 {keyspace 'cass_test_bad' not found}}
 
 ###############################################################################
 
@@ -304,9 +304,6 @@ test cass-6.4 {metadata: list columns} -body {
 
 ###############################################################################
 
-#
-# TODO: Fix the issue that causes this test to segfault.
-#
 test cass-6.5 {metadata: list columns w/bad keyspace} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
@@ -322,19 +319,16 @@ test cass-6.5 {metadata: list columns w/bad keyspace} -body {
         PRIMARY KEY(column_one)
       );
     }]
-    $cmd columns [appendArgs $keyspace _bad] cass65
+    $cmd columns cass_test_bad cass65
   } errMsg] $errMsg
 } -cleanup {
   cass_test_cleanup cmd true
 
   unset -nocomplain keyspace cmd errMsg
-} -constraints {knownBug} -result {}
+} -result {1 {keyspace 'cass_test_bad' not found}}
 
 ###############################################################################
 
-#
-# TODO: Fix the issue that causes this test to segfault.
-#
 test cass-6.6 {metadata: list columns w/bad table} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
@@ -356,7 +350,84 @@ test cass-6.6 {metadata: list columns w/bad table} -body {
   cass_test_cleanup cmd true
 
   unset -nocomplain keyspace cmd errMsg
-} -constraints {knownBug} -result {}
+} -result [subst {1\
+{table 'cass66_bad' not found in keyspace '[cass_test_get_keyspace]'}}]
+
+###############################################################################
+
+test cass-6.7 {metadata: list columns types} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst {
+      CREATE KEYSPACE $keyspace WITH REPLICATION = {
+        'class' : 'SimpleStrategy', 'replication_factor' : 1
+      };
+    }]
+    $cmd exec [subst {
+      CREATE TABLE $keyspace.cass67 (
+        column_one text,
+        PRIMARY KEY(column_one)
+      );
+    }]
+    $cmd columns_with_types $keyspace cass67
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_cleanup cmd true
+
+  unset -nocomplain keyspace cmd errMsg
+} -result {0 {column_one text}}
+
+###############################################################################
+
+test cass-6.8 {metadata: list columns types w/bad keyspace} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst {
+      CREATE KEYSPACE $keyspace WITH REPLICATION = {
+        'class' : 'SimpleStrategy', 'replication_factor' : 1
+      };
+    }]
+    $cmd exec [subst {
+      CREATE TABLE $keyspace.cass68 (
+        column_one text,
+        PRIMARY KEY(column_one)
+      );
+    }]
+    $cmd columns_with_types cass_test_bad cass68
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_cleanup cmd true
+
+  unset -nocomplain keyspace cmd errMsg
+} -result {1 {keyspace 'cass_test_bad' not found}}
+
+###############################################################################
+
+test cass-6.9 {metadata: list columns types w/bad table} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst {
+      CREATE KEYSPACE $keyspace WITH REPLICATION = {
+        'class' : 'SimpleStrategy', 'replication_factor' : 1
+      };
+    }]
+    $cmd exec [subst {
+      CREATE TABLE $keyspace.cass69 (
+        column_one text,
+        PRIMARY KEY(column_one)
+      );
+    }]
+    $cmd columns_with_types $keyspace cass69_bad
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_cleanup cmd true
+
+  unset -nocomplain keyspace cmd errMsg
+} -result [subst {1\
+{table 'cass69_bad' not found in keyspace '[cass_test_get_keyspace]'}}]
 
 ###############################################################################
 
