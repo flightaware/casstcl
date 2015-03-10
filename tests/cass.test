@@ -307,7 +307,7 @@ test cass-6.4 {metadata: list columns} -body {
 #
 # TODO: Fix the issue that causes this test to segfault.
 #
-test cass-6.5 {metadata: list columns w/bad table} -body {
+test cass-6.5 {metadata: list columns w/bad keyspace} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
@@ -322,7 +322,35 @@ test cass-6.5 {metadata: list columns w/bad table} -body {
         PRIMARY KEY(column_one)
       );
     }]
-    $cmd columns $keyspace cass65_bad
+    $cmd columns [appendArgs $keyspace _bad] cass65
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_cleanup cmd true
+
+  unset -nocomplain keyspace cmd errMsg
+} -constraints {knownBug} -result {}
+
+###############################################################################
+
+#
+# TODO: Fix the issue that causes this test to segfault.
+#
+test cass-6.6 {metadata: list columns w/bad table} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst {
+      CREATE KEYSPACE $keyspace WITH REPLICATION = {
+        'class' : 'SimpleStrategy', 'replication_factor' : 1
+      };
+    }]
+    $cmd exec [subst {
+      CREATE TABLE $keyspace.cass66 (
+        column_one text,
+        PRIMARY KEY(column_one)
+      );
+    }]
+    $cmd columns $keyspace cass66_bad
   } errMsg] $errMsg
 } -cleanup {
   cass_test_cleanup cmd true
