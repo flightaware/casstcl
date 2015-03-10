@@ -79,9 +79,36 @@ if {[llength [info commands cass_test_output]] == 0} then {
 
 ###############################################################################
 
-if {[llength [info commands cass_test_callback]] == 0} then {
-  proc cass_test_callback { dictionary } {
+if {[llength [info commands cass_test_logging_callback]] == 0} then {
+  proc cass_test_logging_callback { dictionary } {
     cass_test_output $dictionary
+  }
+}
+
+###############################################################################
+
+if {[llength [info commands cass_test_future_callback]] == 0} then {
+  proc cass_test_future_callback { varName microseconds future } {
+    upvar 1 $varName result
+
+    lappend result [$future isready]
+
+    if {$microseconds < 0} then {
+      lappend result [$future wait]
+    } else {
+      lappend result [$future wait $microseconds]
+    }
+
+    lappend result [$future status]
+    lappend result [$future error_message]
+
+    set rows [list]
+
+    $future foreach row {
+      lappend rows [array get row]
+    }
+
+    lappend result $rows
   }
 }
 
@@ -187,7 +214,7 @@ test cass-2.2 {logging_callback sub-command usage} -body {
 
 test cass-3.1 {set and reset logging callback} -body {
   list [catch {
-    casstcl::cass logging_callback cass_test_callback
+    casstcl::cass logging_callback cass_test_logging_callback
 
     #
     # TODO: Permit the logging callback to be unset/reset.  This would
@@ -524,7 +551,7 @@ test cass-8.1 {select without page size} -body {
   cass_test_service_events svc
   cass_test_cleanup cmd true
 
-  unset -nocomplain result rows svc cmd errMsg
+  unset -nocomplain result row svc cmd errMsg
 } -match regexp -result \
 {^0 \{(?:\{keyspace_name (?:.*)\}) (?:\{keyspace_name (?:.*)\})*\}$}
 
@@ -548,9 +575,45 @@ test cass-8.2 {select with page size} -body {
   cass_test_service_events svc
   cass_test_cleanup cmd true
 
-  unset -nocomplain result rows svc cmd errMsg
+  unset -nocomplain result row svc cmd errMsg
 } -match regexp -result \
 {^0 \{(?:\{keyspace_name (?:.*)\}) (?:\{keyspace_name (?:.*)\})*\}$}
+
+###############################################################################
+
+test cass-9.1 {exec without callback (synchronous)} -body {
+  list [catch {
+    cass_test_connect cmd
+    $cmd exec {
+      SELECT keyspace_name FROM system.schema_keyspaces;
+    }
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup cmd true
+
+  unset -nocomplain svc cmd errMsg
+} -result {0 {}}
+
+###############################################################################
+
+test cass-9.2 {exec with callback (asynchronous)} -body {
+  list [catch {
+    cass_test_connect cmd
+    set result [list]
+    $cmd exec -callback [list cass_test_future_callback result -1] {
+      SELECT keyspace_name FROM system.schema_keyspaces;
+    }
+    cass_test_service_events svc
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup cmd true
+
+  unset -nocomplain result svc cmd errMsg
+} -match regexp -result {^0 \{1 \{\} CASS_OK \{\} \{(?:\{keyspace_name\
+(?:.*)\}) (?:\{keyspace_name (?:.*)\})*\}\}$}
 
 ###############################################################################
 
