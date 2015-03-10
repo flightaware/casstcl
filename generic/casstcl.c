@@ -3600,8 +3600,15 @@ int
 casstcl_createFutureObjectCommand (casstcl_sessionClientData *ct, CassFuture *future, Tcl_Obj *callbackObj)
 {
     // allocate one of our cass future objects for Tcl and configure it
-	casstcl_futureClientData *fcd = (casstcl_futureClientData *)ckalloc (sizeof (casstcl_futureClientData));
+	casstcl_futureClientData *fcd;
 
+	CassError rc = cass_future_error_code (future);
+	if (rc != CASS_OK) {
+		cass_future_free (future);
+		return casstcl_cass_error_to_tcl (ct, rc);
+	}
+
+    fcd = (casstcl_futureClientData *)ckalloc (sizeof (casstcl_futureClientData));
     fcd->cass_future_magic = CASS_FUTURE_MAGIC;
 	fcd->ct = ct;
 	fcd->future = future;
