@@ -4594,6 +4594,7 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
 			// deleted
 			if (casstcl_loggingCallbackObj != NULL) {
 				Tcl_DecrRefCount (casstcl_loggingCallbackObj);
+				casstcl_loggingCallbackObj = NULL;
 			}
 
 			casstcl_loggingCallbackObj = objv[2];
