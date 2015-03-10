@@ -593,7 +593,7 @@ test cass-8.2 {select with page size} -body {
 
 ###############################################################################
 
-test cass-9.1 {exec without callback (synchronous)} -body {
+test cass-9.1 {exec without batch without callback (synchronous)} -body {
   list [catch {
     cass_test_connect cmd
     $cmd exec $cass_test_cql(1)
@@ -607,7 +607,7 @@ test cass-9.1 {exec without callback (synchronous)} -body {
 
 ###############################################################################
 
-test cass-9.2 {exec with callback (asynchronous)} -body {
+test cass-9.2 {exec without batch with callback (asynchronous)} -body {
   list [catch {
     cass_test_connect cmd
     set result [list]
@@ -622,6 +622,45 @@ test cass-9.2 {exec with callback (asynchronous)} -body {
   cass_test_cleanup_session cmd
 
   unset -nocomplain result svc cmd errMsg
+} -match regexp -result {^0 \{1 \{\} CASS_OK \{\} \{(?:\{keyspace_name\
+(?:.*)\}) (?:\{keyspace_name (?:.*)\})*\}\}$}
+
+###############################################################################
+
+test cass-9.3 {exec with batch without callback (synchronous)} -body {
+  list [catch {
+    cass_test_connect cmd
+    set batch [$cmd batch #auto]
+    $batch add $cass_test_cql(1)
+    $cmd exec -batch $batch
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_object batch
+  cass_test_cleanup_session cmd
+
+  unset -nocomplain svc batch cmd errMsg
+} -result {0 {}}
+
+###############################################################################
+
+test cass-9.4 {exec with batch with callback (asynchronous)} -body {
+  list [catch {
+    cass_test_connect cmd
+    set batch [$cmd batch #auto]
+    $batch add $cass_test_cql(1)
+    set result [list]
+    $cmd exec -batch $batch \
+        -callback [list cass_test_future_callback result -1]
+    cass_test_service_events svc
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_object batch
+  cass_test_cleanup_session cmd
+
+  unset -nocomplain result svc batch cmd errMsg
 } -match regexp -result {^0 \{1 \{\} CASS_OK \{\} \{(?:\{keyspace_name\
 (?:.*)\}) (?:\{keyspace_name (?:.*)\})*\}\}$}
 
@@ -664,6 +703,88 @@ test cass-10.2 {async with callback} -body {
   unset -nocomplain result svc cmd errMsg
 } -match regexp -result {^0 \{1 \{\} CASS_OK \{\} \{(?:\{keyspace_name\
 (?:.*)\}) (?:\{keyspace_name (?:.*)\})*\}\}$}
+
+###############################################################################
+
+test cass-11.1 {batch with manual name and type} -body {
+  list [catch {
+    cass_test_connect cmd
+    set result [list]
+    set batch cass-11.1
+    $cmd batch $batch unlogged
+    lappend result [$batch count]
+    lappend result [$batch add $cass_test_cql(1)]
+    lappend result [$batch count]
+    lappend result [$batch reset]
+    lappend result [$batch count]
+    lappend result [$batch add $cass_test_cql(1)]
+    lappend result [$batch count]
+    lappend result [$batch consistency]
+    lappend result [$batch consistency quorum]
+    lappend result [$batch consistency]
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_object batch
+  cass_test_cleanup_session cmd
+
+  unset -nocomplain result svc batch cmd errMsg
+} -result {0 {0 {} 1 {} 0 {} 1 one {} quorum}}
+
+###############################################################################
+
+test cass-11.2 {batch with automatic name and type} -body {
+  list [catch {
+    cass_test_connect cmd
+    set result [list]
+    set batch [$cmd batch #auto]
+    lappend result [$batch count]
+    lappend result [$batch add $cass_test_cql(1)]
+    lappend result [$batch count]
+    lappend result [$batch reset]
+    lappend result [$batch count]
+    lappend result [$batch add $cass_test_cql(1)]
+    lappend result [$batch count]
+    lappend result [$batch consistency]
+    lappend result [$batch consistency quorum]
+    lappend result [$batch consistency]
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_object batch
+  cass_test_cleanup_session cmd
+
+  unset -nocomplain result svc batch cmd errMsg
+} -result {0 {0 {} 1 {} 0 {} 1 one {} quorum}}
+
+###############################################################################
+
+test cass-11.3 {batch upsert} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst $cass_test_cql(0)]
+    $cmd exec [subst {
+      CREATE TABLE $keyspace.cass113 (
+        column_one text,
+        PRIMARY KEY(column_one)
+      );
+    }]
+    $cmd reimport_column_type_map
+    set result [list]
+    set batch [$cmd batch #auto]
+    lappend result [$batch count]
+    lappend result [$batch upsert \
+        [appendArgs $keyspace .cass113] [list column_one test1]]
+    lappend result [$batch count]
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_object batch
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain result svc batch cmd errMsg
+} -result {0 {0 {} 1}}
 
 ###############################################################################
 
