@@ -4028,7 +4028,9 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			resultCode = casstcl_list_keyspaces (ct, &obj);
-			Tcl_SetObjResult (ct->interp, obj);
+			if (obj != NULL) {
+				Tcl_SetObjResult (ct->interp, obj);
+			}
 			break;
 		}
 
@@ -4042,7 +4044,9 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			char *keyspace = Tcl_GetString (objv[2]);
 
 			resultCode = casstcl_list_tables (ct, keyspace, &obj);
-			Tcl_SetObjResult (ct->interp, obj);
+			if (obj != NULL) {
+				Tcl_SetObjResult (ct->interp, obj);
+			}
 			break;
 		}
 
@@ -4058,7 +4062,9 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			char *table = Tcl_GetString (objv[3]);
 
 			resultCode = casstcl_list_columns (ct, keyspace, table, (optIndex == OPT_LIST_COLUMN_TYPES), &obj);
-			Tcl_SetObjResult (ct->interp, obj);
+			if (obj != NULL) {
+				Tcl_SetObjResult (ct->interp, obj);
+			}
 			break;
 		}
 
