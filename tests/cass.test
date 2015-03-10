@@ -30,9 +30,13 @@ if {[llength [info commands appendArgs]] == 0} then {
 if {[llength [info commands getEnvVar]] == 0} then {
   proc getEnvVar { name {default ""} } {
     if {![info exists ::env($name)]} then {
-      tcltest::Warn [appendArgs \
-          "missing environment variable \"" $name \
-          "\", using default \"" $default \"...]
+      if {![info exists ::warn($name)]} then {
+        tcltest::Warn [appendArgs \
+            "missing environment variable \"" $name \
+            "\", using default \"" $default \"...]
+
+        set ::warn($name) 1
+      }
 
       return $default
     }
@@ -48,6 +52,7 @@ if {[llength [info commands getDictValue]] == 0} then {
       if {[dict exists $dictionary $name]} then {
         return [appendArgs $wrap [dict get $dictionary $name] $wrap]
       }
+
       return $default
     } else {
       foreach {pairName pairValue} $dictionary {
@@ -55,6 +60,7 @@ if {[llength [info commands getDictValue]] == 0} then {
           return [appendArgs $wrap $pairValue $wrap]
         }
       }
+
       return $default
     }
   }
@@ -65,6 +71,63 @@ if {[llength [info commands getDictValue]] == 0} then {
 if {[llength [info commands cass_test_callback]] == 0} then {
   proc cass_test_callback { dictionary } {
     catch {tclLog $dictionary}
+
+    catch {
+      puts [tcltest::outputChannel] [appendArgs "---- " $dictionary]
+    }
+  }
+}
+
+###############################################################################
+
+if {[llength [info commands cass_test_connect]] == 0} then {
+  proc cass_test_connect { varName {cmdName ""} {points ""} {port ""} } {
+    upvar 1 $varName newCmdName
+
+    set newCmdName [casstcl::cass create \
+        [expr {[string length $cmdName] > 0 ? $cmdName : "#auto"}]]
+
+    if {[string length $points] == 0} then {
+      set points [getEnvVar CASSTCL_CONTACT_POINTS 127.0.0.1]
+    }
+
+    if {[string length $port] == 0} then {
+      set port [getEnvVar CASSTCL_PORT 9042]
+    }
+
+    $newCmdName contact_points $points
+    $newCmdName port $port
+    $newCmdName connect
+  }
+}
+
+###############################################################################
+
+if {[llength [info commands cass_test_cleanup]] == 0} then {
+  proc cass_test_cleanup { varName {drop false} } {
+    upvar 1 $varName cmdName
+
+    #
+    # TODO: Why does trying to DROP a nonexistent keyspace cause
+    #       tests to hang?
+    #
+    if {$drop} then {
+      set keyspace [cass_test_get_keyspace]
+
+      catch {$cmdName exec [subst {
+        DROP KEYSPACE $keyspace;
+      }]}
+    }
+
+    catch {$cmdName delete}
+  }
+}
+
+###############################################################################
+
+if {[llength [info commands cass_test_get_keyspace]] == 0} then {
+  proc cass_test_get_keyspace {} {
+    return [appendArgs cass_test_safe_to_delete_ [pid]]
   }
 }
 
@@ -131,13 +194,10 @@ test cass-4.2 {create automatically named command} -body {
 
 test cass-5.1 {connect (failure)} -body {
   list [catch {
-    set cmd [casstcl::cass create #auto]
-    $cmd contact_points 127.0.0.1
-    $cmd port 11111; # NOTE: Must be invalid for Cassandra.
-    $cmd connect
+    cass_test_connect cmd "" "" 11111; # NOTE: Port must be "invalid".
   } errMsg] $errMsg
 } -cleanup {
-  catch {$cmd delete}
+  cass_test_cleanup cmd
 
   unset -nocomplain cmd errMsg
 } -result {1 {cassandra error: No hosts available}}
@@ -146,16 +206,134 @@ test cass-5.1 {connect (failure)} -body {
 
 test cass-5.2 {connect (success)} -body {
   list [catch {
-    set cmd [casstcl::cass create #auto]
-    $cmd contact_points [getEnvVar CASSTCL_CONTACT_POINTS 127.0.0.1]
-    $cmd port [getEnvVar CASSTCL_PORT 9042]
-    $cmd connect
+    cass_test_connect cmd
   } errMsg] $errMsg
 } -cleanup {
-  catch {$cmd delete}
+  cass_test_cleanup cmd
 
   unset -nocomplain cmd errMsg
 } -result {0 {}}
+
+###############################################################################
+
+test cass-6.1 {metadata: list keyspaces} -body {
+  list [catch {
+    cass_test_connect cmd
+    $cmd keyspaces
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_cleanup cmd
+
+  unset -nocomplain cmd errMsg
+} -match regexp -result {^0 \{.+\}$}
+
+###############################################################################
+
+test cass-6.2 {metadata: list tables} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst {
+      CREATE KEYSPACE $keyspace WITH REPLICATION = {
+        'class' : 'SimpleStrategy', 'replication_factor' : 1
+      };
+    }]
+    $cmd exec [subst {
+      CREATE TABLE $keyspace.cass62 (
+        column_one text,
+        PRIMARY KEY(column_one)
+      );
+    }]
+    $cmd tables $keyspace
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_cleanup cmd true
+
+  unset -nocomplain keyspace cmd errMsg
+} -result {0 cass62}
+
+###############################################################################
+
+test cass-6.3 {metadata: list tables w/bad keyspace} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst {
+      CREATE KEYSPACE $keyspace WITH REPLICATION = {
+        'class' : 'SimpleStrategy', 'replication_factor' : 1
+      };
+    }]
+    $cmd exec [subst {
+      CREATE TABLE $keyspace.cass63 (
+        column_one text,
+        PRIMARY KEY(column_one)
+      );
+    }]
+    $cmd tables [appendArgs $keyspace _bad]
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_cleanup cmd true
+
+  unset -nocomplain keyspace cmd errMsg
+} -result {}
+
+###############################################################################
+
+test cass-6.4 {metadata: list columns} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst {
+      CREATE KEYSPACE $keyspace WITH REPLICATION = {
+        'class' : 'SimpleStrategy', 'replication_factor' : 1
+      };
+    }]
+    $cmd exec [subst {
+      CREATE TABLE $keyspace.cass64 (
+        column_one text,
+        PRIMARY KEY(column_one)
+      );
+    }]
+    $cmd columns $keyspace cass64
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_cleanup cmd true
+
+  unset -nocomplain keyspace cmd errMsg
+} -result {0 column_one}
+
+###############################################################################
+
+#
+# TODO: Fix the issue that causes this test to segfault.
+#
+test cass-6.5 {metadata: list columns w/bad table} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst {
+      CREATE KEYSPACE $keyspace WITH REPLICATION = {
+        'class' : 'SimpleStrategy', 'replication_factor' : 1
+      };
+    }]
+    $cmd exec [subst {
+      CREATE TABLE $keyspace.cass65 (
+        column_one text,
+        PRIMARY KEY(column_one)
+      );
+    }]
+    $cmd columns $keyspace cass65_bad
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_cleanup cmd true
+
+  unset -nocomplain keyspace cmd errMsg
+} -constraints {knownBug} -result {}
+
+###############################################################################
+
+foreach procName [info commands cass_test_*] {rename $procName ""}
+unset -nocomplain procName
 
 ###############################################################################
 
