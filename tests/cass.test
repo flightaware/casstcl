@@ -81,7 +81,6 @@ if {[llength [info commands cass_test_output]] == 0} then {
 
 if {[llength [info commands cass_test_callback]] == 0} then {
   proc cass_test_callback { dictionary } {
-    catch {tclLog $dictionary}
     cass_test_output $dictionary
   }
 }
@@ -124,7 +123,7 @@ if {[llength [info commands cass_test_service_events]] == 0} then {
 ###############################################################################
 
 if {[llength [info commands cass_test_cleanup]] == 0} then {
-  proc cass_test_cleanup { varName {drop false} } {
+  proc cass_test_cleanup { varName {delete true} {drop false} } {
     upvar 1 $varName cmdName
 
     #
@@ -139,7 +138,15 @@ if {[llength [info commands cass_test_cleanup]] == 0} then {
       }]}
     }
 
-    catch {$cmdName delete}
+    #
+    # NOTE: When the delete argument is non-zero, call the method;
+    #       otherwise, rely on the Tcl command deletion callback.
+    #
+    if {$delete} then {
+      catch {$cmdName delete}
+    } else {
+      rename $cmdName ""
+    }
   }
 }
 
@@ -271,14 +278,14 @@ test cass-6.2 {metadata: list tables} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true
+  cass_test_cleanup cmd true true
 
   unset -nocomplain keyspace svc cmd errMsg
 } -result {0 cass62}
 
 ###############################################################################
 
-test cass-6.3 {metadata: list tables w/bad keyspace} -body {
+test cass-6.3 {metadata: list tables with bad keyspace} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
@@ -297,7 +304,7 @@ test cass-6.3 {metadata: list tables w/bad keyspace} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true
+  cass_test_cleanup cmd true true
 
   unset -nocomplain keyspace svc cmd errMsg
 } -result {1 {keyspace 'cass_test_bad' not found}}
@@ -323,14 +330,14 @@ test cass-6.4 {metadata: list columns} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true
+  cass_test_cleanup cmd true true
 
   unset -nocomplain keyspace svc cmd errMsg
 } -result {0 column_one}
 
 ###############################################################################
 
-test cass-6.5 {metadata: list columns w/bad keyspace} -body {
+test cass-6.5 {metadata: list columns with bad keyspace} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
@@ -349,14 +356,14 @@ test cass-6.5 {metadata: list columns w/bad keyspace} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true
+  cass_test_cleanup cmd true true
 
   unset -nocomplain keyspace svc cmd errMsg
 } -result {1 {keyspace 'cass_test_bad' not found}}
 
 ###############################################################################
 
-test cass-6.6 {metadata: list columns w/bad table} -body {
+test cass-6.6 {metadata: list columns with bad table} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
@@ -375,7 +382,7 @@ test cass-6.6 {metadata: list columns w/bad table} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true
+  cass_test_cleanup cmd true true
 
   unset -nocomplain keyspace svc cmd errMsg
 } -result [subst {1\
@@ -402,14 +409,14 @@ test cass-6.7 {metadata: list columns types} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true
+  cass_test_cleanup cmd true true
 
   unset -nocomplain keyspace svc cmd errMsg
 } -result {0 {column_one text}}
 
 ###############################################################################
 
-test cass-6.8 {metadata: list columns types w/bad keyspace} -body {
+test cass-6.8 {metadata: list columns types with bad keyspace} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
@@ -428,14 +435,14 @@ test cass-6.8 {metadata: list columns types w/bad keyspace} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true
+  cass_test_cleanup cmd true true
 
   unset -nocomplain keyspace svc cmd errMsg
 } -result {1 {keyspace 'cass_test_bad' not found}}
 
 ###############################################################################
 
-test cass-6.9 {metadata: list columns types w/bad table} -body {
+test cass-6.9 {metadata: list columns types with bad table} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
@@ -454,11 +461,39 @@ test cass-6.9 {metadata: list columns types w/bad table} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup cmd true
+  cass_test_cleanup cmd true true
 
   unset -nocomplain keyspace svc cmd errMsg
 } -result [subst {1\
 {table 'cass69_bad' not found in keyspace '[cass_test_get_keyspace]'}}]
+
+###############################################################################
+
+test cass-7.1 {close without delete} -body {
+  list [catch {
+    cass_test_connect cmd
+    $cmd close
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup cmd false
+
+  unset -nocomplain svc cmd errMsg
+} -result {0 {}}
+
+###############################################################################
+
+test cass-7.2 {close with delete} -body {
+  list [catch {
+    cass_test_connect cmd
+    $cmd close
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup cmd true
+
+  unset -nocomplain svc cmd errMsg
+} -result {0 {}}
 
 ###############################################################################
 
