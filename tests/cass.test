@@ -647,7 +647,7 @@ test cass-8.2 {select with page size} -body {
 
 ###############################################################################
 
-test cass-9.1 {exec no batch without callback (synchronous)} -body {
+test cass-9.1 {exec no batch without callback} -body {
   list [catch {
     cass_test_connect cmd
     $cmd exec $cass_test_cql(1)
@@ -661,7 +661,7 @@ test cass-9.1 {exec no batch without callback (synchronous)} -body {
 
 ###############################################################################
 
-test cass-9.2 {exec no batch with callback (asynchronous)} -body {
+test cass-9.2 {exec no batch with callback} -body {
   list [catch {
     cass_test_connect cmd
     set result [list]
@@ -681,7 +681,7 @@ test cass-9.2 {exec no batch with callback (asynchronous)} -body {
 
 ###############################################################################
 
-test cass-9.3 {exec with batch without callback (synchronous)} -body {
+test cass-9.3 {exec with batch without callback} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
@@ -702,7 +702,7 @@ test cass-9.3 {exec with batch without callback (synchronous)} -body {
 
 ###############################################################################
 
-test cass-9.4 {exec with batch with callback (asynchronous)} -body {
+test cass-9.4 {exec with batch with callback} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
@@ -867,6 +867,162 @@ test cass-9.10 {exec no batch with callback -prepared with arg} -body {
   cass_test_cleanup_session cmd true true
 
   unset -nocomplain result svc value cmd errMsg
+} -result {0 {1 {} CASS_OK {} {}}}
+
+###############################################################################
+
+test cass-9.11 {exec with batch without callback -array} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst $cass_test_cql(0)]
+    $cmd exec [subst $cass_test_cql(3)]
+    set batch [$cmd batch #auto]
+    array set row [list x 1]; set value 1
+    $batch add \
+        -table [appendArgs $keyspace .main] \
+        -array row [subst $cass_test_cql(4)]
+    $cmd exec -batch $batch
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_object batch
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain keyspace svc value row batch cmd errMsg
+} -result {0 {}}
+
+###############################################################################
+
+test cass-9.12 {exec with batch with callback -array} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst $cass_test_cql(0)]
+    $cmd exec [subst $cass_test_cql(3)]
+    set batch [$cmd batch #auto]
+    array set row [list x 1]; set value 1
+    $batch add \
+        -table [appendArgs $keyspace .main] \
+        -array row [subst $cass_test_cql(4)]
+    set result [list]
+    $cmd exec -batch $batch \
+        -callback [list cass_test_future_callback result -1]
+    cass_test_service_events svc
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_object batch
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain result keyspace svc value row batch cmd errMsg
+} -result {0 {1 {} CASS_OK {} {}}}
+
+###############################################################################
+
+test cass-9.13 {exec with batch without callback -prepared no args} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst $cass_test_cql(0)]
+    $cmd exec [subst $cass_test_cql(3)]
+    set batch [$cmd batch #auto]
+    set value 1
+    set prepared [$cmd prepare #auto \
+        [appendArgs $keyspace .main] \
+        [subst $cass_test_cql(4)]]
+    $batch add -prepared $prepared
+    $cmd exec -batch $batch
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_object batch
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain keyspace svc value prepared batch cmd errMsg
+} -result {0 {}}
+
+###############################################################################
+
+test cass-9.14 {exec with batch with callback -prepared no args} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst $cass_test_cql(0)]
+    $cmd exec [subst $cass_test_cql(3)]
+    set batch [$cmd batch #auto]
+    set value 1
+    set prepared [$cmd prepare #auto \
+        [appendArgs $keyspace .main] \
+        [subst $cass_test_cql(4)]]
+    $batch add -prepared $prepared
+    set result [list]
+    $cmd exec -batch $batch \
+        -callback [list cass_test_future_callback result -1]
+    cass_test_service_events svc
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_object batch
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain result keyspace svc value prepared batch cmd errMsg
+} -result {0 {1 {} CASS_OK {} {}}}
+
+###############################################################################
+
+test cass-9.15 {exec with batch without callback -prepared with arg} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst $cass_test_cql(0)]
+    $cmd exec [subst $cass_test_cql(3)]
+    $cmd reimport_column_type_map
+    set batch [$cmd batch #auto]
+    set value 1
+    set prepared [$cmd prepare #auto \
+        [appendArgs $keyspace .main] \
+        [subst $cass_test_cql(5)]]
+    $batch add -prepared $prepared [list x 1]
+    $cmd exec -batch $batch
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_object batch
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain keyspace svc value prepared batch cmd errMsg
+} -result {0 {}}
+
+###############################################################################
+
+test cass-9.16 {exec with batch with callback -prepared with arg} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst $cass_test_cql(0)]
+    $cmd exec [subst $cass_test_cql(3)]
+    $cmd reimport_column_type_map
+    set batch [$cmd batch #auto]
+    set value 1
+    set prepared [$cmd prepare #auto \
+        [appendArgs $keyspace .main] \
+        [subst $cass_test_cql(5)]]
+    $batch add -prepared $prepared [list x 1]
+    set result [list]
+    $cmd exec -batch $batch \
+        -callback [list cass_test_future_callback result -1]
+    cass_test_service_events svc
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_object batch
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain result keyspace svc value prepared batch cmd errMsg
 } -result {0 {1 {} CASS_OK {} {}}}
 
 ###############################################################################
