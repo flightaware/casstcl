@@ -1224,7 +1224,7 @@ test cass-10.15 {async with batch without callback -prepared with arg} -body {
     set value 1
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
-        [subst $cass_test_cql(4)]]
+        [subst $cass_test_cql(5)]]
     $batch add -prepared $prepared [list x 1]
     set future [$cmd async -batch $batch]
     cass_test_service_events svc
@@ -1251,7 +1251,7 @@ test cass-10.16 {async with batch with callback -prepared with arg} -body {
     set value 1
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
-        [subst $cass_test_cql(4)]]
+        [subst $cass_test_cql(5)]]
     $batch add -prepared $prepared [list x 1]
     set result [list]
     $cmd async -batch $batch \
