@@ -2727,7 +2727,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 
 	if (newObjc < 1) {
 	  wrong_numargs:
-		Tcl_WrongNumArgs (interp, 2, objv, "?-array arrayName? ?-table tableName? ?-prepared prepared? ?query? ?arg...?");
+		Tcl_WrongNumArgs (interp, argOffset, objv, "?-array arrayName? ?-table tableName? ?-prepared prepared? ?query? ?arg...?");
 		return TCL_ERROR;
 	}
 
