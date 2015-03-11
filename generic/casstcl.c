@@ -2700,7 +2700,7 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
  *----------------------------------------------------------------------
  */
 int
-casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_Obj *CONST objv[], CassStatement **statementPtr) {
+casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_Obj *CONST objv[], int argOffset, CassStatement **statementPtr) {
 	int arrayStyle = 0;
 	char *arrayName = NULL;
 	char *tableName = NULL;
@@ -2720,17 +2720,19 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 		OPT_PREPARED
 	};
 
+	int newObjc = objc - argOffset;
+	Tcl_Obj *CONST *newObjv = objv + argOffset;
 	int optIndex;
 	int arg = 0;
 
-	if (objc < 1) {
+	if (newObjc < 1) {
 	  wrong_numargs:
 		Tcl_WrongNumArgs (interp, 2, objv, "?-array arrayName? ?-table tableName? ?-prepared prepared? ?query? ?arg...?");
 		return TCL_ERROR;
 	}
 
-	while (arg + 1 < objc) {
-		char *optionString = Tcl_GetString (objv[arg]);
+	while (arg + 1 < newObjc) {
+		char *optionString = Tcl_GetString (newObjv[arg]);
 
 		// if the first character isn't a dash, we're done here.
 		// this is going to get called a lot so i don't want
@@ -2742,48 +2744,48 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 
 		// OK so we aren't going to accept anything starting with - that
 		// isn't in our option list
-		if (Tcl_GetIndexFromObj (interp, objv[arg++], options, "options",
+		if (Tcl_GetIndexFromObj (interp, newObjv[arg++], options, "options",
 			TCL_EXACT, &optIndex) != TCL_OK) {
 			return TCL_ERROR;
 		}
 
 		switch ((enum options) optIndex) {
 			case OPT_ARRAY: {
-				if (arg + 1 >= objc) {
+				if (arg + 1 >= newObjc) {
 					goto wrong_numargs;
 				}
 
-				arrayName = Tcl_GetString (objv[arg++]);
+				arrayName = Tcl_GetString (newObjv[arg++]);
 				arrayStyle = 1;
 				break;
 			}
 
 			case OPT_TABLE: {
-				if (arg + 1 >= objc) {
+				if (arg + 1 >= newObjc) {
 					goto wrong_numargs;
 				}
 
-				tableName = Tcl_GetString (objv[arg++]);
+				tableName = Tcl_GetString (newObjv[arg++]);
 				arrayStyle = 1;
 				break;
 			}
 
 			case OPT_PREPARED: {
-				if (arg + 1 >= objc) {
+				if (arg + 1 >= newObjc) {
 					goto wrong_numargs;
 				}
 
-				preparedName = Tcl_GetString (objv[arg++]);
+				preparedName = Tcl_GetString (newObjv[arg++]);
 // printf("saw prepared case, name = '%s'\n", preparedName);
 				break;
 			}
 		}
 	}
 
-//printf ("looking for query, arg %d, objc %d\n", arg, objc);
+//printf ("looking for query, arg %d, newObjc %d\n", arg, newObjc);
 
 	// there must at least be a query string or prepared arglist left
-	if (arg >= objc) {
+	if (arg >= newObjc) {
 		goto wrong_numargs;
 	}
 
@@ -2810,7 +2812,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 		int listObjc;
 		Tcl_Obj **listObjv;
 
-		if (Tcl_ListObjGetElements (interp, objv[arg++], &listObjc, &listObjv) == TCL_ERROR) {
+		if (Tcl_ListObjGetElements (interp, newObjv[arg++], &listObjc, &listObjv) == TCL_ERROR) {
 			Tcl_AppendResult (interp, " while parsing list of column-value pairs", NULL);
 			return TCL_ERROR;
 		}
@@ -2823,8 +2825,8 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 		return casstcl_bind_names_from_prepared (pcd, listObjc, listObjv, statementPtr);
 	}
 
-	char *query = Tcl_GetString (objv[arg++]);
-	// (whatever is left of the objv from arg to the end are column-related)
+	char *query = Tcl_GetString (newObjv[arg++]);
+	// (whatever is left of the newObjv from arg to the end are column-related)
 
 	if (arrayStyle) {
 		if (tableName == NULL) {
@@ -2839,9 +2841,9 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 			return TCL_ERROR;
 		}
 
-		return casstcl_bind_names_from_array (ct, tableName, query, arrayName, objc - arg, &objv[arg], statementPtr);
+		return casstcl_bind_names_from_array (ct, tableName, query, arrayName, newObjc - arg, &newObjv[arg], statementPtr);
 	} else {
-		return casstcl_bind_values_and_types (ct, query, objc - arg, &objv[arg], statementPtr);
+		return casstcl_bind_values_and_types (ct, query, newObjc - arg, &newObjv[arg], statementPtr);
 	}
 }
 
@@ -3238,7 +3240,7 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
     switch ((enum options) optIndex) {
 		case OPT_ADD: {
 			CassStatement* statement = NULL;
-			if (casstcl_make_statement_from_objv (bcd->ct, objc - 2, &objv[2], &statement) == TCL_ERROR) {
+			if (casstcl_make_statement_from_objv (bcd->ct, objc, objv, 2, &statement) == TCL_ERROR) {
 				return TCL_ERROR;
 			}
 
@@ -3862,7 +3864,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			} else {
 				// it's a statement, possibly with arguments
 
-				if (casstcl_make_statement_from_objv (ct, objc - arg, &objv[arg], &statement) == TCL_ERROR) {
+				if (casstcl_make_statement_from_objv (ct, objc, objv, arg, &statement) == TCL_ERROR) {
 					return TCL_ERROR;
 				}
 
