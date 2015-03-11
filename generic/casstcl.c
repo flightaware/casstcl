@@ -3823,7 +3823,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				// stop as soon as you don't match something, leaving arg
 				// at the not-matched thing (i.e. don't use arg++ in
 				// this statement)
-				if (Tcl_GetIndexFromObj (interp, objv[arg], subOptions, "subOption", TCL_EXACT, &subOptIndex) != TCL_OK) {
+				if (Tcl_GetIndexFromObj (NULL, objv[arg], subOptions, "subOption", TCL_EXACT, &subOptIndex) != TCL_OK) {
 					break;
 				}
 				arg++;
