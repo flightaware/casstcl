@@ -68,6 +68,32 @@ if {[llength [info commands getDictValue]] == 0} then {
 
 ###############################################################################
 
+if {[llength [info commands cass_test_cleanup_server]] == 0} then {
+  proc cass_test_cleanup_server {} {
+    cass_test_connect cmd
+
+    foreach keyspace [$cmd keyspaces] {
+      if {[string match cass_test_safe_to_delete_* $keyspace]} then {
+        if {[catch {
+          $cmd exec [subst $::cass_test_cql(drop)]
+        } error] == 0} then {
+          cass_test_output [appendArgs \
+              "success dropping keyspace \"" $keyspace \"]
+        } else {
+          cass_test_output [appendArgs \
+              "failure dropping keyspace \"" $keyspace "\": " \
+              $error]
+        }
+      }
+    }
+
+    cass_test_service_events svc
+    cass_test_cleanup_session cmd
+  }
+}
+
+###############################################################################
+
 if {[llength [info commands cass_test_output]] == 0} then {
   proc cass_test_output { string } {
     catch {
@@ -213,6 +239,13 @@ if {[llength [info commands cass_test_get_keyspace]] == 0} then {
 
 ###############################################################################
 
+if {![info exists cass_test_log_level]} then {
+  set cass_test_log_level [getEnvVar CASSTCL_LOG_LEVEL \
+      [expr {[tcltest::IsVerbose skip] ? "trace" : "disabled"}]]
+}
+
+###############################################################################
+
 if {![info exists cass_test_timeout]} then {
   set cass_test_timeout [getEnvVar CASSTCL_TIMEOUT 5000]; # milliseconds
 }
@@ -241,6 +274,10 @@ if {![info exists cass_test_cql]} then {
 
   set cass_test_cql(4) {
     INSERT INTO $keyspace.main (x) VALUES ('[string map [list ' ''] $value]');
+  }
+
+  set cass_test_cql(5) {
+    INSERT INTO $keyspace.main (x) VALUES (?);
   }
 
   set cass_test_cql(drop) {
@@ -277,6 +314,7 @@ test cass-2.2 {logging_callback sub-command usage} -body {
 test cass-3.1 {set and reset logging callback} -body {
   list [catch {
     casstcl::cass logging_callback cass_test_logging_callback
+    casstcl::cass log_level $cass_test_log_level
 
     #
     # TODO: Permit the logging callback to be unset/reset.  This would
@@ -685,6 +723,50 @@ test cass-9.4 {exec with batch with callback (asynchronous)} -body {
 
 ###############################################################################
 
+test cass-9.5 {exec without batch without callback using -array} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst $cass_test_cql(0)]
+    $cmd exec [subst $cass_test_cql(3)]
+    $cmd reimport_column_type_map
+    array set row [list x 1]
+    $cmd exec \
+        -table [subst {$keyspace.main}] -array row [subst $cass_test_cql(5)] x
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain row svc cmd errMsg
+} -result {0 {}}
+
+###############################################################################
+
+test cass-9.6 {exec without batch with callback using -array} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst $cass_test_cql(0)]
+    $cmd exec [subst $cass_test_cql(3)]
+    $cmd reimport_column_type_map
+    set result [list]
+    array set row [list x 1]
+    $cmd exec \
+        -callback [list cass_test_future_callback result -1] \
+        -table [subst {$keyspace.main}] -array row [subst $cass_test_cql(5)] x
+    cass_test_service_events svc
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain result row svc cmd errMsg
+} -result {0 {1 {} CASS_OK {} {}}}
+
+###############################################################################
+
 test cass-10.1 {async without callback} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace cass101_async]
@@ -906,12 +988,33 @@ test cass-12.2 {prepare with automatic name} -body {
 
 ###############################################################################
 
-foreach procName [info commands cass_test_*] {rename $procName ""}
+#
+# NOTE: Enable this block to DROP all test keyspaces created by these tests.
+#
+if {0} then {
+  cass_test_cleanup_server
+}
+
+###############################################################################
+
+foreach procName [concat [info commands cass_test_*] \
+    [list appendArgs getEnvVar getDictValue]] {
+  rename $procName ""
+}
+
 unset -nocomplain procName
 
 ###############################################################################
 
-unset -nocomplain path
+foreach varName [info vars cass_test_*] {
+  unset -nocomplain $varName
+}
+
+unset -nocomplain varName
+
+###############################################################################
+
+unset -nocomplain warn path
 
 # cleanup
 ::tcltest::cleanupTests
