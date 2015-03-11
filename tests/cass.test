@@ -235,6 +235,14 @@ if {![info exists cass_test_cql]} then {
     WHERE keyspace_name = '$keyspace';
   }
 
+  set cass_test_cql(3) {
+    CREATE TABLE $keyspace.main (x text PRIMARY KEY);
+  }
+
+  set cass_test_cql(4) {
+    INSERT INTO $keyspace.main (x) VALUES ('[string map [list ' ''] $value]');
+  }
+
   set cass_test_cql(drop) {
     DROP KEYSPACE IF EXISTS $keyspace;
   }
@@ -635,26 +643,32 @@ test cass-9.2 {exec without batch with callback (asynchronous)} -body {
 
 test cass-9.3 {exec with batch without callback (synchronous)} -body {
   list [catch {
+    set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
+    $cmd exec [subst $cass_test_cql(0)]
+    $cmd exec [subst $cass_test_cql(3)]
     set batch [$cmd batch #auto]
-    $batch add $cass_test_cql(1)
+    set value 1; $batch add [subst $cass_test_cql(4)]
     $cmd exec -batch $batch
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
   cass_test_cleanup_object batch
-  cass_test_cleanup_session cmd
+  cass_test_cleanup_session cmd true true
 
-  unset -nocomplain svc batch cmd errMsg
+  unset -nocomplain keyspace svc value batch cmd errMsg
 } -result {0 {}}
 
 ###############################################################################
 
 test cass-9.4 {exec with batch with callback (asynchronous)} -body {
   list [catch {
+    set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
+    $cmd exec [subst $cass_test_cql(0)]
+    $cmd exec [subst $cass_test_cql(3)]
     set batch [$cmd batch #auto]
-    $batch add $cass_test_cql(1)
+    set value 1; $batch add [subst $cass_test_cql(4)]
     set result [list]
     $cmd exec -batch $batch \
         -callback [list cass_test_future_callback result -1]
@@ -664,11 +678,10 @@ test cass-9.4 {exec with batch with callback (asynchronous)} -body {
 } -cleanup {
   cass_test_service_events svc
   cass_test_cleanup_object batch
-  cass_test_cleanup_session cmd
+  cass_test_cleanup_session cmd true true
 
-  unset -nocomplain result svc batch cmd errMsg
-} -match regexp -result {^0 \{1 \{\} CASS_OK \{\} \{(?:\{keyspace_name\
-(?:.*)\}) (?:\{keyspace_name (?:.*)\})*\}\}$}
+  unset -nocomplain result keyspace svc value batch cmd errMsg
+} -result {0 {1 {} CASS_OK {} {}}}
 
 ###############################################################################
 
@@ -687,7 +700,7 @@ test cass-10.1 {async without callback} -body {
   cass_test_service_events svc
   cass_test_cleanup_session cmd true true
 
-  unset -nocomplain result row svc cmd errMsg
+  unset -nocomplain result row keyspace svc cmd errMsg
 } -match regexp -result {^0 \{\{keyspace_name .*\}\}$}
 
 ###############################################################################
@@ -789,7 +802,7 @@ test cass-11.3 {batch upsert} -body {
   cass_test_cleanup_object batch
   cass_test_cleanup_session cmd true true
 
-  unset -nocomplain result svc batch cmd errMsg
+  unset -nocomplain result keyspace svc batch cmd errMsg
 } -result {0 {0 {} 1}}
 
 ###############################################################################
