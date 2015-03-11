@@ -357,6 +357,8 @@ When a log message callback occurs from the Cassandra cpp-driver, casstcl will o
 
 * "message" and the error message itself
 
+The level of detail queued to the logging callback may be adjusted via:
+
 ```tcl
 ::casstcl::cass log_level level
 ```
@@ -376,6 +378,7 @@ proc logging_callback {pairList} {
 }
 
 casstcl::cass logging_callback logging_callback
+casstcl::cass log_level info
 ```
 
 According to the cpp-driver documentation, logging configuration should be done before calling any other driver function, so if you're going to use this, invoke it after package requiring casstcl and before invoking ::casstcl::cass create.
