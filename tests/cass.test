@@ -805,7 +805,7 @@ test cass-9.8 {exec no batch with callback using -prepared no args} -body {
     set result [list]
     $cmd exec \
         -callback [list cass_test_future_callback result -1] \
-        -prepared $prepared 1 2
+        -prepared $prepared
     cass_test_service_events svc
     set result
   } errMsg] $errMsg
