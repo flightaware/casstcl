@@ -294,7 +294,7 @@ const char *casstcl_cass_error_to_errorcode_string (CassError cassError)
  *--------------------------------------------------------------
  */
 int
-casstcl_obj_to_cass_log_level (casstcl_sessionClientData *ct, Tcl_Obj *tclObj, CassLogLevel *cassLogLevel) {
+casstcl_obj_to_cass_log_level (Tcl_Interp *interp, Tcl_Obj *tclObj, CassLogLevel *cassLogLevel) {
     int                 logIndex;
 
     static CONST char *logLevels[] = {
@@ -319,7 +319,7 @@ casstcl_obj_to_cass_log_level (casstcl_sessionClientData *ct, Tcl_Obj *tclObj, C
 	};
 
     // argument must be one of the options defined above
-    if (Tcl_GetIndexFromObj (ct->interp, tclObj, logLevels, "logLevel",
+    if (Tcl_GetIndexFromObj (interp, tclObj, logLevels, "logLevel",
         TCL_EXACT, &logIndex) != TCL_OK) {
         return TCL_ERROR;
     }
@@ -4526,12 +4526,14 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
     static CONST char *options[] = {
         "create",
         "logging_callback",
+        "log_level",
         NULL
     };
 
     enum options {
         OPT_CREATE,
-		OPT_LOGGING_CALLBACK
+		OPT_LOGGING_CALLBACK,
+		OPT_LOG_LEVEL
     };
 
     // basic command line processing
@@ -4611,6 +4613,21 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
 			casstcl_loggingCallbackThreadId = Tcl_GetCurrentThread();
 
 			cass_log_set_callback (casstcl_logging_callback, interp);
+			break;
+		}
+		case OPT_LOG_LEVEL: {
+			CassLogLevel cassLogLevel;
+
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "level");
+				return TCL_ERROR;
+			}
+
+			if (casstcl_obj_to_cass_log_level(interp, objv[2], &cassLogLevel) == TCL_OK) {
+				cass_log_set_level(cassLogLevel);
+			} else {
+				return TCL_ERROR;
+			}
 			break;
 		}
 	}
