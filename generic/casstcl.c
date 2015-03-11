@@ -2826,7 +2826,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 		// name/value pairs, which must contain an even number of
 		// elements.
 		if (arg < newObjc && arg + 1 != newObjc) {
-			Tcl_WrongNumArgs (interp, (argOffset <= 2) ? argOffset : 2, objv, "-prepared prepared list");
+			Tcl_WrongNumArgs (interp, (argOffset <= 2) ? argOffset : 2, objv, "-prepared prepared ?list?");
 			return TCL_ERROR;
 		}
 
