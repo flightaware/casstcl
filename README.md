@@ -357,6 +357,14 @@ When a log message callback occurs from the Cassandra cpp-driver, casstcl will o
 
 * "message" and the error message itself
 
+```tcl
+::casstcl::cass log_level level
+```
+
+This sets the log level for the cpp-driver.  The legal values, in order from least output (none) to most output (all) are "disabled", "critical", "error", "warn", "info", "debug", and "trace".
+
+The default is "warn".
+
 A sample implementation:
 
 ```tcl

@@ -2725,13 +2725,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 	int optIndex;
 	int arg = 0;
 
-	if (newObjc < 1) {
-	  wrong_numargs:
-		Tcl_WrongNumArgs (interp, argOffset, objv, "?-array arrayName? ?-table tableName? ?-prepared prepared? ?query? ?arg...?");
-		return TCL_ERROR;
-	}
-
-	while (arg + 1 < newObjc) {
+	while (arg < newObjc) {
 		char *optionString = Tcl_GetString (newObjv[arg]);
 
 		// if the first character isn't a dash, we're done here.
@@ -2751,7 +2745,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 
 		switch ((enum options) optIndex) {
 			case OPT_ARRAY: {
-				if (arg + 1 >= newObjc) {
+				if (arg >= newObjc) {
 					goto wrong_numargs;
 				}
 
@@ -2761,7 +2755,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 			}
 
 			case OPT_TABLE: {
-				if (arg + 1 >= newObjc) {
+				if (arg >= newObjc) {
 					goto wrong_numargs;
 				}
 
@@ -2771,7 +2765,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 			}
 
 			case OPT_PREPARED: {
-				if (arg + 1 >= newObjc) {
+				if (arg >= newObjc) {
 					goto wrong_numargs;
 				}
 
@@ -2784,9 +2778,27 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 
 //printf ("looking for query, arg %d, newObjc %d\n", arg, newObjc);
 
-	// there must at least be a query string or prepared arglist left
-	if (arg >= newObjc) {
-		goto wrong_numargs;
+	// There are several different possibilities here in terms of the list
+	// of arguments (i.e. the ones already processed and those that remain
+	// to be processed):
+	//
+	//     1. There are no arguments left.  This is fine if the query is
+	//        prepared (i.e. the -prepared option was processed).  This
+	//        means there are *NO* name/value pairs to bind.
+	//
+	//     2. There is exactly one argument left.  This is always fine.
+	//
+	//     3. There is more than one argument left.  This is fine if the
+	//        -prepared option was not processed; otherwise, this is an
+	//        error.
+	//
+	// This check is used to determine if we ran out of arguments without
+	// having processed the -prepared option.
+	//
+	if (arg >= newObjc && preparedName == NULL) {
+	  wrong_numargs:
+		Tcl_WrongNumArgs (interp, (argOffset <= 2) ? argOffset : 2, objv, "?-array arrayName? ?-table tableName? ?-prepared prepared? ?query? ?arg...?");
+		return TCL_ERROR;
 	}
 
 	if (preparedName != NULL && arrayStyle) {
@@ -2801,6 +2813,8 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 
 		// locate the prepared statement structure we created earlier
 		casstcl_preparedClientData * pcd = casstcl_prepared_command_to_preparedClientData (ct, preparedName);
+		int listObjc = 0;
+		Tcl_Obj **listObjv = NULL;
 
 		if (pcd == NULL) {
 			Tcl_ResetResult (interp);
@@ -2808,19 +2822,26 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 			return TCL_ERROR;
 		}
 
-		// split out the column_name-value pairs of names and values
-		int listObjc;
-		Tcl_Obj **listObjv;
-
-		if (Tcl_ListObjGetElements (interp, newObjv[arg++], &listObjc, &listObjv) == TCL_ERROR) {
-			Tcl_AppendResult (interp, " while parsing list of column-value pairs", NULL);
+		// there must be exactly one argument left.  the list of
+		// name/value pairs, which must contain an even number of
+		// elements.
+		if (arg < newObjc && arg + 1 != newObjc) {
+			Tcl_WrongNumArgs (interp, (argOffset <= 2) ? argOffset : 2, objv, "-prepared prepared list");
 			return TCL_ERROR;
 		}
 
-		if (listObjc & 1) {
-			Tcl_ResetResult (interp);
-			Tcl_AppendResult (interp, "list must contain an even number of elements", NULL);
-			return TCL_ERROR;
+		if (arg < newObjc) {
+			// split out the column_name-value pairs of names and values
+			if (Tcl_ListObjGetElements (interp, newObjv[arg++], &listObjc, &listObjv) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while parsing list of column-value pairs", NULL);
+				return TCL_ERROR;
+			}
+
+			if (listObjc & 1) {
+				Tcl_ResetResult (interp);
+				Tcl_AppendResult (interp, "list must contain an even number of elements", NULL);
+				return TCL_ERROR;
+			}
 		}
 		return casstcl_bind_names_from_prepared (pcd, listObjc, listObjv, statementPtr);
 	}
