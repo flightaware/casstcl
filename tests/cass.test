@@ -242,14 +242,16 @@ if {[llength [info commands cass_test_get_keyspace]] == 0} then {
 ###############################################################################
 
 if {[llength [info commands cass_test_get_value_columns]] == 0} then {
-  proc cass_test_get_value_columns { cql {values false} {types false} } {
+  proc cass_test_get_value_columns {
+          cql {values false} {detail 0} {types false} } {
     set result [list]
 
     foreach {dummy name type} \
         [regexp -all -inline -- {(value\d\d) ([\w, <>]+),} $cql] {
+      set type [string trim $type ", "]
 
       if {$values} then {
-        lappend result [list $name [cass_test_get_dummy_value $type]]
+        lappend result $name [cass_test_get_dummy_value $type $detail]
       } elseif {$types} then {
         lappend result [list $name $type]
       } else {
@@ -263,44 +265,107 @@ if {[llength [info commands cass_test_get_value_columns]] == 0} then {
 
 ###############################################################################
 
+if {[llength [info commands cass_test_get_sub_types]] == 0} then {
+  proc cass_test_get_sub_types { type } {
+    if {[regexp -- {^[\w ]+<.+>$} $type]} then {
+      set addToSubType {
+        append subType $character
+      }
+
+      set addSubType {
+        set subType [string trim $subType]
+        if {[string length $subType] > 0} then {
+          lappend result $subType; set subType ""
+        }
+      }
+
+      set result [list]
+      set length [string length $type]; set level 0; set subType ""
+
+      for {set index 0} {$index < $length} {incr index} {
+        set character [string index $type $index]
+
+        switch -exact $character {
+          , {
+            if {$level > 1} then {
+              eval $addToSubType
+            } else {
+              eval $addSubType
+            }
+          }
+          < {
+            if {$level > 0} then {
+              eval $addToSubType
+            } else {
+              eval $addSubType
+            }
+            incr level
+          }
+          > {
+            incr level -1
+            if {$level > 0} then {
+              eval $addToSubType
+            } else {
+              eval $addSubType
+            }
+          }
+          default {
+            if {$level > 0} then {
+              eval $addToSubType
+            } else {
+              eval $addSubType
+            }
+          }
+        }
+      }
+
+      return $result
+    }
+
+    return [list]
+  }
+}
+
+###############################################################################
+
 if {[llength [info commands cass_test_get_dummy_value]] == 0} then {
-  proc cass_test_get_dummy_value { type } {
+  proc cass_test_get_dummy_value { type {detail 0} } {
     switch -exact [string tolower $type] {
       ascii {
-        return ""
+        return [expr {$detail > 0 ? "test" : ""}]
       }
       bigint {
-        return 0
+        return [expr {$detail > 0 ? "1" : "0"}]
       }
       blob {
-        return ""
+        return [expr {$detail > 0 ? "0x00" : ""}]
       }
       boolean {
-        return false
+        return [expr {$detail > 0 ? "true" : "false"}]
       }
       counter {
-        return 0
+        return [expr {$detail > 0 ? "1" : "0"}]
       }
       decimal {
-        return 0
+        return [expr {$detail > 0 ? "1" : "0"}]
       }
       double {
-        return 0.0
+        return [expr {$detail > 0 ? "1.0" : "0.0"}]
       }
       float {
-        return 0.0
+        return [expr {$detail > 0 ? "1.0" : "0.0"}]
       }
       inet {
-        return 0.0.0.0:0
+        return [expr {$detail > 0 ? "127.0.0.1:9042" : "0.0.0.0:0"}]
       }
       int {
-        return 0
+        return [expr {$detail > 0 ? "1" : "0"}]
       }
       text {
-        return ""
+        return [expr {$detail > 0 ? "test" : ""}]
       }
       timestamp {
-        return 0
+        return [expr {$detail > 0 ? "1" : "0"}]
       }
       timeuuid {
         return 00000000-0000-0000-0000-000000000000
@@ -309,21 +374,27 @@ if {[llength [info commands cass_test_get_dummy_value]] == 0} then {
         return 00000000-0000-0000-0000-000000000000
       }
       varchar {
-        return ""
+        return [expr {$detail > 0 ? "test" : ""}]
       }
       varint {
-        return 0
+        return [expr {$detail > 0 ? "1" : "0"}]
       }
       default {
-        if {[string match -nocase list<*> $type] || \
-            [string match -nocase map<*> $type] || \
-            [string match -nocase set<*> $type]} then {
-          return [list]
-        }
-        if {[string match -nocase tuple<*> $type]} then {
-          #
-          # TODO: Implement this.
-          #
+        if {[regexp -nocase -- {^list\s*<.+>$} $type] || \
+            [regexp -nocase -- {^map\s*<.+>$} $type] || \
+            [regexp -nocase -- {^set\s*<.+>$} $type] || \
+            [regexp -nocase -- {^tuple\s*<.+>$} $type]} then {
+          if {$detail <= 0} then {
+            return [list]
+          }
+
+          set result [list]
+
+          foreach subType [cass_test_get_sub_types $type] {
+            lappend result [cass_test_get_dummy_value $subType $detail]
+          }
+
+          return $result
         }
       }
     }
@@ -399,19 +470,16 @@ if {![info exists cass_test_cql]} then {
       value19 text,
       value20 timestamp,
       value21 timeuuid,
-      value22 frozen <tuple<text, text>>,
-      value23 frozen <tuple<int, int>>,
-      value24 frozen <tuple<boolean, boolean>>,
-      value25 uuid,
-      value26 varchar,
-      value27 varint
+      value22 uuid,
+      value23 varchar,
+      value24 varint
     );
   }
 
   set cass_test_cql(7) {
     INSERT INTO $keyspace.main (
       [join [set cols [concat [list key01] \
-          [cass_test_get_value_columns $::cass_test_cql(6)]]] ,]
+          [cass_test_get_value_columns [subst $::cass_test_cql(6)]]]] ,]
     ) VALUES (
       [join [string trim [string repeat "? " [llength $cols]]] ,]
       [unset cols]
@@ -1698,7 +1766,7 @@ test cass-12.2 {prepare with automatic name} -body {
 
 ###############################################################################
 
-test cass-13.1 {binding of data types} -body {
+test cass-13.1 {binding of data types with placeholder values} -body {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
     $cmd exec [subst $cass_test_cql(0)]
@@ -1708,7 +1776,29 @@ test cass-13.1 {binding of data types} -body {
         [appendArgs $keyspace .main] \
         [subst $cass_test_cql(7)]]
     $cmd exec -prepared $prepared [concat \
-        [list key01 1] [cass_test_get_value_columns true]]
+        [list key01 1] [cass_test_get_value_columns \
+        [subst $cass_test_cql(6)] true]]
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain keyspace svc cmd errMsg
+} -result {}
+
+###############################################################################
+
+test cass-13.2 {binding of data types with trivial values} -body {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst $cass_test_cql(0)]
+    $cmd exec [subst $cass_test_cql(6)]
+    $cmd reimport_column_type_map
+    set prepared [$cmd prepare #auto \
+        [appendArgs $keyspace .main] \
+        [subst $cass_test_cql(7)]]
+    $cmd exec -prepared $prepared [concat \
+        [list key01 1] [cass_test_get_value_columns \
+        [subst $cass_test_cql(6)] true 1]]
 } -cleanup {
   cass_test_service_events svc
   cass_test_cleanup_session cmd true true
