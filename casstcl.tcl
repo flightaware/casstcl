@@ -13,7 +13,30 @@ namespace eval ::casstcl {
 	variable validatorTypeLookupCache
 	variable columnTypeMap
 
-	array set simpleValidatorToType {"org.apache.cassandra.db.marshal.AsciiType" ascii "org.apache.cassandra.db.marshal.LongType" bigint "org.apache.cassandra.db.marshal.BytesType" blob "org.apache.cassandra.db.marshal.BooleanType" boolean "org.apache.cassandra.db.marshal.CounterColumnType" counter "org.apache.cassandra.db.marshal.DecimalType" decimal "org.apache.cassandra.db.marshal.DoubleType" double "org.apache.cassandra.db.marshal.FloatType" float "org.apache.cassandra.db.marshal.InetAddressType" inet "org.apache.cassandra.db.marshal.Int32Type" int "org.apache.cassandra.db.marshal.UTF8Type" text "org.apache.cassandra.db.marshal.TimestampType" timestamp "org.apache.cassandra.db.marshal.DateType" timestamp "org.apache.cassandra.db.marshal.UUIDType" uuid "org.apache.cassandra.db.marshal.IntegerType" int "org.apache.cassandra.db.marshal.TimeUUIDType" timeuuid "org.apache.cassandra.db.marshal.ListType" list "org.apache.cassandra.db.marshal.MapType" map "org.apache.cassandra.db.marshal.SetType" set "org.apache.cassandra.db.marshal.CompositeType" composite}
+	array set simpleValidatorToType [list \
+		"org.apache.cassandra.db.marshal.AsciiType"         ascii     \
+		"org.apache.cassandra.db.marshal.LongType"          bigint    \
+		"org.apache.cassandra.db.marshal.BytesType"         blob      \
+		"org.apache.cassandra.db.marshal.BooleanType"       boolean   \
+		"org.apache.cassandra.db.marshal.CounterColumnType" counter   \
+		"org.apache.cassandra.db.marshal.SimpleDateType"    date      \
+		"org.apache.cassandra.db.marshal.DecimalType"       decimal   \
+		"org.apache.cassandra.db.marshal.DoubleType"        double    \
+		"org.apache.cassandra.db.marshal.FloatType"         float     \
+		"org.apache.cassandra.db.marshal.InetAddressType"   inet      \
+		"org.apache.cassandra.db.marshal.Int32Type"         int       \
+		"org.apache.cassandra.db.marshal.UTF8Type"          text      \
+		"org.apache.cassandra.db.marshal.TimeType"          time      \
+		"org.apache.cassandra.db.marshal.DateType"          timestamp \
+		"org.apache.cassandra.db.marshal.TimestampType"     timestamp \
+		"org.apache.cassandra.db.marshal.TimeUUIDType"      timeuuid  \
+		"org.apache.cassandra.db.marshal.UUIDType"          uuid      \
+		"org.apache.cassandra.db.marshal.IntegerType"       varint    \
+		"org.apache.cassandra.db.marshal.ListType"          list      \
+		"org.apache.cassandra.db.marshal.MapType"           map       \
+		"org.apache.cassandra.db.marshal.SetType"           set       \
+		"org.apache.cassandra.db.marshal.TupleType"         tuple     \
+		"org.apache.cassandra.db.marshal.CompositeType"     composite ]
 
 	# load the cache with all the simple types
 	array set validatorTypeLookupCache [array get simpleValidatorToType]
@@ -55,6 +78,14 @@ proc validator_to_type {validator} {
 			"map" {
 				lassign [split $subType ","] keyType valueType
 				set result [list map $simpleValidatorToType($keyType) $simpleValidatorToType($valueType)]
+			}
+
+			"tuple" {
+				set result [list tuple]
+
+				foreach subType [split $subType ","] {
+					lappend result $simpleValidatorToType($subType)
+				}
 			}
 
 			default {
@@ -121,6 +152,20 @@ proc typeof {name {subType ""}} {
 					error "map subtype must be 'key' or 'value', you said '$subType'"
 				}
 			}
+		}
+
+		"tuple" {
+			if {![string is integer -strict $subType]} {
+				error "tuple subtype must be an integer, you said '$subType'"
+			}
+
+			set upper [expr {[llength $list] - 1}]
+
+			if {$subType < 0 || $subType > $upper} {
+				error "tuple subtype must be 0 to $upper, you said '$subType'"
+			}
+
+			return [lindex $list $subType]
 		}
 
 		default {

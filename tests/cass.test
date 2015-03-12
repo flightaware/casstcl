@@ -241,6 +241,101 @@ if {[llength [info commands cass_test_get_keyspace]] == 0} then {
 
 ###############################################################################
 
+if {[llength [info commands cass_test_get_value_columns]] == 0} then {
+  proc cass_test_get_value_columns { cql {values false} {types false} } {
+    set result [list]
+
+    foreach {dummy name type} \
+        [regexp -all -inline -- {(value\d\d) ([\w, <>]+),} $cql] {
+
+      puts stdout "name = $name, type = $type"
+
+      if {$values} then {
+        lappend result [list $name [cass_test_get_dummy_value $type]]
+      } elseif {$types} then {
+        lappend result [list $name $type]
+      } else {
+        lappend result [list $name]
+      }
+    }
+
+    return $result
+  }
+}
+
+###############################################################################
+
+if {[llength [info commands cass_test_get_dummy_value]] == 0} then {
+  proc cass_test_get_dummy_value { type } {
+    switch -exact [string tolower $type] {
+      ascii {
+        return ""
+      }
+      bigint {
+        return 0
+      }
+      blob {
+        return ""
+      }
+      boolean {
+        return false
+      }
+      counter {
+        return 0
+      }
+      decimal {
+        return 0
+      }
+      double {
+        return 0.0
+      }
+      float {
+        return 0.0
+      }
+      inet {
+        return 0.0.0.0:0
+      }
+      int {
+        return 0
+      }
+      text {
+        return ""
+      }
+      timestamp {
+        return 0
+      }
+      timeuuid {
+        return 00000000-0000-0000-0000-000000000000
+      }
+      uuid {
+        return 00000000-0000-0000-0000-000000000000
+      }
+      varchar {
+        return ""
+      }
+      varint {
+        return 0
+      }
+      default {
+        if {[string match -nocase list<*> $type] || \
+            [string match -nocase map<*> $type] || \
+            [string match -nocase set<*> $type]} then {
+          return [list]
+        }
+        if {[string match -nocase tuple<*> $type]} then {
+          #
+          # TODO: Implement this.
+          #
+        }
+      }
+    }
+
+    return ""
+  }
+}
+
+###############################################################################
+
 if {![info exists cass_test_log_level]} then {
   set cass_test_log_level [getEnvVar CASSTCL_LOG_LEVEL \
       [expr {[tcltest::IsVerbose skip] ? "trace" : "disabled"}]]
@@ -280,6 +375,49 @@ if {![info exists cass_test_cql]} then {
 
   set cass_test_cql(5) {
     INSERT INTO $keyspace.main (x) VALUES (?);
+  }
+
+  set cass_test_cql(6) {
+    CREATE TABLE $keyspace.main (
+      key01 text PRIMARY KEY,
+      value01 ascii,
+      value02 bigint,
+      value03 blob,
+      value04 boolean,
+      value05 decimal,
+      value06 double,
+      value07 float,
+      value08 inet,
+      value09 int,
+      value10 list<text>,
+      value11 list<int>,
+      value12 list<boolean>,
+      value13 map<text, text>,
+      value14 map<int, int>,
+      value15 map<boolean, boolean>,
+      value16 set<text>,
+      value17 set<int>,
+      value18 set<boolean>,
+      value19 text,
+      value20 timestamp,
+      value21 timeuuid,
+      value22 frozen <tuple<text, text>>,
+      value23 frozen <tuple<int, int>>,
+      value24 frozen <tuple<boolean, boolean>>,
+      value25 uuid,
+      value26 varchar,
+      value27 varint
+    );
+  }
+
+  set cass_test_cql(7) {
+    INSERT INTO $keyspace.main (
+      [join [set cols [concat [list key01] \
+          [cass_test_get_value_columns $::cass_test_cql(6)]]] ,]
+    ) VALUES (
+      [join [string trim [string repeat "? " [llength $cols]]] ,]
+      [unset cols]
+    );
   }
 
   set cass_test_cql(drop) {
@@ -1521,7 +1659,7 @@ test cass-12.1 {prepare with manual name} -body {
     $cmd reimport_column_type_map
     set prepared cass-12.1
     $cmd prepare $prepared \
-        [appendArgs $keyspace. cass121] [subst {
+        [appendArgs $keyspace .cass121] [subst {
       SELECT * FROM $keyspace.cass121;
     }]
   } errMsg] $errMsg
@@ -1530,7 +1668,7 @@ test cass-12.1 {prepare with manual name} -body {
   cass_test_cleanup_object batch
   cass_test_cleanup_session cmd true true
 
-  unset -nocomplain result keyspace svc prepared batch cmd errMsg
+  unset -nocomplain keyspace svc prepared batch cmd errMsg
 } -result {0 cass-12.1}
 
 ###############################################################################
@@ -1548,7 +1686,7 @@ test cass-12.2 {prepare with automatic name} -body {
     }]
     $cmd reimport_column_type_map
     set prepared [$cmd prepare #auto \
-        [appendArgs $keyspace. cass122] [subst {
+        [appendArgs $keyspace .cass122] [subst {
       SELECT * FROM $keyspace.cass122;
     }]]
   } errMsg] $errMsg
@@ -1557,8 +1695,28 @@ test cass-12.2 {prepare with automatic name} -body {
   cass_test_cleanup_object batch
   cass_test_cleanup_session cmd true true
 
-  unset -nocomplain result keyspace svc batch cmd errMsg
+  unset -nocomplain keyspace svc batch cmd errMsg
 } -match regexp -result {^0 prepared\d+$}
+
+###############################################################################
+
+test cass-13.1 {binding of data types} -body {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst $cass_test_cql(0)]
+    $cmd exec [subst $cass_test_cql(6)]
+    $cmd reimport_column_type_map
+    set prepared [$cmd prepare #auto \
+        [appendArgs $keyspace .main] \
+        [subst $cass_test_cql(7)]]
+    $cmd exec -prepared $prepared [concat \
+        [list key01 1] [cass_test_get_value_columns true]]
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain keyspace svc cmd errMsg
+} -result {}
 
 ###############################################################################
 
