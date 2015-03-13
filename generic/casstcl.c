@@ -1126,7 +1126,6 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 
 				elementObj = Tcl_GetObjResult (interp);
 				Tcl_IncrRefCount(elementObj);
-				// Tcl_ResetResult (interp);
 			}
 
 			// we got here, either we found elementObj by looking it up
@@ -1466,6 +1465,140 @@ void casstcl_logging_callback (const CassLogMessage *message, void *data) {
 	Tcl_ThreadQueueEvent(casstcl_loggingCallbackThreadId, (Tcl_Event *)evPtr, TCL_QUEUE_TAIL);
 }
 
+#if 0
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_DumpAddrInfo --
+ *
+ *	Attempts to dump the contents of the struct addrinfo.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+void casstcl_DumpAddrInfo(
+  FILE *pFile,
+  struct addrinfo *pAddrInfo,
+  int indent
+){
+  int index;
+  uint8_t *pAddress = NULL;
+  if( !pAddrInfo ) return;
+  if( indent>0 ) fprintf(pFile, "\n");
+  fprintf(pFile, "%*s", indent * 2, "");
+  fprintf(pFile, "pAddrInfo = [%p\n", pAddrInfo);
+  fprintf(pFile, "%*s", indent * 2, "");
+  fprintf(pFile, "  ->flags = %d\n", pAddrInfo->ai_flags);
+  fprintf(pFile, "%*s", indent * 2, "");
+  fprintf(pFile, "  ->family = %d\n", pAddrInfo->ai_family);
+  fprintf(pFile, "%*s", indent * 2, "");
+  fprintf(pFile, "  ->socktype = %d\n", pAddrInfo->ai_socktype);
+  fprintf(pFile, "%*s", indent * 2, "");
+  fprintf(pFile, "  ->protocol = %d\n", pAddrInfo->ai_protocol);
+  fprintf(pFile, "%*s", indent * 2, "");
+  fprintf(pFile, "  ->addrlen = %d\n", (int)pAddrInfo->ai_addrlen);
+  fprintf(pFile, "%*s", indent * 2, "");
+  fprintf(pFile, "  ->addr = [");
+  if(pAddrInfo->ai_family == AF_INET){
+    struct sockaddr_in *pSockAddr = (struct sockaddr_in *)pAddrInfo->ai_addr;
+    pAddress = (uint8_t *)&pSockAddr->sin_addr.s_addr;
+    fprintf(pFile, "IPv4 [");
+  }else if(pAddrInfo->ai_family == AF_INET6){
+    struct sockaddr_in6 *pSockAddr = (struct sockaddr_in6 *)pAddrInfo->ai_addr;
+    pAddress = (uint8_t *)&pSockAddr->sin6_addr.s6_addr;
+    fprintf(pFile, "IPv6 [");
+  }else{
+    fprintf(pFile, "<not_ipv4_or_ipv6>");
+  }
+  if( pAddress ){
+    for (index=0; index<pAddrInfo->ai_addrlen; index++) {
+      if( index>0 ){
+        fprintf(pFile, ", ");
+      }
+      fprintf(pFile, "%d", (int)(pAddress[index]));
+    }
+  }
+  fprintf(pFile, "]]\n");
+  fprintf(pFile, "%*s", indent * 2, "");
+  fprintf(pFile, "  ->canonname = \"%s\"\n", pAddrInfo->ai_canonname);
+  fprintf(pFile, "%*s", indent * 2, "");
+  fprintf(pFile, "  ->next = [%p]\n", pAddrInfo->ai_next);
+  casstcl_DumpAddrInfo(pFile, pAddrInfo->ai_next, indent + 1);
+  fprintf(pFile, "%*s", indent * 2, "");
+  fprintf(pFile, "]\n");
+}
+#endif
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_GetInetFromObj --
+ *
+ *	Attempt to return an Inet from the Tcl object "objPtr".
+ *
+ * Results:
+ *	A standard Tcl result.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int
+casstcl_GetInetFromObj(
+    Tcl_Interp *interp,	/* Used for error reporting if not NULL. */
+    Tcl_Obj *objPtr,	/* The object from which to get an Inet. */
+    CassInet *inetPtr)	/* Place to store resulting Inet. */
+{
+	int length;
+	const char *value = Tcl_GetStringFromObj(objPtr, &length);
+	struct addrinfo hints;
+	struct addrinfo *result = NULL;
+	int rc;
+
+	memset(&hints, 0, sizeof(struct addrinfo));
+	hints.ai_flags = AI_NUMERICHOST;
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	rc = getaddrinfo(value, NULL, &hints, &result);
+
+	if (rc == 0) {
+#if 0
+		casstcl_DumpAddrInfo(stdout, result, 0);
+#endif
+		assert(result != NULL);
+		assert(result->ai_addrlen >= 0);
+		assert(result->ai_addrlen <= CASS_INET_V6_LENGTH);
+		memset(inetPtr, 0, sizeof(CassInet));
+		if (result->ai_family == AF_INET) {
+			struct sockaddr_in *pSockAddr = (struct sockaddr_in *)result->ai_addr;
+			*inetPtr = cass_inet_init_v4((const cass_uint8_t *)&pSockAddr->sin_addr.s_addr);
+			freeaddrinfo(result);
+			return TCL_OK;
+		} else if (result->ai_family == AF_INET6) {
+			struct sockaddr_in6 *pSockAddr = (struct sockaddr_in6 *)result->ai_addr;
+			*inetPtr = cass_inet_init_v6((const cass_uint8_t *)&pSockAddr->sin6_addr.s6_addr);
+			freeaddrinfo(result);
+			return TCL_OK;
+		} else {
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp, "address \"", value, "\" is not IPv4 or IPv6", NULL);
+			return TCL_ERROR;
+		}
+	} else {
+		Tcl_ResetResult(interp);
+		Tcl_AppendResult(interp, gai_strerror(rc), NULL);
+		return TCL_ERROR;
+	}
+}
+
 /*
  *----------------------------------------------------------------------
  *
@@ -1633,8 +1766,8 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 		case CASS_VALUE_TYPE_INET: {
 			CassError cassError;
 			CassInet cassInet;
+			char addrBuf[INET6_ADDRSTRLEN + 1];
 			int isIpV6;
-			int index;
 
 			cassError = cass_value_get_inet (cassValue, &cassInet);
 
@@ -1643,24 +1776,10 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 			}
 
 			isIpV6 = (cassInet.address_length == CASS_INET_V6_LENGTH);
+			memset(addrBuf, 0, INET6_ADDRSTRLEN + 1);
+			inet_ntop(isIpV6 ? AF_INET6 : AF_INET, cassInet.address, addrBuf, INET6_ADDRSTRLEN);
 
-			for (index = 0; index < cassInet.address_length; index++) {
-				char octet[60];
-
-				if (index > 0) {
-					strcat(msg, isIpV6 ? ":" : ".");
-				}
-
-				if (isIpV6) {
-					sprintf(octet, "%02X", cassInet.address[index]);
-				} else {
-					sprintf(octet, "%d", cassInet.address[index]);
-				}
-
-				strcat(msg, octet);
-			}
-
-			*tclObj = Tcl_NewStringObj(msg, -1);
+			*tclObj = Tcl_NewStringObj(addrBuf, -1);
 			return TCL_OK;
 		}
 
@@ -1853,14 +1972,27 @@ int casstcl_append_tcl_obj_to_collection (casstcl_sessionClientData *ct, CassCol
 		}
 
 		case CASS_VALUE_TYPE_INET: {
-			// cass_inet_init_v4
-			// cass_inet_init_v6
-			// cass_collection_append_inet
-			// break;
+			CassInet cassInet;
+			cass_uint8_t address[CASS_INET_V6_LENGTH];
 
-			Tcl_ResetResult(interp);
-			Tcl_AppendResult(interp, "unsupported value type for append operation 'inet'", NULL);
-			return TCL_ERROR;
+			if (casstcl_GetInetFromObj(interp, obj, &cassInet)) {
+				return TCL_ERROR;
+			}
+
+			memcpy(address, cassInet.address, CASS_INET_V6_LENGTH);
+
+			if (cassInet.address_length == CASS_INET_V6_LENGTH) {
+				cassInet = cass_inet_init_v6(address);
+			} else if (cassInet.address_length == CASS_INET_V4_LENGTH) {
+				cassInet = cass_inet_init_v4(address);
+			} else {
+				Tcl_ResetResult(interp);
+				Tcl_AppendResult(interp, "bad 'inet' address length for bind operation", NULL);
+				return TCL_ERROR;
+			}
+
+			cassError = cass_collection_append_inet (collection, cassInet);
+			break;
 		}
 
 		default: {
@@ -2074,9 +2206,18 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 		}
 
 		case CASS_VALUE_TYPE_INET: {
-			Tcl_ResetResult(interp);
-			Tcl_AppendResult(interp, "unsupported value type for bind operation 'inet'", NULL);
-			return TCL_ERROR;
+			CassInet cassInet;
+
+			if (casstcl_GetInetFromObj(interp, obj, &cassInet)) {
+				return TCL_ERROR;
+			}
+
+			if (name == NULL) {
+				cassError = cass_statement_bind_inet (statement, index, cassInet);
+			} else {
+				cassError = cass_statement_bind_inet_by_name (statement, name, cassInet);
+			}
+			break;
 		}
 
 		case CASS_VALUE_TYPE_SET:
@@ -2574,7 +2715,7 @@ casstcl_bind_names_from_prepared (casstcl_preparedClientData *pcd, int objc, Tcl
 // printf ("tried to bind arg '%s' as type %d %d %d value '%s'\n", name, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
 		if (tclReturn == TCL_ERROR) {
 //printf ("error from casstcl_bind_tcl_obj\n");
-			Tcl_AppendResult (interp, " while attempting to bind field name of '", name, "' of type '", Tcl_GetString (objv[i]), "' referencing table '", table, "'", NULL);
+			Tcl_AppendResult (interp, " while attempting to bind field name of '", name, "' of type '", casstcl_cass_value_type_to_string(valueType), "' referencing table '", table, "'", NULL);
 			masterReturn = TCL_ERROR;
 			break;
 		}
