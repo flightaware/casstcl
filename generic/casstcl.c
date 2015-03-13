@@ -1485,19 +1485,26 @@ void casstcl_logging_callback (const CassLogMessage *message, void *data) {
 
 int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValue *cassValue, Tcl_Obj **tclObj)
 {
+	char msg[60];
 	CassValueType valueType = cass_value_type (cassValue);
 	Tcl_Interp *interp = ct->interp;
 
 	switch (valueType) {
 
 		case CASS_VALUE_TYPE_UNKNOWN: {
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp, "unsupported value type for get operation 'unknown'", NULL);
+
 			*tclObj = NULL;
-			return TCL_OK;
+			return TCL_ERROR;
 		}
 
 		case CASS_VALUE_TYPE_CUSTOM: {
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp, "unsupported value type for get operation 'custom'", NULL);
+
 			*tclObj = NULL;
-			return TCL_OK;
+			return TCL_ERROR;
 		}
 
 		case CASS_VALUE_TYPE_ASCII:
@@ -1549,8 +1556,11 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 		}
 
 		case CASS_VALUE_TYPE_DECIMAL: {
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp, "unsupported value type for get operation 'decimal'", NULL);
+
 			*tclObj = NULL;
-			return TCL_OK;
+			return TCL_ERROR;
 		}
 
 		case CASS_VALUE_TYPE_DOUBLE: {
@@ -1595,32 +1605,63 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 			return TCL_OK;
 		}
 
+		case CASS_VALUE_TYPE_TIMEUUID:
 		case CASS_VALUE_TYPE_UUID: {
 			CassUuid key;
+			CassError cassError;
 			char key_str[CASS_UUID_STRING_LENGTH];
 
-			cass_value_get_uuid(cassValue, &key);
+			cassError = cass_value_get_uuid(cassValue, &key);
+
+			if (cassError != CASS_OK) {
+				return casstcl_cass_error_to_tcl (ct, cassError);
+			}
+
 			cass_uuid_string(key, key_str);
 			*tclObj = Tcl_NewStringObj (key_str, CASS_UUID_STRING_LENGTH);
 			return TCL_OK;
 		}
 
-
 		case CASS_VALUE_TYPE_VARINT: {
-			*tclObj = NULL;
-			return TCL_OK;
-		}
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp, "unsupported value type for get operation 'varint'", NULL);
 
-		case CASS_VALUE_TYPE_TIMEUUID: {
 			*tclObj = NULL;
-			return TCL_OK;
+			return TCL_ERROR;
 		}
 
 		case CASS_VALUE_TYPE_INET: {
 			CassError cassError;
 			CassInet cassInet;
+			int isIpV6;
+			int index;
 
 			cassError = cass_value_get_inet (cassValue, &cassInet);
+
+			if (cassError != CASS_OK) {
+				return casstcl_cass_error_to_tcl (ct, cassError);
+			}
+
+			isIpV6 = (cassInet.address_length == CASS_INET_V6_LENGTH);
+
+			for (index = 0; index < cassInet.address_length; index++) {
+				char octet[60];
+
+				if (index > 0) {
+					strcat(msg, isIpV6 ? ":" : ".");
+				}
+
+				if (isIpV6) {
+					sprintf(octet, "%02X", cassInet.address[index]);
+				} else {
+					sprintf(octet, "%d", cassInet.address[index]);
+				}
+
+				strcat(msg, octet);
+			}
+
+			*tclObj = Tcl_NewStringObj(msg, -1);
+			return TCL_OK;
 		}
 
 		case CASS_VALUE_TYPE_MAP: {
@@ -1679,6 +1720,10 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 			return TCL_OK;
 		}
 	}
+
+	sprintf(msg, "%X", valueType);
+	Tcl_ResetResult(interp);
+	Tcl_AppendResult(interp, "unrecognized value type for get operation 0x", msg, NULL);
 
 	*tclObj = NULL;
 	return TCL_ERROR;
@@ -1796,21 +1841,35 @@ int casstcl_append_tcl_obj_to_collection (casstcl_sessionClientData *ct, CassCol
 			break;
 		}
 
+		case CASS_VALUE_TYPE_TIMEUUID:
 		case CASS_VALUE_TYPE_UUID: {
-			break;
-		}
+			// cass_uuid_from_string
+			// cass_collection_append_uuid
+			// break;
 
-
-		case CASS_VALUE_TYPE_TIMEUUID: {
-			break;
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp, "unsupported value type for append operation 'uuid' or 'timeuuid'", NULL);
+			return TCL_ERROR;
 		}
 
 		case CASS_VALUE_TYPE_INET: {
-			break;
+			// cass_inet_init_v4
+			// cass_inet_init_v6
+			// cass_collection_append_inet
+			// break;
+
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp, "unsupported value type for append operation 'inet'", NULL);
+			return TCL_ERROR;
 		}
 
 		default: {
-			break;
+			char msg[60];
+
+			sprintf(msg, "%X", valueType);
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp, "unrecognized value type for append operation 0x", msg, NULL);
+			return TCL_ERROR;
 		}
 	}
 
@@ -1873,7 +1932,9 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 		}
 
 		case CASS_VALUE_TYPE_UNKNOWN: {
-			break;
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp, "unsupported value type for bind operation 'unknown'", NULL);
+			return TCL_ERROR;
 		}
 
 		case CASS_VALUE_TYPE_CUSTOM: {
@@ -1941,7 +2002,9 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 		}
 
 		case CASS_VALUE_TYPE_DECIMAL: {
-			break;
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp, "unsupported value type for bind operation 'decimal'", NULL);
+			return TCL_ERROR;
 		}
 
 		case CASS_VALUE_TYPE_DOUBLE: {
@@ -1993,19 +2056,27 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 		}
 
 		case CASS_VALUE_TYPE_UUID: {
-			break;
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp, "unsupported value type for bind operation 'uuid'", NULL);
+			return TCL_ERROR;
 		}
 
 		case CASS_VALUE_TYPE_VARINT: {
-			break;
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp, "unsupported value type for bind operation 'varint'", NULL);
+			return TCL_ERROR;
 		}
 
 		case CASS_VALUE_TYPE_TIMEUUID: {
-			break;
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp, "unsupported value type for bind operation 'timeuuid'", NULL);
+			return TCL_ERROR;
 		}
 
 		case CASS_VALUE_TYPE_INET: {
-			break;
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp, "unsupported value type for bind operation 'inet'", NULL);
+			return TCL_ERROR;
 		}
 
 		case CASS_VALUE_TYPE_SET:
@@ -2081,6 +2152,14 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 // printf("bound map collection of %d elements as to statement index %d\n", listObjc, index);
 
 			break;
+		}
+
+		default: {
+			char msg[60];
+			sprintf(msg, "%X", valueType);
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp, "unrecognized value type for bind operation 0x", msg, NULL);
+			return TCL_ERROR;
 		}
 	}
 
