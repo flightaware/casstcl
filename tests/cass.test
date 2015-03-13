@@ -176,11 +176,15 @@ if {[llength [info commands cass_test_service_events]] == 0} then {
     if {[string length $milliseconds] == 0} then {
       set milliseconds $::cass_test_timeout
     }
-    cass_test_output "starting to service events"
+    if {[tcltest::IsVerbose start]} then {
+      cass_test_output "starting to service events"
+    }
     uplevel 1 [list unset -nocomplain $varName]
     uplevel 1 [list after $milliseconds [list set $varName 1]]
     uplevel 1 [list vwait $varName]
-    cass_test_output "done with servicing events"
+    if {[tcltest::IsVerbose start]} then {
+      cass_test_output "done with servicing events"
+    }
     return ""
   }
 }
@@ -484,6 +488,10 @@ if {![info exists cass_test_cql]} then {
       [join [string trim [string repeat "? " [llength $cols]]] ,]
       [unset cols]
     );
+  }
+
+  set cass_test_cql(8) {
+    SELECT * FROM $keyspace.main;
   }
 
   set cass_test_cql(drop) {
@@ -810,13 +818,10 @@ test cass-7.2 {close with delete} -body {
 test cass-8.1 {select without page size} -body {
   list [catch {
     cass_test_connect cmd
-
     set result [list]
-
     $cmd select $cass_test_cql(1) row {
       lappend result [array get row]
     }
-
     set result
   } errMsg] $errMsg
 } -cleanup {
@@ -832,13 +837,10 @@ test cass-8.1 {select without page size} -body {
 test cass-8.2 {select with page size} -body {
   list [catch {
     cass_test_connect cmd
-
     set result [list]
-
     $cmd select -pagesize 1 $cass_test_cql(1) row {
       lappend result [array get row]
     }
-
     set result
   } errMsg] $errMsg
 } -cleanup {
@@ -1761,7 +1763,7 @@ test cass-12.2 {prepare with automatic name} -body {
   cass_test_cleanup_object batch
   cass_test_cleanup_session cmd true true
 
-  unset -nocomplain keyspace svc batch cmd errMsg
+  unset -nocomplain keyspace svc prepared batch cmd errMsg
 } -match regexp -result {^0 prepared\d+$}
 
 ###############################################################################
@@ -1782,7 +1784,7 @@ test cass-13.1 {binding of data types with placeholder values} -body {
   cass_test_service_events svc
   cass_test_cleanup_session cmd true true
 
-  unset -nocomplain keyspace svc cmd errMsg
+  unset -nocomplain keyspace svc prepared cmd errMsg
 } -result {}
 
 ###############################################################################
@@ -1803,7 +1805,67 @@ test cass-13.2 {binding of data types with trivial values} -body {
   cass_test_service_events svc
   cass_test_cleanup_session cmd true true
 
-  unset -nocomplain keyspace svc cmd errMsg
+  unset -nocomplain keyspace svc prepared cmd errMsg
+} -result {}
+
+###############################################################################
+
+#
+# TODO: Work in progress.  Finish getting this test working with all the
+#       supported data types.
+#
+test cass-13.3 {reading of data types with placeholder values} -body {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst $cass_test_cql(0)]
+    $cmd exec [subst $cass_test_cql(6)]
+    $cmd reimport_column_type_map
+    set prepared [$cmd prepare #auto \
+        [appendArgs $keyspace .main] \
+        [subst $cass_test_cql(7)]]
+    $cmd exec -prepared $prepared [concat \
+        [list key01 1] [cass_test_get_value_columns \
+        [subst $cass_test_cql(6)] true]]
+    set result [list]
+    $cmd select [subst $cass_test_cql(8)] row {
+      lappend result [array get row]
+    }
+    set result
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain keyspace svc row prepared cmd errMsg
+} -result {}
+
+###############################################################################
+
+#
+# TODO: Work in progress.  Finish getting this test working with all the
+#       supported data types.
+#
+test cass-13.4 {reading of data types with trivial values} -body {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [subst $cass_test_cql(0)]
+    $cmd exec [subst $cass_test_cql(6)]
+    $cmd reimport_column_type_map
+    set prepared [$cmd prepare #auto \
+        [appendArgs $keyspace .main] \
+        [subst $cass_test_cql(7)]]
+    $cmd exec -prepared $prepared [concat \
+        [list key01 1] [cass_test_get_value_columns \
+        [subst $cass_test_cql(6)] true 1]]
+    set result [list]
+    $cmd select [subst $cass_test_cql(8)] row {
+      lappend result [array get row]
+    }
+    set result
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain keyspace svc row prepared cmd errMsg
 } -result {}
 
 ###############################################################################
