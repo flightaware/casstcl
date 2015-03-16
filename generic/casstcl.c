@@ -1590,6 +1590,7 @@ casstcl_GetInetFromObj(
 		} else {
 			Tcl_ResetResult(interp);
 			Tcl_AppendResult(interp, "address \"", value, "\" is not IPv4 or IPv6", NULL);
+			freeaddrinfo(result);
 			return TCL_ERROR;
 		}
 	} else {
@@ -1766,9 +1767,10 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 		case CASS_VALUE_TYPE_INET: {
 			CassError cassError;
 			CassInet cassInet;
-			char addrBuf[INET6_ADDRSTRLEN + 1];
+			char addrBuf[INET6_ADDRSTRLEN];
 			int isIpV6;
 
+			assert(INET6_ADDRSTRLEN >= INET_ADDRSTRLEN);
 			cassError = cass_value_get_inet (cassValue, &cassInet);
 
 			if (cassError != CASS_OK) {
@@ -1776,7 +1778,7 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 			}
 
 			isIpV6 = (cassInet.address_length == CASS_INET_V6_LENGTH);
-			memset(addrBuf, 0, INET6_ADDRSTRLEN + 1);
+			memset(addrBuf, 0, INET6_ADDRSTRLEN);
 			inet_ntop(isIpV6 ? AF_INET6 : AF_INET, cassInet.address, addrBuf, INET6_ADDRSTRLEN);
 
 			*tclObj = Tcl_NewStringObj(addrBuf, -1);
