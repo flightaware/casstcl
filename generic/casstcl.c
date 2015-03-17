@@ -1465,6 +1465,148 @@ void casstcl_logging_callback (const CassLogMessage *message, void *data) {
 	Tcl_ThreadQueueEvent(casstcl_loggingCallbackThreadId, (Tcl_Event *)evPtr, TCL_QUEUE_TAIL);
 }
 
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_InitCassBytesFromBignum --
+ *
+ *	Allocate and initialize a CassBytes from a 'bignum'.
+ *
+ * Results:
+ *	A standard Tcl result.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int
+casstcl_InitCassBytesFromBignum(
+    Tcl_Interp *interp,		/* Used for error reporting if not NULL. */
+    CassBytes *v,		/* CassBytes to initialize */
+    mp_int *a)			/* Initial value */
+{
+    unsigned char *data;
+    unsigned long outlen;
+    int status;
+
+    outlen = TclBN_mp_unsigned_bin_size(a);
+    data = (cass_byte_t *) ckalloc(outlen);
+
+    status = TclBN_mp_to_unsigned_bin_n(a, data, &outlen);
+
+    if (status != MP_OKAY) {
+	if (interp != NULL) {
+	    Tcl_ResetResult(interp);
+	    Tcl_AppendResult(interp, "could not init bytes", NULL);
+	}
+	ckfree(data);
+	return TCL_ERROR;
+    }
+
+    v->data = data;
+    v->size = outlen;
+    return TCL_OK;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * mp_read_unsigned_bin --
+ *
+ *	Read a binary encoded 'bignum' from the specified buffer.  It
+ *	must have been initialized first.  This routine was borrowed
+ *	directly from the Tcl 8.6 source code (i.e. because we needed
+ *	it and it was not available as an export).
+ *
+ * Results:
+ *	A standard LibTomMath result.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int mp_read_unsigned_bin (mp_int * a, const unsigned char *b, int c)
+{
+  int     res;
+
+  /* make sure there are at least two digits */
+  if (a->alloc < 2) {
+     if ((res = TclBN_mp_grow(a, 2)) != MP_OKAY) {
+        return res;
+     }
+  }
+
+  /* zero the int */
+  TclBN_mp_zero (a);
+
+  /* read the bytes in */
+  while (c-- > 0) {
+    if ((res = TclBN_mp_mul_2d (a, 8, a)) != MP_OKAY) {
+      return res;
+    }
+
+#ifndef MP_8BIT
+      a->dp[0] |= *b++;
+      a->used += 1;
+#else
+      a->dp[0] = (*b & MP_MASK);
+      a->dp[1] |= ((*b++ >> 7U) & 1);
+      a->used += 2;
+#endif
+  }
+  TclBN_mp_clamp (a);
+  return MP_OKAY;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_InitBignumFromCassBytes --
+ *
+ *	Allocate and initialize a 'bignum' from a CassBytes.
+ *
+ * Results:
+*	A standard Tcl result.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int
+casstcl_InitBignumFromCassBytes(
+    Tcl_Interp *interp,		/* Used for error reporting if not NULL. */
+    mp_int *a,			/* Bignum to initialize */
+    CassBytes *v)		/* Initial value */
+{
+    int status = TclBN_mp_init(a);
+
+    if (status != MP_OKAY) {
+	if (interp != NULL) {
+	    Tcl_ResetResult(interp);
+	    Tcl_AppendResult(interp, "could not init bignum", NULL);
+	}
+	return TCL_ERROR;
+    }
+
+    status = mp_read_unsigned_bin(a, v->data, v->size);
+
+    if (status != MP_OKAY) {
+	if (interp != NULL) {
+	    Tcl_ResetResult(interp);
+	    Tcl_AppendResult(interp, "could not read bignum", NULL);
+	}
+	return TCL_ERROR;
+    }
+
+    return TCL_OK;
+}
+
 #if 0
 /*
  *----------------------------------------------------------------------
@@ -1689,11 +1831,26 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 		}
 
 		case CASS_VALUE_TYPE_DECIMAL: {
-			Tcl_ResetResult(interp);
-			Tcl_AppendResult(interp, "unsupported value type for get operation 'decimal'", NULL);
+			mp_int mpInt;
+			CassDecimal cassDecimal;
+			CassError cassError;
+			Tcl_Obj *listObjv[2];
 
-			*tclObj = NULL;
-			return TCL_ERROR;
+			cassError = cass_value_get_decimal(cassValue, &cassDecimal);
+
+			if (cassError != CASS_OK) {
+				return casstcl_cass_error_to_tcl (ct, cassError);
+			}
+
+			if (casstcl_InitBignumFromCassBytes(interp, &mpInt, &cassDecimal.varint) != TCL_OK) {
+				return TCL_ERROR;
+			}
+
+			listObjv[0] = Tcl_NewIntObj(cassDecimal.scale);
+			listObjv[1] = Tcl_NewBignumObj(&mpInt);
+
+			*tclObj = Tcl_NewListObj(2, listObjv);
+			return TCL_OK;
 		}
 
 		case CASS_VALUE_TYPE_DOUBLE: {
@@ -1751,7 +1908,7 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 			}
 
 			cass_uuid_string(key, key_str);
-			*tclObj = Tcl_NewStringObj (key_str, CASS_UUID_STRING_LENGTH);
+			*tclObj = Tcl_NewStringObj (key_str, CASS_UUID_STRING_LENGTH - 1);
 			return TCL_OK;
 		}
 
@@ -1889,7 +2046,12 @@ int casstcl_append_tcl_obj_to_collection (casstcl_sessionClientData *ct, CassCol
 			break;
 		}
 
-		case CASS_VALUE_TYPE_VARINT:
+		case CASS_VALUE_TYPE_VARINT: {
+			Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp, "unsupported value type for append operation 'varint'", NULL);
+			return TCL_ERROR;
+		}
+
 		case CASS_VALUE_TYPE_BLOB: {
 			int length = 0;
 			unsigned char *value = Tcl_GetByteArrayFromObj (obj, &length);
@@ -2136,9 +2298,49 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 		}
 
 		case CASS_VALUE_TYPE_DECIMAL: {
-			Tcl_ResetResult(interp);
-			Tcl_AppendResult(interp, "unsupported value type for bind operation 'decimal'", NULL);
-			return TCL_ERROR;
+			int listObjc;
+			Tcl_Obj **listObjv;
+			int scale;
+			mp_int mpInt;
+			CassBytes cassBytes;
+			CassDecimal cassDecimal;
+
+			if (Tcl_ListObjGetElements (interp, obj, &listObjc, &listObjv) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while getting decimal elements", NULL);
+				return TCL_ERROR;
+			}
+
+			if (listObjc != 2) {
+				Tcl_ResetResult(interp);
+				Tcl_AppendResult(interp, "decimal requires exactly two elements", NULL);
+				return TCL_ERROR;
+			}
+
+			if (Tcl_GetIntFromObj(interp, listObjv[0], &scale) != TCL_OK) {
+				Tcl_AppendResult (interp, " while converting decimal scale", NULL);
+				return TCL_ERROR;
+			}
+
+			if (Tcl_GetBignumFromObj(interp, listObjv[1], &mpInt) != TCL_OK) {
+				Tcl_AppendResult (interp, " while converting decimal bignum", NULL);
+				return TCL_ERROR;
+			}
+
+			if (casstcl_InitCassBytesFromBignum(interp, &cassBytes, &mpInt) != TCL_OK) {
+				Tcl_AppendResult (interp, " while creating decimal bytes", NULL);
+				return TCL_ERROR;
+			}
+
+			cassDecimal.scale = scale;
+			cassDecimal.varint = cassBytes;
+
+			if (name == NULL) {
+				cassError = cass_statement_bind_decimal (statement, index, cassDecimal);
+			} else {
+				cassError = cass_statement_bind_decimal_by_name (statement, name, cassDecimal);
+			}
+			ckfree(cassBytes.data);
+			break;
 		}
 
 		case CASS_VALUE_TYPE_DOUBLE: {
@@ -2195,10 +2397,12 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 
 			cassError = cass_uuid_from_string(Tcl_GetString(obj), &cassUuid);
 
-			if (name == NULL) {
-				cassError = cass_statement_bind_uuid (statement, index, cassUuid);
-			} else {
-				cassError = cass_statement_bind_uuid_by_name (statement, name, cassUuid);
+			if (cassError == CASS_OK) {
+				if (name == NULL) {
+					cassError = cass_statement_bind_uuid (statement, index, cassUuid);
+				} else {
+					cassError = cass_statement_bind_uuid_by_name (statement, name, cassUuid);
+				}
 			}
 			break;
 		}

@@ -9,6 +9,8 @@
  */
 
 #include <tcl.h>
+#include <tclTomMath.h>
+#include <limits.h>
 #include <string.h>
 #include <errno.h>
 #include <netdb.h>

@@ -8,6 +8,7 @@
  */
 
 #include <tcl.h>
+#include <tclTomMath.h>
 #include "casstcl.h"
 
 #undef TCL_STORAGE_CLASS
@@ -41,6 +42,10 @@ Casstcl_Init(Tcl_Interp *interp)
      * which requires 8.1.
      */
     if (Tcl_InitStubs(interp, "8.1", 0) == NULL) {
+		return TCL_ERROR;
+    }
+
+    if (Tcl_TomMath_InitStubs(interp, "8.5") == NULL) {
 		return TCL_ERROR;
     }
 

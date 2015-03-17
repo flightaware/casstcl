@@ -70,7 +70,25 @@ if {[llength [info commands getDictValue]] == 0} then {
 
 if {[llength [info commands cass_test_subst]] == 0} then {
   proc cass_test_subst { value } {
+    set did_set_keyspace false
+
+    if {![uplevel 1 [list info exists keyspace]] && \
+        [uplevel 1 [list info exists cass_test_keyspace]]} then {
+      #
+      # NOTE: Make sure the "keyspace" variable exists in the caller.
+      #
+      uplevel 1 {
+        set keyspace $cass_test_keyspace
+      }
+
+      set did_set_keyspace true
+    }
+
     set result [uplevel 1 [list subst $value]]
+
+    if {$did_set_keyspace} then {
+      uplevel 1 [list unset -nocomplain keyspace]
+    }
 
     if {[tcltest::IsVerbose skip]} then {
       cass_test_output [appendArgs "subst input = \{" $value \}]
@@ -394,7 +412,7 @@ if {[llength [info commands cass_test_get_dummy_value]] == 0} then {
         }
       }
       boolean {
-        return [expr {$detail > 0 ? "true" : "false"}]
+        return [expr {$detail > 0 ? "1" : "0"}]
       }
       counter {
         return [expr {$detail > 0 ? "1" : "0"}]
@@ -402,22 +420,13 @@ if {[llength [info commands cass_test_get_dummy_value]] == 0} then {
       decimal {
         switch -exact $detail {
           1 {
-            return 0.0
+            return [list 1 1]
           }
           2 {
-            return 1
-          }
-          3 {
-            return 1.0
-          }
-          4 {
-            return 1279228162514264337593543950335
-          }
-          5 {
-            return 1279228162514264337593543950335.9999
+            return [list 1 1279228162514264337593543950335]
           }
           default {
-            return 0
+            return [list 0 0]
           }
         }
       }
@@ -472,7 +481,17 @@ if {[llength [info commands cass_test_get_dummy_value]] == 0} then {
         return [expr {$detail > 0 ? "test" : ""}]
       }
       varint {
-        return [expr {$detail > 0 ? "1" : "0"}]
+        switch -exact $detail {
+          1 {
+            return 1
+          }
+          2 {
+            return 1279228162514264337593543950335
+          }
+          default {
+            return 0
+          }
+        }
       }
       default {
         if {[regexp -nocase -- {^list\s*<.+>$} $type] || \
@@ -496,6 +515,12 @@ if {[llength [info commands cass_test_get_dummy_value]] == 0} then {
 
     return ""
   }
+}
+
+###############################################################################
+
+if {![info exists cass_test_keyspace]} then {
+  set cass_test_keyspace [cass_test_get_keyspace]
 }
 
 ###############################################################################
@@ -534,7 +559,8 @@ if {![info exists cass_test_cql]} then {
   }
 
   set cass_test_cql(4) {
-    INSERT INTO $keyspace.main (x) VALUES ('[string map [list ' ''] $value]');
+    INSERT INTO $keyspace.main (x)
+    VALUES ('[string map [list ' ''] $value]');
   }
 
   set cass_test_cql(5) {
@@ -566,8 +592,7 @@ if {![info exists cass_test_cql]} then {
       value20 timestamp,
       value21 timeuuid,
       value22 uuid,
-      value23 varchar,
-      value24 varint
+      value23 varchar
     );
   }
 
@@ -1900,10 +1925,6 @@ test cass-13.2 {binding of data types with trivial values} -body {
 
 ###############################################################################
 
-#
-# TODO: Work in progress.  Finish getting this test working with all the
-#       supported data types.
-#
 test cass-13.3 {reading of data types with placeholder values} -body {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
@@ -1926,18 +1947,13 @@ test cass-13.3 {reading of data types with placeholder values} -body {
   cass_test_cleanup_session cmd true true
 
   unset -nocomplain keyspace svc row prepared cmd errMsg
-} -result {{key01 1 value01 {} value02 0 value03 {} value04 0 value05 0.0\
-value06 0.0 value07 0.0 value08 0.0.0.0 value09 0 value10 {} value11 {} value12\
-{} value13 {} value14 {} value15 {} value16 {} value17 {} value18 {} value19 {}\
-value20 0 value21 00000000-0000-0000-0000-000000000000 value22\
-00000000-0000-0000-0000-000000000000 value23 {} value24 0}}
+} -result {{key01 1 value01 {} value02 0 value03 {} value04 0 value05 {0 0}\
+value06 0.0 value07 0.0 value08 0.0.0.0 value09 0 value19 {} value20 0 value21\
+0b01e530-cc49-11e4-8830-0800200c9a66 value22\
+00000000-0000-0000-0000-000000000000 value23 {}}}
 
 ###############################################################################
 
-#
-# TODO: Work in progress.  Finish getting this test working with all the
-#       supported data types.
-#
 test cass-13.4 {reading of data types with trivial values} -body {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
@@ -1960,7 +1976,35 @@ test cass-13.4 {reading of data types with trivial values} -body {
   cass_test_cleanup_session cmd true true
 
   unset -nocomplain keyspace svc row prepared cmd errMsg
-} -result {}
+} -result [list [concat [list key01 1] \
+[cass_test_get_value_columns [cass_test_subst $cass_test_cql(6)] true 1]]]
+
+###############################################################################
+
+test cass-13.5 {reading of data types with real-world values} -body {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [cass_test_subst $cass_test_cql(0)]
+    $cmd exec [cass_test_subst $cass_test_cql(6)]
+    $cmd reimport_column_type_map
+    set prepared [$cmd prepare #auto \
+        [appendArgs $keyspace .main] \
+        [cass_test_subst $cass_test_cql(7)]]
+    $cmd exec -prepared $prepared [concat \
+        [list key01 1] [cass_test_get_value_columns \
+        [cass_test_subst $cass_test_cql(6)] true 2]]
+    set result [list]
+    $cmd select [cass_test_subst $cass_test_cql(8)] row {
+      lappend result [lsort -stride 2 [array get row]]
+    }
+    set result
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain keyspace svc row prepared cmd errMsg
+} -result [list [concat [list key01 1] \
+[cass_test_get_value_columns [cass_test_subst $cass_test_cql(6)] true 2]]]
 
 ###############################################################################
 
