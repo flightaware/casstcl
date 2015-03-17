@@ -1557,8 +1557,7 @@ casstcl_GetInetFromObj(
     Tcl_Obj *objPtr,	/* The object from which to get an Inet. */
     CassInet *inetPtr)	/* Place to store resulting Inet. */
 {
-	int length;
-	const char *value = Tcl_GetStringFromObj(objPtr, &length);
+	const char *value = Tcl_GetString(objPtr);
 	struct addrinfo hints;
 	struct addrinfo *result = NULL;
 	int rc;
@@ -1739,8 +1738,8 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 			return TCL_OK;
 		}
 
-		case CASS_VALUE_TYPE_TIMEUUID:
-		case CASS_VALUE_TYPE_UUID: {
+		case CASS_VALUE_TYPE_UUID:
+		case CASS_VALUE_TYPE_TIMEUUID: {
 			CassUuid key;
 			CassError cassError;
 			char key_str[CASS_UUID_STRING_LENGTH];
@@ -1964,13 +1963,14 @@ int casstcl_append_tcl_obj_to_collection (casstcl_sessionClientData *ct, CassCol
 
 		case CASS_VALUE_TYPE_TIMEUUID:
 		case CASS_VALUE_TYPE_UUID: {
-			// cass_uuid_from_string
-			// cass_collection_append_uuid
-			// break;
+			CassUuid cassUuid;
 
-			Tcl_ResetResult(interp);
-			Tcl_AppendResult(interp, "unsupported value type for append operation 'uuid' or 'timeuuid'", NULL);
-			return TCL_ERROR;
+			cassError = cass_uuid_from_string(Tcl_GetString(obj), &cassUuid);
+
+			if (cassError == CASS_OK) {
+				cassError = cass_collection_append_uuid (collection, cassUuid);
+			}
+			break;
 		}
 
 		case CASS_VALUE_TYPE_INET: {
@@ -2189,21 +2189,23 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 			break;
 		}
 
-		case CASS_VALUE_TYPE_UUID: {
-			Tcl_ResetResult(interp);
-			Tcl_AppendResult(interp, "unsupported value type for bind operation 'uuid'", NULL);
-			return TCL_ERROR;
+		case CASS_VALUE_TYPE_UUID:
+		case CASS_VALUE_TYPE_TIMEUUID: {
+			CassUuid cassUuid;
+
+			cassError = cass_uuid_from_string(Tcl_GetString(obj), &cassUuid);
+
+			if (name == NULL) {
+				cassError = cass_statement_bind_uuid (statement, index, cassUuid);
+			} else {
+				cassError = cass_statement_bind_uuid_by_name (statement, name, cassUuid);
+			}
+			break;
 		}
 
 		case CASS_VALUE_TYPE_VARINT: {
 			Tcl_ResetResult(interp);
 			Tcl_AppendResult(interp, "unsupported value type for bind operation 'varint'", NULL);
-			return TCL_ERROR;
-		}
-
-		case CASS_VALUE_TYPE_TIMEUUID: {
-			Tcl_ResetResult(interp);
-			Tcl_AppendResult(interp, "unsupported value type for bind operation 'timeuuid'", NULL);
 			return TCL_ERROR;
 		}
 
