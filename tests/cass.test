@@ -609,6 +609,16 @@ if {![info exists cass_test_cql]} then {
     SELECT * FROM $keyspace.main;
   }
 
+  set cass_test_cql(9) {
+    CREATE TABLE $keyspace.main (
+      key01 timestamp PRIMARY KEY
+    );
+  }
+
+  set cass_test_cql(10) {
+    INSERT INTO $keyspace.main (key01) VALUES (?);
+  }
+
   set cass_test_cql(drop) {
     DROP KEYSPACE IF EXISTS $keyspace;
   }
@@ -2005,6 +2015,81 @@ test cass-13.5 {reading of data types with real-world values} -body {
   unset -nocomplain keyspace svc row prepared cmd errMsg
 } -result [list [concat [list key01 1] \
 [cass_test_get_value_columns [cass_test_subst $cass_test_cql(6)] true 2]]]
+
+###############################################################################
+
+test cass-14.1 {automatic scaling of timestamp data type} -body {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [cass_test_subst $cass_test_cql(0)]
+    $cmd exec [cass_test_subst $cass_test_cql(9)]
+    $cmd reimport_column_type_map
+    set prepared [$cmd prepare #auto \
+        [appendArgs $keyspace .main] \
+        [cass_test_subst $cass_test_cql(10)]]
+    $cmd exec -prepared $prepared [list key01 4294967295]
+    set result [list]
+    $cmd select [cass_test_subst $cass_test_cql(8)] row {
+      lappend result [lsort -stride 2 [array get row]]
+    }
+    set result
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain keyspace svc row prepared cmd errMsg
+} -result {{key01 4294967295}}
+
+###############################################################################
+
+test cass-14.2 {automatic scaling of timestamp data type} -body {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [cass_test_subst $cass_test_cql(0)]
+    $cmd exec [cass_test_subst $cass_test_cql(9)]
+    $cmd reimport_column_type_map
+    set prepared [$cmd prepare #auto \
+        [appendArgs $keyspace .main] \
+        [cass_test_subst $cass_test_cql(10)]]
+    $cmd exec -prepared $prepared [list key01 4294967295.999]
+    set result [list]
+    $cmd select [cass_test_subst $cass_test_cql(8)] row {
+      lappend result [lsort -stride 2 [array get row]]
+    }
+    set result
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain keyspace svc row prepared cmd errMsg
+} -result {{key01 4294967295.999}}
+
+###############################################################################
+
+test cass-14.3 {automatic scaling of timestamp data type} -body {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [cass_test_subst $cass_test_cql(0)]
+    $cmd exec [cass_test_subst $cass_test_cql(9)]
+    $cmd reimport_column_type_map
+    set prepared [$cmd prepare #auto \
+        [appendArgs $keyspace .main] \
+        [cass_test_subst $cass_test_cql(10)]]
+    $cmd exec -prepared $prepared [list key01 4294967296]
+    set result [list]
+    $cmd select [cass_test_subst $cass_test_cql(8)] row {
+      lappend result [lsort -stride 2 [array get row]]
+    }
+    set result
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain keyspace svc row prepared cmd errMsg
+} -returnCodes error -result [cass_test_subst {whole seconds cannot exceed\
+(4294967295LL) while converting 'timestamp' element while attempting to\
+bind field name of 'key01' of type 'timestamp' referencing table\
+'$keyspace.main'}]
 
 ###############################################################################
 

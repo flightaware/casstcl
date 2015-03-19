@@ -1513,6 +1513,100 @@ casstcl_InitCassBytesFromBignum(
 /*
  *----------------------------------------------------------------------
  *
+ * casstcl_GetTimestampFromObj --
+ *
+ *	Accepts a Tcl object value that specifies a whole number of
+ *	seconds and optionally a fractional number of seconds, and
+ *	converts the value to the whole number of milliseconds.
+ *
+ * Results:
+ *	A standard Tcl result.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int
+casstcl_GetTimestampFromObj(
+    Tcl_Interp *interp,		/* Used for error reporting if not NULL. */
+    Tcl_Obj *objPtr,		/* Object from which to get milliseconds. */
+    cass_int64_t *milliseconds)	/* Place to store whole milliseconds. */
+{
+  Tcl_WideInt wideVal;
+  if (Tcl_GetWideIntFromObj(NULL, objPtr, &wideVal) == TCL_OK) {
+    if (wideVal < CASS_TIMESTAMP_LOWER_LIMIT ||
+            wideVal > CASS_TIMESTAMP_UPPER_LIMIT) {
+      if (interp != NULL) {
+        Tcl_ResetResult(interp);
+        Tcl_AppendResult(interp, "whole seconds cannot exceed ",
+            STRINGIFY(CASS_TIMESTAMP_UPPER_LIMIT), NULL);
+      }
+      return TCL_ERROR;
+    } else {
+      *milliseconds = wideVal * 1000; /* SAFE: See 'if' above. */
+    }
+  } else {
+    double doubleVal;
+    if (Tcl_GetDoubleFromObj(interp, objPtr, &doubleVal) == TCL_OK) {
+      if ((Tcl_WideInt)doubleVal < CASS_TIMESTAMP_LOWER_LIMIT ||
+              (Tcl_WideInt)doubleVal > CASS_TIMESTAMP_UPPER_LIMIT) {
+        if (interp != NULL) {
+          Tcl_ResetResult(interp);
+          Tcl_AppendResult(interp, "whole seconds cannot exceed ",
+              STRINGIFY(CASS_TIMESTAMP_UPPER_LIMIT), NULL);
+        }
+        return TCL_ERROR;
+      } else {
+        wideVal = (Tcl_WideInt)doubleVal; /* SAFE: See 'if' above. */
+        doubleVal -= (double)wideVal;
+        doubleVal *= 1000.0;
+        *milliseconds = (wideVal * 1000) + (Tcl_WideInt)doubleVal;
+      }
+    } else {
+      return TCL_ERROR;
+    }
+  }
+  return TCL_OK;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_NewTimestampObj --
+ *
+ *	Accepts a Cassandra 'timestamp' value, in milliseconds, and
+ *	creates a Tcl object based on it.  If the milliseconds is
+ *	evenly divisible by 1000, a Tcl wide integer object will be
+ *	returned, containing the exact number of seconds.  Otherwise,
+ *	a Tcl double object will be returned with an approximate value,
+ *	where the fractional portion of the double will represent the
+ *	milliseconds and the whole portion will represent the number
+ *	of seconds.
+ *
+ * Results:
+ *	The newly created Tcl object, having a reference count of zero.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+Tcl_Obj *casstcl_NewTimestampObj(
+  cass_int64_t milliseconds
+){
+  if((milliseconds % 1000) == 0) {
+    return Tcl_NewWideIntObj(milliseconds / 1000);
+  } else {
+    return Tcl_NewDoubleObj((double)milliseconds / 1000.0);
+  }
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
  * mp_read_unsigned_bin --
  *
  *	Read a binary encoded 'bignum' from the specified buffer.  It
@@ -1792,7 +1886,20 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 			return TCL_OK;
 		}
 
-		case CASS_VALUE_TYPE_TIMESTAMP:
+		case CASS_VALUE_TYPE_TIMESTAMP: {
+			cass_int64_t cassInt;
+			CassError cassError;
+
+			cassError = cass_value_get_int64 (cassValue, &cassInt);
+
+			if (cassError != CASS_OK) {
+				return casstcl_cass_error_to_tcl (ct, cassError);
+			}
+
+			*tclObj = casstcl_NewTimestampObj (cassInt);
+			return TCL_OK;
+		}
+
 		case CASS_VALUE_TYPE_COUNTER:
 		case CASS_VALUE_TYPE_BIGINT: {
 			cass_int64_t cassInt;
@@ -1831,7 +1938,7 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 		}
 
 		case CASS_VALUE_TYPE_DECIMAL: {
-			mp_int mpInt;
+			mp_int mpVal;
 			CassDecimal cassDecimal;
 			CassError cassError;
 			Tcl_Obj *listObjv[2];
@@ -1842,12 +1949,12 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 				return casstcl_cass_error_to_tcl (ct, cassError);
 			}
 
-			if (casstcl_InitBignumFromCassBytes(interp, &mpInt, &cassDecimal.varint) != TCL_OK) {
+			if (casstcl_InitBignumFromCassBytes(interp, &mpVal, &cassDecimal.varint) != TCL_OK) {
 				return TCL_ERROR;
 			}
 
 			listObjv[0] = Tcl_NewIntObj(cassDecimal.scale);
-			listObjv[1] = Tcl_NewBignumObj(&mpInt);
+			listObjv[1] = Tcl_NewBignumObj(&mpVal);
 
 			*tclObj = Tcl_NewListObj(2, listObjv);
 			return TCL_OK;
@@ -2072,7 +2179,18 @@ int casstcl_append_tcl_obj_to_collection (casstcl_sessionClientData *ct, CassCol
 			break;
 		}
 
-		case CASS_VALUE_TYPE_TIMESTAMP:
+		case CASS_VALUE_TYPE_TIMESTAMP: {
+			Tcl_WideInt wideValue = 0;
+
+			if (casstcl_GetTimestampFromObj (interp, obj, &wideValue) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting 'timestamp' element", NULL);
+				return TCL_ERROR;
+			}
+
+			cassError = cass_collection_append_int64 (collection, wideValue);
+			break;
+		}
+
 		case CASS_VALUE_TYPE_BIGINT:
 		case CASS_VALUE_TYPE_COUNTER: {
 			Tcl_WideInt wideValue = 0;
@@ -2279,7 +2397,22 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 			break;
 		}
 
-		case CASS_VALUE_TYPE_TIMESTAMP:
+		case CASS_VALUE_TYPE_TIMESTAMP: {
+			Tcl_WideInt wideValue = 0;
+
+			if (casstcl_GetTimestampFromObj (interp, obj, &wideValue) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting 'timestamp' element", NULL);
+				return TCL_ERROR;
+			}
+
+			if (name == NULL) {
+				cassError = cass_statement_bind_int64 (statement, index, wideValue);
+			} else {
+				cassError = cass_statement_bind_int64_by_name (statement, name, wideValue);
+			}
+			break;
+		}
+
 		case CASS_VALUE_TYPE_BIGINT:
 		case CASS_VALUE_TYPE_COUNTER: {
 			Tcl_WideInt wideValue = 0;
@@ -2301,7 +2434,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 			int listObjc;
 			Tcl_Obj **listObjv;
 			int scale;
-			mp_int mpInt;
+			mp_int mpVal;
 			CassBytes cassBytes;
 			CassDecimal cassDecimal;
 
@@ -2321,12 +2454,12 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 				return TCL_ERROR;
 			}
 
-			if (Tcl_GetBignumFromObj(interp, listObjv[1], &mpInt) != TCL_OK) {
+			if (Tcl_GetBignumFromObj(interp, listObjv[1], &mpVal) != TCL_OK) {
 				Tcl_AppendResult (interp, " while converting decimal bignum", NULL);
 				return TCL_ERROR;
 			}
 
-			if (casstcl_InitCassBytesFromBignum(interp, &cassBytes, &mpInt) != TCL_OK) {
+			if (casstcl_InitCassBytesFromBignum(interp, &cassBytes, &mpVal) != TCL_OK) {
 				Tcl_AppendResult (interp, " while creating decimal bytes", NULL);
 				return TCL_ERROR;
 			}

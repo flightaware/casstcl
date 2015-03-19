@@ -25,6 +25,17 @@
 #define CASS_BATCH_MAGIC 14215469
 #define CASS_PREPARED_MAGIC 713832281
 
+/*
+ * This is the absolute limit on the whole number of seconds that we can
+ * support for the Cassandra 'timestamp' data type normalization routines.
+ * When multiplied by 1000 and having 1000 added to that result, it MUST
+ * fit into a 64-bit signed integer, for both positive and negative signs.
+ * Also, it must be capable of being round-tripped to double without any
+ * loss of precision.
+ */
+#define CASS_TIMESTAMP_UPPER_LIMIT (4294967295LL)
+#define CASS_TIMESTAMP_LOWER_LIMIT (-CASS_TIMESTAMP_UPPER_LIMIT)
+
 extern Tcl_ObjType casstcl_cassTypeTclType;
 
 extern int
