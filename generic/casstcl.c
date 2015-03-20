@@ -3457,9 +3457,24 @@ casstcl_iterate_over_future (casstcl_sessionClientData *ct, CassFuture *future, 
 	int tclReturn = TCL_OK;
 	const CassResult* result = NULL;
 	CassIterator* iterator;
+	int rc = cass_future_error_code(future);
+
+	if (rc != CASS_OK) {
+		return casstcl_cass_error_to_tcl (ct, rc);
+	}
+
+	/*
+	 * NOTE: Apparently, an asynchronous "connect" has no result
+	 *       even when it succeeds.
+	 */
 	result = cass_future_get_result(future);
-	iterator = cass_iterator_from_result(result);
 	Tcl_Interp *interp = ct->interp;
+
+	if (result == NULL) {
+		Tcl_ResetResult(interp);
+		return TCL_OK;
+	}
+	iterator = cass_iterator_from_result(result);
 
 	int columnCount = cass_result_column_count (result);
 
@@ -3570,7 +3585,21 @@ int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName,
 			break;
 		}
 
+		/*
+		 * NOTE: *DEFENSIVE PROGRAMMING* This NULL check is probably
+		 *       not absolutely required here; however, I discovered
+		 *       that it is possible to have a successful future with
+		 *       no result.
+		 */
 		result = cass_future_get_result(future);
+
+		if (result == NULL) {
+			Tcl_ResetResult (interp);
+			Tcl_AppendResult (interp, "future has no result", NULL);
+			tclReturn = TCL_ERROR;
+			break;
+		}
+
 		iterator = cass_iterator_from_result(result);
 		cass_future_free(future);
 
@@ -4479,27 +4508,63 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			CassError rc = CASS_OK;
 			CassFuture *future;
 			char *keyspace = NULL;
+			int arg = 2;
+			int      subOptIndex;
+			Tcl_Obj *callbackObj = NULL;
 
-			if ((objc < 2) || (objc > 3)) {
+			static CONST char *subOptions[] = {
+				"-callback",
+				NULL
+			};
+
+			enum subOptions {
+				SUBOPT_CALLBACK
+			};
+
+			if (objc < 2) {
 				Tcl_WrongNumArgs (interp, 2, objv, "?keyspace?");
 				return TCL_ERROR;
 			}
 
-			if (objc == 2) {
+			while (arg + 1 < objc) {
+				// stop as soon as you don't match something, leaving arg
+				// at the not-matched thing (i.e. don't use arg++ in
+				// this statement)
+				if (Tcl_GetIndexFromObj (NULL, objv[arg], subOptions, "subOption", TCL_EXACT, &subOptIndex) != TCL_OK) {
+					break;
+				}
+				arg++;
+
+				switch ((enum subOptions) subOptIndex) {
+					case SUBOPT_CALLBACK: {
+						callbackObj = objv[arg++];
+						break;
+					}
+				}
+			}
+
+			if (arg >= objc) {
 				future = cass_session_connect (ct->session, ct->cluster);
 			} else {
-				keyspace = Tcl_GetString (objv[2]);
+				keyspace = Tcl_GetString (objv[arg]);
 				future = cass_session_connect_keyspace (ct->session, ct->cluster, keyspace);
 			}
 
-			cass_future_wait (future);
-
-			rc = cass_future_error_code (future);
-			if (rc == CASS_OK) {
-				// import the schema keyspaces, tables, columns and types
-				casstcl_reimport_column_type_map (ct);
+			if (callbackObj != NULL) {
+				// asynchronous
+				if (casstcl_createFutureObjectCommand (ct, future, callbackObj) == TCL_ERROR) {
+					resultCode = TCL_ERROR;
+				}
 			} else {
-				resultCode = casstcl_cass_error_to_tcl (ct, rc);
+				cass_future_wait (future);
+
+				rc = cass_future_error_code (future);
+				if (rc == CASS_OK) {
+					// import the schema keyspaces, tables, columns and types
+					casstcl_reimport_column_type_map (ct);
+				} else {
+					resultCode = casstcl_cass_error_to_tcl (ct, rc);
+				}
 			}
 			break;
 		}

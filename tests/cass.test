@@ -194,7 +194,8 @@ if {[llength [info commands cass_test_future_callback]] == 0} then {
 
 if {[llength [info commands cass_test_connect]] == 0} then {
   proc cass_test_connect {
-          varName {cmdName ""} {points ""} {port ""} {timeout ""} } {
+          varName {cmdName ""} {points ""} {port ""} {timeout ""}
+          {callback ""} } {
     upvar 1 $varName newCmdName
 
     set newCmdName [casstcl::cass create \
@@ -216,7 +217,12 @@ if {[llength [info commands cass_test_connect]] == 0} then {
     $newCmdName contact_points $points
     $newCmdName port $port
     $newCmdName connect_timeout $timeout
-    $newCmdName connect
+
+    if {[string length $callback] > 0} then {
+      $newCmdName connect -callback $callback
+    } else {
+      $newCmdName connect
+    }
   }
 }
 
@@ -696,7 +702,10 @@ test cass-4.2 {session with automatic name} -body {
 
 test cass-5.1 {connect (failure)} -body {
   list [catch {
-    cass_test_connect cmd "" "" 11111; # NOTE: Port must be "invalid".
+    #
+    # NOTE: The port used here must be "invalid".
+    #
+    cass_test_connect cmd "" "" 11111
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
@@ -1894,6 +1903,7 @@ test cass-12.2 {prepare with automatic name} -body {
 ###############################################################################
 
 test cass-13.1 {binding of data types with placeholder values} -body {
+  list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
@@ -1905,6 +1915,7 @@ test cass-13.1 {binding of data types with placeholder values} -body {
     $cmd exec -prepared $prepared [concat \
         [list key01 1] [cass_test_get_value_columns \
         [cass_test_subst $cass_test_cql(6)] true]]
+  } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
   cass_test_cleanup_session cmd true true
@@ -1915,6 +1926,7 @@ test cass-13.1 {binding of data types with placeholder values} -body {
 ###############################################################################
 
 test cass-13.2 {binding of data types with trivial values} -body {
+  list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
@@ -1926,6 +1938,7 @@ test cass-13.2 {binding of data types with trivial values} -body {
     $cmd exec -prepared $prepared [concat \
         [list key01 1] [cass_test_get_value_columns \
         [cass_test_subst $cass_test_cql(6)] true 1]]
+  } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
   cass_test_cleanup_session cmd true true
@@ -1936,6 +1949,7 @@ test cass-13.2 {binding of data types with trivial values} -body {
 ###############################################################################
 
 test cass-13.3 {reading of data types with placeholder values} -body {
+  list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
@@ -1952,6 +1966,7 @@ test cass-13.3 {reading of data types with placeholder values} -body {
       lappend result [lsort -stride 2 [array get row]]
     }
     set result
+  } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
   cass_test_cleanup_session cmd true true
@@ -1965,6 +1980,7 @@ value06 0.0 value07 0.0 value08 0.0.0.0 value09 0 value19 {} value20 0 value21\
 ###############################################################################
 
 test cass-13.4 {reading of data types with trivial values} -body {
+  list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
@@ -1981,6 +1997,7 @@ test cass-13.4 {reading of data types with trivial values} -body {
       lappend result [lsort -stride 2 [array get row]]
     }
     set result
+  } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
   cass_test_cleanup_session cmd true true
@@ -1992,6 +2009,7 @@ test cass-13.4 {reading of data types with trivial values} -body {
 ###############################################################################
 
 test cass-13.5 {reading of data types with real-world values} -body {
+  list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
@@ -2008,6 +2026,7 @@ test cass-13.5 {reading of data types with real-world values} -body {
       lappend result [lsort -stride 2 [array get row]]
     }
     set result
+  } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
   cass_test_cleanup_session cmd true true
@@ -2019,6 +2038,7 @@ test cass-13.5 {reading of data types with real-world values} -body {
 ###############################################################################
 
 test cass-14.1 {automatic scaling of timestamp data type} -body {
+  list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
@@ -2033,6 +2053,7 @@ test cass-14.1 {automatic scaling of timestamp data type} -body {
       lappend result [lsort -stride 2 [array get row]]
     }
     set result
+  } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
   cass_test_cleanup_session cmd true true
@@ -2043,6 +2064,7 @@ test cass-14.1 {automatic scaling of timestamp data type} -body {
 ###############################################################################
 
 test cass-14.2 {automatic scaling of timestamp data type} -body {
+  list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
@@ -2057,6 +2079,7 @@ test cass-14.2 {automatic scaling of timestamp data type} -body {
       lappend result [lsort -stride 2 [array get row]]
     }
     set result
+  } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
   cass_test_cleanup_session cmd true true
@@ -2067,6 +2090,7 @@ test cass-14.2 {automatic scaling of timestamp data type} -body {
 ###############################################################################
 
 test cass-14.3 {automatic scaling of timestamp data type} -body {
+  list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
@@ -2081,6 +2105,7 @@ test cass-14.3 {automatic scaling of timestamp data type} -body {
       lappend result [lsort -stride 2 [array get row]]
     }
     set result
+  } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
   cass_test_cleanup_session cmd true true
@@ -2090,6 +2115,45 @@ test cass-14.3 {automatic scaling of timestamp data type} -body {
 (4294967295LL) while converting 'timestamp' element while attempting to\
 bind field name of 'key01' of type 'timestamp' referencing table\
 '$keyspace.main'}]
+
+###############################################################################
+
+test cass-15.1 {asynchronous connect (failure)} -body {
+  list [catch {
+    #
+    # NOTE: The port used here must be "invalid".
+    #
+    set result [list]
+    cass_test_connect cmd \
+        "" "" 11111 "" [list cass_test_future_callback result -1]
+    cass_test_service_events svc
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_session cmd
+
+  unset -nocomplain result svc cmd errMsg
+} -result {1 {cassandra error: No hosts available}}
+
+###############################################################################
+
+test cass-15.2 {asynchronous connect (success)} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    set result [list]
+    cass_test_connect cmd \
+        "" "" "" "" [list cass_test_future_callback result -1]
+    cass_test_service_events svc
+    $cmd exec [cass_test_subst $cass_test_cql(0)]
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain result svc cmd errMsg
+} -result {0 {1 {} CASS_OK {} {}}}
 
 ###############################################################################
 

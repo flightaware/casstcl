@@ -52,7 +52,7 @@ $cass exec "insert into foo ..."
 ...or...
 
 ```tcl
-::casstcl::cass create cass
+set cassdb [::casstcl::cass create cass]
 
 cass exec "insert into foo ..."
 ```
@@ -61,11 +61,15 @@ cass exec "insert into foo ..."
 Methods of cassandra cluster interface object
 ---
 
-```tcl
-    set ::cassdb [::cassandra::connect args]
-```
+* *$cassdb* **connect** *?-callback callbackRoutine?* *keyspaceName*
 
+Attempts to connect to the specified database, optionally setting the keyspace.
 
+If the **-callback** argument is specified then the next argument is a callback routine that will be invoked when successfully connected.
+
+If the connection fails, the callback may not be invoked (i.e. a script error may be generated instead).
+
+The callback routine will be invoked with a single argument, which is the name of the future object created (such as *::future17*) when the request was made.
 
 * *$cassdb* **exec** *?-callback callbackRoutine?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName? *$statement* *?arg...?*
 
