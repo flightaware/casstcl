@@ -413,6 +413,26 @@ Return a quote of the specified value according to the specified cassandra type.
 
 Quote the value according to the field *columnName* in table *table*.  *subType* can be **key** for collection sets and lists and can be **key** or **value** for collection maps.  For these usages it returns the corresponding data type.  If the subType is specified and the column is a collection you get a list back like *list text* and *map int text*.
 
+* **casstcl::assemble_statement** *statementVar* *line*
+
+Given the name of a variable (initially set to an empty string) to contain a CQL statement, and a line containing possibly a statement or part of a statement, append the line to the statement and return 1 if a complete statement is present, else 0.
+
+Comments and blank lines are skipped.
+
+(The check for a complete statement is the mere presence of a semicolon anywhere on the line, which is kind of meatball.)
+
+* **run_fp** *cassdb* *fp*
+
+Read from a file pointer and execute complete commands through the specified cassandra object.
+
+* **run_file** *cassdb* *fileName*
+
+Run CQL commands from a file.
+
+* **interact** *cassdb*
+
+Enter a primitive cqlsh-like shell.  Provides a prompt of *tcqlsh>* when no partial command has been entered or *......>* when a partial command is present.  Once a semicolon is seen via one input line or multiple, the command is executed.  "exit" to exit the interact proc.
+
 Bugs
 ---
 
