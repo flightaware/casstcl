@@ -2857,7 +2857,8 @@ void UpdateCassTypeString (Tcl_Obj *obj) {
  * Results:
  *      A standard Tcl result.
  *
- *      TCL_CONTINUE is returned if the type index name isn't found
+ *      TCL_CONTINUE is returned if the type index name isn't found.
+ *      Also in that case, the value types are set to CASS_VALUE_TYPE_UNKNOWN.
  *
  *----------------------------------------------------------------------
  */
@@ -2878,6 +2879,9 @@ casstcl_typename_obj_to_cass_value_types (Tcl_Interp *interp, char *table, Tcl_O
 	// if not found, the type didn't exist, but it might not be an error,
 	// return TCL_CONTINUE to differentiate it from TCL_OK
 	if (typeObj == NULL) {
+		typeInfoPtr->cassValueType = CASS_VALUE_TYPE_UNKNOWN;
+		typeInfoPtr->valueSubType1 = CASS_VALUE_TYPE_UNKNOWN;
+		typeInfoPtr->valueSubType2 = CASS_VALUE_TYPE_UNKNOWN;
 		return TCL_CONTINUE;
 	}
 
@@ -3189,6 +3193,8 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 
 		tclReturn = casstcl_typename_obj_to_cass_value_types (interp, tableName, listObjv[i], &typeInfo[i/2]);
 
+// printf("casstcl_make_upsert_statement figured out i %d table '%s' from '%s' type info %d, %d, %d\n", i, tableName, Tcl_GetString (listObjv[i]), typeInfo[i/2].cassValueType, typeInfo[i/2].valueSubType1, typeInfo[i/2].valueSubType2);
+
 		if (tclReturn == TCL_ERROR) {
 			break;
 		}
@@ -3265,6 +3271,7 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 		CassStatement *statement = cass_statement_new(cass_string_init(query), nDone);
 
 		for (i = 0; i < listObjc; i += 2) {
+// printf("casstcl_make_upsert_statement i %d type info %d, %d, %d\n", i, typeInfo[i/2].cassValueType, typeInfo[i/2].valueSubType1, typeInfo[i/2].valueSubType2);
 			// skip value if type lookup previously determined unknown
 			if (typeInfo[i/2].cassValueType == CASS_VALUE_TYPE_UNKNOWN) {
 				continue;
@@ -3275,7 +3282,7 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 
 			tclReturn = casstcl_bind_tcl_obj (ct, statement, NULL, i / 2, &typeInfo[i/2], valueObj);
 			if (tclReturn == TCL_ERROR) {
-				Tcl_AppendResult (interp, " while attempting to bind field '", Tcl_GetString (listObjv[i]), "' of type '", casstcl_cass_value_type_to_string (typeInfo[i/2].cassValueType), "', value '", Tcl_GetString (valueObj), "' referencing table '", tableName, "'", NULL);
+				Tcl_AppendResult (interp, " while constructing upsert statement, while attempting to bind field '", Tcl_GetString (listObjv[i]), "' of type '", casstcl_cass_value_type_to_string (typeInfo[i/2].cassValueType), "', value '", Tcl_GetString (valueObj), "' referencing table '", tableName, "'", NULL);
 				break;
 			}
 		}
