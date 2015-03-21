@@ -3154,7 +3154,7 @@ casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *
  *----------------------------------------------------------------------
  */
 int
-casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, Tcl_Obj *listObj, CassStatement **statementPtr, char *mapUnknown, int ifNotExists, int dropUnknown) {
+casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, Tcl_Obj *listObj, CassStatement **statementPtr, char *mapUnknown, int dropUnknown, int ifNotExists) {
 	int listObjc;
 	Tcl_Obj **listObjv;
 	Tcl_Interp *interp = ct->interp;
@@ -3529,6 +3529,93 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 	}
 }
 
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_make_upsert_statement_from_objv --
+ *
+ *   This takes an objv and objc containing possible arguments such
+ *   as -mapunknown, -nocomplain and -ifnotexists and in the objv
+ *   always a fully qualified table name and a list of key-value pairs
+ *
+ *   It creates a cass statement and if successful sets the caller's
+ *   pointer to a pointer to a cass statement to that statement
+ *
+ *   It returns a standard Tcl result, TCL_ERROR if something went
+ *   wrong and you don't get a statement
+ *
+ *   It returns TCL_OK if all went well
+ *
+ *   This uses casstcl_make_upsert_statement to make the statement after
+ *   it figures the arguments thereto
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_make_upsert_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_Obj *CONST objv[], CassStatement **statementPtr)
+{
+	Tcl_Interp *interp = ct->interp;
+	int ifNotExists = 0;
+	int dropUnknown = 0;
+	char *mapUnknown = NULL;
+	int arg = 0;
+
+    int         optIndex;
+    static CONST char *options[] = {
+        "mapunknown",
+        "nocomplain",
+        "ifnotexists",
+        NULL
+    };
+
+    enum options {
+        OPT_MAPUNKNOWN,
+        OPT_NOCOMPLAIN,
+        OPT_IFNOTEXISTS,
+    };
+
+    /* basic validation of command line arguments */
+    if (objc < 2) {
+        Tcl_WrongNumArgs (interp, 0, objv, "?-mapunknown columnName? ?-nocomplain? ?-ifnotexists? keyspace.tableName keyValuePairList");
+        return TCL_ERROR;
+    }
+
+	for (arg = 0; arg < objc - 2; arg++) {
+		if (Tcl_GetIndexFromObj (interp, objv[arg], options, "option", TCL_EXACT, &optIndex) != TCL_OK) {
+			return TCL_ERROR;
+		}
+
+		switch ((enum options) optIndex) {
+			case OPT_MAPUNKNOWN: {
+				if (arg + 1 >= objc - 2) {
+					Tcl_ResetResult (interp);
+					Tcl_AppendResult (interp, "-mapunknown requires a column name", NULL);
+					return TCL_ERROR;
+				}
+
+				mapUnknown = Tcl_GetString (objv[arg++]);
+				break;
+			}
+
+			case OPT_NOCOMPLAIN: {
+				dropUnknown = 1;
+				break;
+			}
+
+			case OPT_IFNOTEXISTS: {
+				ifNotExists = 1;
+				break;
+			}
+		}
+	}
+
+	char *tableName = Tcl_GetString (objv[objc - 2]);
+
+	return casstcl_make_upsert_statement (ct, tableName, objv[objc - 1], statementPtr, mapUnknown, dropUnknown, ifNotExists);
+}
 
 /*
  *----------------------------------------------------------------------
@@ -3969,16 +4056,10 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 		}
 
 		case OPT_UPSERT: {
-			if (objc != 4) {
-				Tcl_WrongNumArgs (interp, 2, objv, "keyspace.tableName keyValuePairList");
-				return TCL_ERROR;
-			}
+			CassStatement* statement = NULL;
 
-			CassStatement* statement;
-			char *tableName = Tcl_GetString (objv[2]);
-			Tcl_Obj *listObj = objv[3];
+			resultCode = casstcl_make_upsert_statement_from_objv (bcd->ct, objc - 2, &objv[2], &statement);
 
-			resultCode = casstcl_make_upsert_statement (bcd->ct, tableName, listObj, &statement, NULL, 0, 0);
 			if (resultCode != TCL_ERROR) {
 //printf("calling cass_batch_add_statement\n");
 				CassError cassError;

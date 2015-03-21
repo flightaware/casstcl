@@ -253,7 +253,7 @@ Adds the specified statement to the batch. Processes arguments similarly to the 
 
 Sets the batch write consistency level to the specified level.  Consistency must be **any**, **one**, **two**, **three**, **quorum**, **all**, **local_quorum**, **each_quorum**, **serial**, **local_serial**, or **local_one**.
 
-* *$batch* **upsert** *$table* *$list*
+* *$batch* **upsert** ?-mapunknown mapcolumn? ?-nocomplain? ?-ifnotexists? *$table* *$list*
 
 Generate in upsert into the batch.  List contains key value pairs where keys should be columns that exist in the fully qualified table.
 
@@ -262,6 +262,10 @@ A typical usage would be:
 ```tcl
 $batch upsert wx.wx_metar [array get row]
 ```
+
+If *-nocomplain* is specified then any column names not found in the column map for the specified table are silently dropped along with their values.
+
+If *-mapunknown* is specified then an additional argument containing a column name should be specified.  With this usage any column names not found in the column map are written to a map collection of the specified column name.  The column name must exist as a column in the table and be of the *map* type and the key and values types of the map must be *text*.
 
 * *$batch* **count**
 
