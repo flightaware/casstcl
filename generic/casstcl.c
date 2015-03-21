@@ -3154,7 +3154,7 @@ casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *
  *----------------------------------------------------------------------
  */
 int
-casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, Tcl_Obj *listObj, CassStatement **statementPtr, int ifNotExists, int dropUnknown) {
+casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, Tcl_Obj *listObj, CassStatement **statementPtr, char *mapUnknown, int ifNotExists, int dropUnknown) {
 	int listObjc;
 	Tcl_Obj **listObjv;
 	Tcl_Interp *interp = ct->interp;
@@ -3180,6 +3180,7 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 	int i;
 	int nDone = 0;
 	int didOne = 0;
+	int nUnknownToMap = 0;
 
 	casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)ckalloc (sizeof (casstcl_cassTypeInfo) * (listObjc / 2));
 
@@ -3199,6 +3200,18 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 				continue;
 			}
 
+			// if moving of unrecognized colum-value pairs to a map collection
+			// is enabled, skip this column for now but keep count of how
+			// many columns we are mapping
+
+			if (mapUnknown != NULL) {
+				nUnknownToMap++;
+				tclReturn = TCL_OK;
+				continue;
+			}
+
+			// ok, we weren't told to drop unknown columns and we weren't
+			// told to map them, so we've found one and it's an error
 			Tcl_ResetResult (interp);
 			Tcl_AppendResult (interp, "unknown column '", Tcl_GetString(listObjv[i]), "' in upsert for table '", tableName, "'", NULL);
 			tclReturn = TCL_ERROR;
@@ -3207,16 +3220,27 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 
 		char *varName = Tcl_GetStringFromObj (listObjv[i], &varNameLength);
 
+		// prepend a comma unless it's the first one
 		if (didOne) {
 			Tcl_DStringAppend (&ds, ",", 1);
 		}
-		didOne = 0;
 
 		Tcl_DStringAppend (&ds, varName, varNameLength);
 		nDone++;
 		didOne = 1;
 	}
 
+	// if we were told to map unknown and we found something unknown,
+	// append the name of the map column to the insert
+	if (nUnknownToMap > 0) {
+		if (didOne) {
+			Tcl_DStringAppend (&ds, ",", 1);
+		}
+		Tcl_DStringAppend (&ds, mapUnknown, -1);
+		nDone++;
+	}
+
+	// now generate the values part of the insert
 	Tcl_DStringAppend (&ds, ") values (", -1);
 
 	for (i = 0; i < nDone; i++) {
@@ -3233,11 +3257,12 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 		Tcl_DStringAppend (&ds, ")", -1);
 	}
 
+	// if we're good to here, bind the variables corresponding to the insert
 	if (tclReturn == TCL_OK) {
 
 		char *query = Tcl_DStringValue (&ds);
 
-		CassStatement *statement = cass_statement_new(cass_string_init(query), listObjc / 2);
+		CassStatement *statement = cass_statement_new(cass_string_init(query), nDone);
 
 		for (i = 0; i < listObjc; i += 2) {
 			// skip value if type lookup previously determined unknown
@@ -3255,13 +3280,53 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 			}
 		}
 
+		// if mapping of unknown column-value pairs is enabled and there are
+		// some, map them now
+		if (nUnknownToMap > 0) {
+			CassCollection *collection = cass_collection_new (CASS_COLLECTION_TYPE_MAP, nUnknownToMap);
+
+			for (i = 0; i < listObjc; i += 2) {
+				// consult our cache of the types,
+				// skip value if type lookup previously determined known
+				if (typeInfo[i/2].cassValueType != CASS_VALUE_TYPE_UNKNOWN) {
+					continue;
+				}
+
+				// ok, got one, append the column name to the map
+				CassError cassError = casstcl_append_tcl_obj_to_collection (ct, collection, CASS_VALUE_TYPE_TEXT, listObjv[i]);
+				// i don't think these can really fail, a text conversion
+				if (cassError != CASS_OK) {
+					tclReturn = casstcl_cass_error_to_tcl (ct, cassError);
+					break;
+				}
+
+				// now append the column value to the map
+				cassError = casstcl_append_tcl_obj_to_collection (ct, collection, CASS_VALUE_TYPE_TEXT, listObjv[i+1]);
+				if (cassError != CASS_OK) {
+					tclReturn = casstcl_cass_error_to_tcl (ct, cassError);
+					break;
+				}
+			}
+			// bind the map collection of key-value pairs to the statement
+			CassError cassError = cass_statement_bind_collection (statement, nDone - 1, collection);
+			if (cassError != CASS_OK) {
+				tclReturn = casstcl_cass_error_to_tcl (ct, cassError);
+			}
+		}
+
+		// if everything's OK, set the caller's statement pointer to the
+		// statement we made
 		if (tclReturn == TCL_OK) {
 			*statementPtr = statement;
 		}
 	}
 
+	// free the insert statement
 	Tcl_DStringFree (&ds);
+
+	// free the type info cache
 	ckfree(typeInfo);
+
 	return tclReturn;
 }
 
@@ -3913,7 +3978,7 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 			char *tableName = Tcl_GetString (objv[2]);
 			Tcl_Obj *listObj = objv[3];
 
-			resultCode = casstcl_make_upsert_statement (bcd->ct, tableName, listObj, &statement, 0, 0);
+			resultCode = casstcl_make_upsert_statement (bcd->ct, tableName, listObj, &statement, NULL, 0, 0);
 			if (resultCode != TCL_ERROR) {
 //printf("calling cass_batch_add_statement\n");
 				CassError cassError;
