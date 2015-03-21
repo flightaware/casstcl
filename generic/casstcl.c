@@ -3154,10 +3154,11 @@ casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *
  *----------------------------------------------------------------------
  */
 int
-casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, Tcl_Obj *listObj, CassStatement **statementPtr) {
+casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, Tcl_Obj *listObj, CassStatement **statementPtr, int ifNotExists, int dropUnknown) {
 	int listObjc;
 	Tcl_Obj **listObjv;
 	Tcl_Interp *interp = ct->interp;
+	int tclReturn = TCL_OK;
 
 	if (Tcl_ListObjGetElements (interp, listObj, &listObjc, &listObjv) == TCL_ERROR) {
 		Tcl_AppendResult (interp, " while parsing list of key-value pairs", NULL);
@@ -3180,15 +3181,31 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 	int nDone = 0;
 	int didOne = 0;
 
+	casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)ckalloc (sizeof (casstcl_cassTypeInfo) * (listObjc / 2));
+
 	for (i = 0; i < listObjc; i += 2) {
 		int varNameLength;
 
-		char *varName = Tcl_GetStringFromObj (listObjv[i], &varNameLength);
+		tclReturn = casstcl_typename_obj_to_cass_value_types (interp, tableName, listObjv[i], &typeInfo[i/2]);
 
-		// ignore Pgtcl meta variables
-		if (*varName == '.') {
-			continue;
+		if (tclReturn == TCL_ERROR) {
+			break;
 		}
+
+		// failed to find it?
+		if (tclReturn == TCL_CONTINUE) {
+			if (dropUnknown) {
+				tclReturn = TCL_OK;
+				continue;
+			}
+
+			Tcl_ResetResult (interp);
+			Tcl_AppendResult (interp, "unknown column '", Tcl_GetString(listObjv[i]), "' in upsert for table '", tableName, "'", NULL);
+			tclReturn = TCL_ERROR;
+			break;
+		}
+
+		char *varName = Tcl_GetStringFromObj (listObjv[i], &varNameLength);
 
 		if (didOne) {
 			Tcl_DStringAppend (&ds, ",", 1);
@@ -3209,14 +3226,42 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 			Tcl_DStringAppend (&ds, "?", 1);
 		}
 	}
-	Tcl_DStringAppend (&ds, ")", -1);
 
-	char *query = Tcl_DStringValue (&ds);
+	if (ifNotExists) {
+		Tcl_DStringAppend (&ds, ") IF NOT EXISTS", -1);
+	} else {
+		Tcl_DStringAppend (&ds, ")", -1);
+	}
 
-//printf("casstcl_make_upsert_statement: query: %s\n", query);
-	int tclReturn = casstcl_bind_names_from_list (ct, tableName, query, listObjc, listObjv, statementPtr);
+	if (tclReturn == TCL_OK) {
+
+		char *query = Tcl_DStringValue (&ds);
+
+		CassStatement *statement = cass_statement_new(cass_string_init(query), listObjc / 2);
+
+		for (i = 0; i < listObjc; i += 2) {
+			// skip value if type lookup previously determined unknown
+			if (typeInfo[i/2].cassValueType == CASS_VALUE_TYPE_UNKNOWN) {
+				continue;
+			}
+
+			// get the value out of the list
+			Tcl_Obj *valueObj = listObjv[i+1];
+
+			tclReturn = casstcl_bind_tcl_obj (ct, statement, NULL, i / 2, &typeInfo[i/2], valueObj);
+			if (tclReturn == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while attempting to bind field '", Tcl_GetString (listObjv[i]), "' of type '", casstcl_cass_value_type_to_string (typeInfo[i/2].cassValueType), "', value '", Tcl_GetString (valueObj), "' referencing table '", tableName, "'", NULL);
+				break;
+			}
+		}
+
+		if (tclReturn == TCL_OK) {
+			*statementPtr = statement;
+		}
+	}
+
 	Tcl_DStringFree (&ds);
-//printf("casstcl_make_upsert_statement: freed the dstring, returning %d\n", tclReturn);
+	ckfree(typeInfo);
 	return tclReturn;
 }
 
@@ -3868,7 +3913,7 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 			char *tableName = Tcl_GetString (objv[2]);
 			Tcl_Obj *listObj = objv[3];
 
-			resultCode = casstcl_make_upsert_statement (bcd->ct, tableName, listObj, &statement);
+			resultCode = casstcl_make_upsert_statement (bcd->ct, tableName, listObj, &statement, 0, 0);
 			if (resultCode != TCL_ERROR) {
 //printf("calling cass_batch_add_statement\n");
 				CassError cassError;
