@@ -3261,7 +3261,7 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 	if (tclReturn == TCL_OK) {
 
 		char *query = Tcl_DStringValue (&ds);
-
+// printf("upsert query is '%s'\n", query);
 		CassStatement *statement = cass_statement_new(cass_string_init(query), nDone);
 
 		for (i = 0; i < listObjc; i += 2) {
@@ -3565,9 +3565,9 @@ casstcl_make_upsert_statement_from_objv (casstcl_sessionClientData *ct, int objc
 
     int         optIndex;
     static CONST char *options[] = {
-        "mapunknown",
-        "nocomplain",
-        "ifnotexists",
+        "-mapunknown",
+        "-nocomplain",
+        "-ifnotexists",
         NULL
     };
 
