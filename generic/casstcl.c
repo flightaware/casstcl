@@ -4538,6 +4538,8 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		"max_connections_per_host",
 		"max_concurrent_creation",
 		"max_concurrent_requests_threshold",
+		"write_bytes_high_water_mark",
+		"write_bytes_low_water_mark",
 		"connect_timeout",
 		"request_timeout",
 		"reconnect_wait_time",
@@ -4577,6 +4579,8 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		OPT_MAX_CONNECTIONS_PER_HOST,
 		OPT_MAX_CONCURRENT_CREATION,
 		OPT_MAX_CONCURRENT_REQUESTS_THRESHOLD,
+		OPT_WRITE_BYTES_HIGH_WATER_MARK,
+		OPT_WRITE_BYTES_LOW_WATER_MARK,
 		OPT_CONNECT_TIMEOUT,
 		OPT_REQUEST_TIMEOUT,
 		OPT_RECONNECT_WAIT_TIME,
@@ -5129,6 +5133,40 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_cluster_set_max_concurrent_requests_threshold (ct->cluster, maxConcurrentRequestsThreshold);
+			break;
+		}
+
+		case OPT_WRITE_BYTES_HIGH_WATER_MARK: {
+			int writeBytesHighWaterMark = 0;
+
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "writeBytesHighWaterMark");
+				return TCL_ERROR;
+			}
+
+			if (Tcl_GetIntFromObj (interp, objv[2], &writeBytesHighWaterMark) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting writeBytesHighWaterMark element", NULL);
+				return TCL_ERROR;
+			}
+
+			cass_cluster_set_write_bytes_high_water_mark (ct->cluster, writeBytesHighWaterMark);
+			break;
+		}
+
+		case OPT_WRITE_BYTES_LOW_WATER_MARK: {
+			int writeBytesLowWaterMark = 0;
+
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "writeBytesLowWaterMark");
+				return TCL_ERROR;
+			}
+
+			if (Tcl_GetIntFromObj (interp, objv[2], &writeBytesLowWaterMark) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting writeBytesLowWaterMark element", NULL);
+				return TCL_ERROR;
+			}
+
+			cass_cluster_set_write_bytes_low_water_mark (ct->cluster, writeBytesLowWaterMark);
 			break;
 		}
 
