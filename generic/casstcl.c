@@ -3182,7 +3182,7 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 	Tcl_DStringAppend (&ds, " (", 2);
 
 	int i;
-	int nDone = 0;
+	int nFields = 0;
 	int didOne = 0;
 	int nUnknownToMap = 0;
 
@@ -3232,7 +3232,7 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 		}
 
 		Tcl_DStringAppend (&ds, varName, varNameLength);
-		nDone++;
+		nFields++;
 		didOne = 1;
 	}
 
@@ -3243,13 +3243,13 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 			Tcl_DStringAppend (&ds, ",", 1);
 		}
 		Tcl_DStringAppend (&ds, mapUnknown, -1);
-		nDone++;
+		nFields++;
 	}
 
 	// now generate the values part of the insert
 	Tcl_DStringAppend (&ds, ") values (", -1);
 
-	for (i = 0; i < nDone; i++) {
+	for (i = 0; i < nFields; i++) {
 		if (i > 0) {
 			Tcl_DStringAppend (&ds, ",?", 2);
 		} else {
@@ -3267,9 +3267,9 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 	if (tclReturn == TCL_OK) {
 
 		char *query = Tcl_DStringValue (&ds);
-// printf("upsert query is '%s'\n", query);
-		CassStatement *statement = cass_statement_new(cass_string_init(query), nDone);
-
+// printf("nFields %d, upsert query is '%s'\n", nFields, query);
+		CassStatement *statement = cass_statement_new(cass_string_init(query), nFields);
+		int bindField = 0;
 		for (i = 0; i < listObjc; i += 2) {
 // printf("casstcl_make_upsert_statement i %d type info %d, %d, %d\n", i, typeInfo[i/2].cassValueType, typeInfo[i/2].valueSubType1, typeInfo[i/2].valueSubType2);
 			// skip value if type lookup previously determined unknown
@@ -3280,7 +3280,10 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 			// get the value out of the list
 			Tcl_Obj *valueObj = listObjv[i+1];
 
-			tclReturn = casstcl_bind_tcl_obj (ct, statement, NULL, i / 2, &typeInfo[i/2], valueObj);
+			assert (bindField < nFields);
+
+// printf("bind field %d, value '%s'\n", bindField, Tcl_GetString(valueObj));
+			tclReturn = casstcl_bind_tcl_obj (ct, statement, NULL, bindField++, &typeInfo[i/2], valueObj);
 			if (tclReturn == TCL_ERROR) {
 				Tcl_AppendResult (interp, " while constructing upsert statement, while attempting to bind field '", Tcl_GetString (listObjv[i]), "' of type '", casstcl_cass_value_type_to_string (typeInfo[i/2].cassValueType), "', value '", Tcl_GetString (valueObj), "' referencing table '", tableName, "'", NULL);
 				break;
@@ -3315,7 +3318,9 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 				}
 			}
 			// bind the map collection of key-value pairs to the statement
-			CassError cassError = cass_statement_bind_collection (statement, nDone - 1, collection);
+			assert (bindField < nFields);
+// printf("bound collection position %d nFields %d\n", bindField, nFields);
+			CassError cassError = cass_statement_bind_collection (statement, bindField, collection);
 			if (cassError != CASS_OK) {
 				tclReturn = casstcl_cass_error_to_tcl (ct, cassError);
 			}
@@ -3603,7 +3608,7 @@ casstcl_make_upsert_statement_from_objv (casstcl_sessionClientData *ct, int objc
 					return TCL_ERROR;
 				}
 
-				mapUnknown = Tcl_GetString (objv[arg++]);
+				mapUnknown = Tcl_GetString (objv[++arg]);
 				break;
 			}
 
