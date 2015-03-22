@@ -249,7 +249,8 @@ if {[llength [info commands cass_test_service_events]] == 0} then {
 ###############################################################################
 
 if {[llength [info commands cass_test_cleanup_session]] == 0} then {
-  proc cass_test_cleanup_session { varName {delete true} {drop false} } {
+  proc cass_test_cleanup_session {
+          varName {delete true} {drop false} {suffix ""} } {
     upvar 1 $varName cmdName
 
     #
@@ -257,7 +258,7 @@ if {[llength [info commands cass_test_cleanup_session]] == 0} then {
     #       tests to hang?
     #
     if {$drop} then {
-      set keyspace [cass_test_get_keyspace]
+      set keyspace [cass_test_get_keyspace $suffix]
 
       catch {
         $cmdName exec [subst $::cass_test_cql(drop)]
@@ -1381,7 +1382,7 @@ test cass-10.1 {async without callback} -body {
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
-  cass_test_cleanup_session cmd true true
+  cass_test_cleanup_session cmd true true cass101_async
 
   unset -nocomplain result row keyspace svc cmd errMsg
 } -match regexp -result {^0 \{\{keyspace_name .*\}\}$}
