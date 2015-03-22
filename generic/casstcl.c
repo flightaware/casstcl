@@ -3321,6 +3321,7 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 			assert (bindField < nFields);
 // printf("bound collection position %d nFields %d\n", bindField, nFields);
 			CassError cassError = cass_statement_bind_collection (statement, bindField, collection);
+			cass_collection_free (collection);
 			if (cassError != CASS_OK) {
 				tclReturn = casstcl_cass_error_to_tcl (ct, cassError);
 			}
