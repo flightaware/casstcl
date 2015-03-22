@@ -457,6 +457,17 @@ Run CQL commands from a file.
 
 Enter a primitive cqlsh-like shell.  Provides a prompt of *tcqlsh>* when no partial command has been entered or *......>* when a partial command is present.  Once a semicolon is seen via one input line or multiple, the command is executed.  "exit" to exit the interact proc.
 
+errorCode
+---
+
+When propagating an error from the cpp-driver back to Tcl, the errorCode will be a list containing three our four elements.  The first will be the literal string **CASSANDRA**, the second will be the cassandra error code in text form matching the error codes in the cassandra.h include file, for example **CASS_ERROR_LIB_NO_HOSTS_AVAILBLE** or **CASS_ERROR_SSL_INVALID_CERT**.
+
+The third value will be the output of the cpp-drivers *cass_error_desc()* call, returning a result such as "Invalid query".
+
+The fourth value, if present, will be the output of *cass_future_error_message()*.  When present it is usually pretty specific as to the nature of the problem and quite useful to aid in debugging.
+
+Both error messages are used to generate the error string itself, to the degree that they are available when the tcl error return is being generated.
+
 Bugs
 ---
 
