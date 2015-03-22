@@ -539,7 +539,7 @@ if {![info exists cass_test_log_level]} then {
 ###############################################################################
 
 if {![info exists cass_test_timeout]} then {
-  set cass_test_timeout [getEnvVar CASSTCL_TIMEOUT 5000]; # milliseconds
+  set cass_test_timeout [getEnvVar CASSTCL_TIMEOUT 1000]; # milliseconds
 }
 
 ###############################################################################
@@ -1844,6 +1844,116 @@ test cass-11.3 {batch upsert} -body {
 
   unset -nocomplain result keyspace svc batch cmd errMsg
 } -result {0 {0 {} 1}}
+
+###############################################################################
+
+test cass-11.4 {batch upsert -mapunknown} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [cass_test_subst $cass_test_cql(0)]
+    $cmd exec [cass_test_subst {
+      CREATE TABLE $keyspace.cass114 (
+        column_one text,
+        column_two map<text, text>,
+        PRIMARY KEY(column_one)
+      );
+    }]
+    $cmd reimport_column_type_map
+    set batch [$cmd batch #auto]
+    $batch upsert -mapunknown column_two \
+        [appendArgs $keyspace .cass114] [list column_one \
+        test1 two 2 three 3.14 four test]
+    $cmd exec -batch $batch
+    cass_test_service_events svc
+    set result [list]
+    $cmd select [cass_test_subst {SELECT * FROM $keyspace.cass114;}] row {
+      lappend result [lsort -stride 2 [array get row]]
+    }
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_object batch
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain result keyspace svc row batch cmd errMsg
+} -result {0 {{column_one test1 column_two {four test three 3.14 two 2}}}}
+
+###############################################################################
+
+test cass-11.5 {batch upsert -nocomplain} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [cass_test_subst $cass_test_cql(0)]
+    $cmd exec [cass_test_subst {
+      CREATE TABLE $keyspace.cass115 (
+        column_one text,
+        PRIMARY KEY(column_one)
+      );
+    }]
+    $cmd reimport_column_type_map
+    set batch [$cmd batch #auto]
+    $batch upsert -nocomplain \
+        [appendArgs $keyspace .cass115] [list column_one \
+        test1 two 2 three 3.14 four test]
+    $cmd exec -batch $batch
+    cass_test_service_events svc
+    set result [list]
+    $cmd select [cass_test_subst {SELECT * FROM $keyspace.cass115;}] row {
+      lappend result [lsort -stride 2 [array get row]]
+    }
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_object batch
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain result keyspace svc row batch cmd errMsg
+} -result {0 {{column_one test1}}}
+
+###############################################################################
+
+test cass-11.6 {batch upsert -ifnotexists} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    $cmd exec [cass_test_subst $cass_test_cql(0)]
+    $cmd exec [cass_test_subst {
+      CREATE TABLE $keyspace.cass116 (
+        column_one text,
+        column_two map<text, text>,
+        PRIMARY KEY(column_one)
+      );
+    }]
+    $cmd reimport_column_type_map
+    set batch(1) [$cmd batch #auto]
+    $batch(1) upsert -mapunknown column_two \
+        [appendArgs $keyspace .cass116] [list column_one \
+        test1 two 2 three 3.14 four test]
+    $cmd exec -batch $batch(1)
+    cass_test_service_events svc
+    set batch(2) [$cmd batch #auto]
+    $batch(2) upsert -mapunknown column_two -ifnotexists \
+        [appendArgs $keyspace .cass116] [list column_one \
+        test1 two 3 three 4.25 four bad]
+    $cmd exec -batch $batch(2)
+    cass_test_service_events svc
+    set result [list]
+    $cmd select [cass_test_subst {SELECT * FROM $keyspace.cass116;}] row {
+      lappend result [lsort -stride 2 [array get row]]
+    }
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_object batch
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain result keyspace svc row batch cmd errMsg
+} -result {0 {{column_one test1 column_two {four test three 3.14 two 2}}}}
 
 ###############################################################################
 
