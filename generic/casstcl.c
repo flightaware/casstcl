@@ -4540,6 +4540,8 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		"max_concurrent_requests_threshold",
 		"write_bytes_high_water_mark",
 		"write_bytes_low_water_mark",
+		"pending_requests_high_water_mark",
+		"pending_requests_low_water_mark",
 		"connect_timeout",
 		"request_timeout",
 		"reconnect_wait_time",
@@ -4581,6 +4583,8 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		OPT_MAX_CONCURRENT_REQUESTS_THRESHOLD,
 		OPT_WRITE_BYTES_HIGH_WATER_MARK,
 		OPT_WRITE_BYTES_LOW_WATER_MARK,
+		OPT_PENDING_REQUESTS_HIGH_WATER_MARK,
+		OPT_PENDING_REQUESTS_LOW_WATER_MARK,
 		OPT_CONNECT_TIMEOUT,
 		OPT_REQUEST_TIMEOUT,
 		OPT_RECONNECT_WAIT_TIME,
@@ -5167,6 +5171,40 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_cluster_set_write_bytes_low_water_mark (ct->cluster, writeBytesLowWaterMark);
+			break;
+		}
+
+		case OPT_PENDING_REQUESTS_HIGH_WATER_MARK: {
+			int pendingRequestsHighWaterMark = 0;
+
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "pendingRequestsHighWaterMark");
+				return TCL_ERROR;
+			}
+
+			if (Tcl_GetIntFromObj (interp, objv[2], &pendingRequestsHighWaterMark) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting pendingRequestsHighWaterMark element", NULL);
+				return TCL_ERROR;
+			}
+
+			cass_cluster_set_pending_requests_high_water_mark (ct->cluster, pendingRequestsHighWaterMark);
+			break;
+		}
+
+		case OPT_PENDING_REQUESTS_LOW_WATER_MARK: {
+			int pendingRequestsLowWaterMark = 0;
+
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "pendingRequestsLowWaterMark");
+				return TCL_ERROR;
+			}
+
+			if (Tcl_GetIntFromObj (interp, objv[2], &pendingRequestsLowWaterMark) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting pendingRequestsLowWaterMark element", NULL);
+				return TCL_ERROR;
+			}
+
+			cass_cluster_set_pending_requests_low_water_mark (ct->cluster, pendingRequestsLowWaterMark);
 			break;
 		}
 

@@ -195,6 +195,13 @@ Sets the high water mark for the number of bytes outstanding on a connection.  D
 
 Sets the low water mark for the number of bytes outstanding on a connection.  After exceeding high water mark bytes, writes will only resume once the number of outstanding bytes falls below this value.  Default is 32 KB.
 
+* *$cassdb* **pending_requests_high_water_mark** *$highWaterMark*
+
+Sets the high water mark for the number of requests queued waiting for a connection in a connection pool.  Disables writes to a host on an IO worker if the number of requests queued exceeds this value.  Default is 128 * max_connections_per_host.
+
+* *$cassdb* **wpending_requests_low_water_mark** *$lowWaterMark*
+
+Sets the low water mark for the number of requests queued waiting for a connection in a connection pool.  After exceeding high water mark requests, writes to a host will only resume once the number of requests falls below this value.  Default is 64 * max_connections_per_host.
 
 * *$cassdb* **connect_timeout** *$timeoutMS*
 
