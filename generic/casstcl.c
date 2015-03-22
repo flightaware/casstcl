@@ -2149,7 +2149,7 @@ int casstcl_append_tcl_obj_to_collection (casstcl_sessionClientData *ct, CassCol
 			int length = 0;
 			char *value = Tcl_GetStringFromObj (obj, &length);
 
-			cassError = cass_collection_append_string (collection, cass_string_init(value));
+			cassError = cass_collection_append_string (collection, cass_string_init2 (value, length));
 			break;
 		}
 
@@ -2338,9 +2338,9 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 			char *value = Tcl_GetStringFromObj (obj, &length);
 
 			if (name == NULL) {
-				cassError = cass_statement_bind_string (statement, index, cass_string_init(value));
+				cassError = cass_statement_bind_string (statement, index, cass_string_init2 (value, length));
 			} else {
-				cassError = cass_statement_bind_string_by_name (statement, name, cass_string_init(value));
+				cassError = cass_statement_bind_string_by_name (statement, name, cass_string_init2 (value, length));
 			}
 			break;
 		}
@@ -3268,7 +3268,7 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 
 		char *query = Tcl_DStringValue (&ds);
 // printf("nFields %d, upsert query is '%s'\n", nFields, query);
-		CassStatement *statement = cass_statement_new(cass_string_init(query), nFields);
+		CassStatement *statement = cass_statement_new (cass_string_init2 (query, Tcl_DStringLength (&ds)), nFields);
 		int bindField = 0;
 		for (i = 0; i < listObjc; i += 2) {
 // printf("casstcl_make_upsert_statement i %d type info %d, %d, %d\n", i, typeInfo[i/2].cassValueType, typeInfo[i/2].valueSubType1, typeInfo[i/2].valueSubType2);
@@ -4817,15 +4817,16 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			char *query = NULL;
 			CassError rc = CASS_OK;
 			CassFuture *future;
+			int queryLength;
 
 			if (objc != 5) {
 				Tcl_WrongNumArgs (interp, 2, objv, "name table statement");
 				return TCL_ERROR;
 			}
 
-			query = Tcl_GetString (objv[4]);
+			query = Tcl_GetStringFromObj (objv[4], &queryLength);
 
-			future = cass_session_prepare (ct->session, cass_string_init(query));
+			future = cass_session_prepare (ct->session, cass_string_init2 (query, queryLength));
 
 			cass_future_wait (future);
 
@@ -5262,8 +5263,11 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				return TCL_ERROR;
 			}
 
+			char *sslString;
+			int sslStringLength;
 
-			cass_ssl_add_trusted_cert (ct->ssl, cass_string_init (Tcl_GetString (objv[2])));
+			sslString = Tcl_GetStringFromObj (objv[2], &sslStringLength);
+			cass_ssl_add_trusted_cert (ct->ssl, cass_string_init2 (sslString, sslStringLength));
 			break;
 		}
 
@@ -5273,7 +5277,11 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				return TCL_ERROR;
 			}
 
-			cass_ssl_set_cert (ct->ssl, cass_string_init (Tcl_GetString (objv[2])));
+			char *sslString;
+			int sslStringLength;
+
+			sslString = Tcl_GetStringFromObj (objv[2], &sslStringLength);
+			cass_ssl_set_cert (ct->ssl, cass_string_init2 (sslString, sslStringLength));
 			break;
 		}
 
@@ -5283,7 +5291,11 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				return TCL_ERROR;
 			}
 
-			cass_ssl_set_private_key (ct->ssl, cass_string_init (Tcl_GetString (objv[2])), Tcl_GetString (objv[3]));
+			char *sslString;
+			int sslStringLength;
+
+			sslString = Tcl_GetStringFromObj (objv[2], &sslStringLength);
+			cass_ssl_set_private_key (ct->ssl, cass_string_init2 (sslString, sslStringLength), Tcl_GetString (objv[3]));
 			break;
 		}
 
