@@ -321,7 +321,8 @@ proc interact {cassHandle} {
 				puts ""
 				}
 			} catchResult] == 1} {
-				puts "error: $catchResult"
+				puts "$catchResult"
+				puts "$::errorCode"
 			}
 			set query ""
 		}

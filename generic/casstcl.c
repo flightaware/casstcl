@@ -639,6 +639,39 @@ int casstcl_cass_error_to_tcl (casstcl_sessionClientData *ct, CassError cassErro
 /*
  *--------------------------------------------------------------
  *
+ * casstcl_future_error_to_tcl -- given a CassError code and a future,
+ *   if the error code is CASS_OK return TCL_OK but if it's anything
+ *   else, set the interpreter result to the corresponding error message
+ *   from the future object and set the error code to CASSANDRA and the
+ *   e-code like CASS_ERROR_LIB_BAD_PARAMS
+ *
+ * Results:
+ *      A standard Tcl result
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+int casstcl_future_error_to_tcl (casstcl_sessionClientData *ct, CassError cassError, CassFuture *future) {
+
+	if (cassError == CASS_OK) {
+		return TCL_OK;
+	}
+
+	const char *cassErrorCodeString = casstcl_cass_error_to_errorcode_string (cassError);
+	const char *cassErrorDesc = cass_error_desc (cassError);
+	CassString message = cass_future_error_message (future);
+
+	Tcl_ResetResult (ct->interp);
+	Tcl_SetErrorCode (ct->interp, "CASSANDRA", cassErrorCodeString, cassErrorDesc, message.data, NULL);
+	Tcl_AppendResult (ct->interp, "cassandra error: ", cassErrorDesc, ": ", message.data, NULL);
+	return TCL_ERROR;
+}
+
+/*
+ *--------------------------------------------------------------
+ *
  * casstcl_obj_to_cass_consistency -- lookup a string in a Tcl object
  *   to be one of the consistency strings for CassConsistency and set
  *   a pointer to a passed-in CassConsistency value to the corresponding
@@ -3660,7 +3693,9 @@ casstcl_iterate_over_future (casstcl_sessionClientData *ct, CassFuture *future, 
 	int rc = cass_future_error_code(future);
 
 	if (rc != CASS_OK) {
-		return casstcl_cass_error_to_tcl (ct, rc);
+		casstcl_future_error_to_tcl (ct, rc, future);
+		cass_future_free (future);
+		return TCL_ERROR;
 	}
 
 	/*
@@ -3781,7 +3816,8 @@ int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName,
 
 		rc = cass_future_error_code(future);
 		if (rc != CASS_OK) {
-			tclReturn = casstcl_cass_error_to_tcl (ct, rc);
+			tclReturn = casstcl_future_error_to_tcl (ct, rc, future);
+			cass_future_free(future);
 			break;
 		}
 
@@ -4460,8 +4496,9 @@ casstcl_createFutureObjectCommand (casstcl_sessionClientData *ct, CassFuture *fu
 
 	CassError rc = cass_future_error_code (future);
 	if (rc != CASS_OK) {
+		casstcl_future_error_to_tcl (ct, rc, future);
 		cass_future_free (future);
-		return casstcl_cass_error_to_tcl (ct, rc);
+		return TCL_ERROR;
 	}
 
     fcd = (casstcl_futureClientData *)ckalloc (sizeof (casstcl_futureClientData));
@@ -4742,7 +4779,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 
 				CassError rc = cass_future_error_code (future);
 				if (rc != CASS_OK) {
-					resultCode = casstcl_cass_error_to_tcl (ct, rc);
+					resultCode = casstcl_future_error_to_tcl (ct, rc, future);
 				}
 
 				cass_future_free (future);
@@ -4815,8 +4852,10 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 					// import the schema keyspaces, tables, columns and types
 					casstcl_reimport_column_type_map (ct);
 				} else {
-					resultCode = casstcl_cass_error_to_tcl (ct, rc);
+					resultCode = casstcl_future_error_to_tcl (ct, rc, future);
 				}
+
+				cass_future_free (future);
 			}
 			break;
 		}
@@ -4840,7 +4879,8 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 
 			rc = cass_future_error_code (future);
 			if (rc != CASS_OK) {
-				resultCode = casstcl_cass_error_to_tcl (ct, rc);
+				resultCode = casstcl_future_error_to_tcl (ct, rc, future);
+				cass_future_free (future);
 				Tcl_AppendResult (interp, " while attempting to prepare statement '", query, "'", NULL);
 				break;
 			}
