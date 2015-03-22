@@ -713,7 +713,7 @@ test cass-5.1 {connect (failure)} -body {
   cass_test_cleanup_session cmd
 
   unset -nocomplain svc cmd errMsg
-} -result {1 {cassandra error: No hosts available}}
+} -result {1 {cassandra error: No hosts available: No hosts available for the control connection}}
 
 ###############################################################################
 
@@ -2245,7 +2245,7 @@ test cass-15.1 {asynchronous connect (failure)} -body {
   cass_test_cleanup_session cmd
 
   unset -nocomplain result svc cmd errMsg
-} -result {1 {cassandra error: No hosts available}}
+} -result {1 {cassandra error: No hosts available: No hosts available for the control connection}}
 
 ###############################################################################
 
