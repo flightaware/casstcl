@@ -316,7 +316,13 @@ proc interact {cassHandle} {
 		}
 
 		if {[assemble_statement query $line]} {
-			$cassHandle exec $query
+			if {[catch {$cassHandle select $query row {
+				parray row
+				puts ""
+				}
+			} catchResult] == 1} {
+				puts "error: $catchResult"
+			}
 			set query ""
 		}
 	}
