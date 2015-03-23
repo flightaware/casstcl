@@ -3,6 +3,23 @@ CassTcl, a Tcl C extension providing a Tcl interface to the Cassandra database
 
 CassTcl provides a Tcl interface to the Cassandra cpp-driver C/C++ API.
 
+Functionality
+---
+
+- Completely asynchronous
+- Provides a natural Tcl interface
+- Works out and manages all the data type conversions behind your back
+- Thread safe
+- Ad-hoc queries in CQL
+- Supports prepared statements
+- Supports batches
+- Supports all types Cassandra collections
+- Compatible with binary protocol version 1 and 2
+- Supports authentication via credentials using SASL PLAIN
+- Supports SSL
+- Production quality
+- Free!
+
 License
 ---
 
@@ -34,7 +51,6 @@ Accessing from Tcl
 ```tcl
 package require casstcl
 ```
-
 
 CassTcl objects
 ---
