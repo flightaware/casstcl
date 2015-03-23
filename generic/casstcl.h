@@ -25,6 +25,8 @@
 #define CASS_BATCH_MAGIC 14215469
 #define CASS_PREPARED_MAGIC 713832281
 
+#define CASSTCL_FUTURE_QUEUE_HEAD_FLAG 1
+
 /*
  * This is the absolute limit on the whole number of seconds that we can
  * support for the Cassandra 'timestamp' data type normalization routines.
@@ -62,6 +64,7 @@ typedef struct casstcl_sessionClientData
 typedef struct casstcl_futureClientData
 {
     int cass_future_magic;
+	int flags;
 	casstcl_sessionClientData *ct;
 	CassFuture *future;
 	Tcl_Command cmdToken;

@@ -4469,7 +4469,8 @@ void casstcl_future_callback (CassFuture* future, void* data) {
 	evPtr = ckalloc (sizeof (casstcl_futureEvent));
 	evPtr->event.proc = casstcl_future_eventProc;
 	evPtr->fcd = fcd;
-	Tcl_ThreadQueueEvent(fcd->ct->threadId, (Tcl_Event *)evPtr, TCL_QUEUE_TAIL);
+	int queueEnd = (fcd->flags & CASSTCL_FUTURE_QUEUE_HEAD_FLAG) ? TCL_QUEUE_HEAD : TCL_QUEUE_TAIL;
+	Tcl_ThreadQueueEvent(fcd->ct->threadId, (Tcl_Event *)evPtr, queueEnd);
 }
 
 /*
@@ -4489,7 +4490,7 @@ void casstcl_future_callback (CassFuture* future, void* data) {
  *----------------------------------------------------------------------
  */
 int
-casstcl_createFutureObjectCommand (casstcl_sessionClientData *ct, CassFuture *future, Tcl_Obj *callbackObj)
+casstcl_createFutureObjectCommand (casstcl_sessionClientData *ct, CassFuture *future, Tcl_Obj *callbackObj, int flags)
 {
     // allocate one of our cass future objects for Tcl and configure it
 	casstcl_futureClientData *fcd;
@@ -4505,6 +4506,7 @@ casstcl_createFutureObjectCommand (casstcl_sessionClientData *ct, CassFuture *fu
     fcd->cass_future_magic = CASS_FUTURE_MAGIC;
 	fcd->ct = ct;
 	fcd->future = future;
+	fcd->flags = flags;
 	Tcl_Interp *interp = ct->interp;
 
 	if (callbackObj != NULL) {
@@ -4703,21 +4705,24 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			int      subOptIndex;
 			Tcl_Obj *callbackObj = NULL;
 			char *batchObjName = NULL;
+			int futureFlags = 0;
 
 			static CONST char *subOptions[] = {
 				"-callback",
 				"-batch",
+				"-head",
 				NULL
 			};
 
 			enum subOptions {
 				SUBOPT_CALLBACK,
-				SUBOPT_BATCH
+				SUBOPT_BATCH,
+				SUBOPT_HEAD
 			};
 
 			// if we don't have at least three arguments, it's an error
 			if (objc < 3) {
-				Tcl_WrongNumArgs (interp, 2, objv, "?-callback n? ?-batch batchObject? ?-array array? ?-table table? statement ?args?");
+				Tcl_WrongNumArgs (interp, 2, objv, "?-callback n? ?-head? ?-batch batchObject? ?-array array? ?-table table? statement ?args?");
 				return TCL_ERROR;
 			}
 
@@ -4740,13 +4745,18 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 						batchObjName = Tcl_GetString (objv[arg++]);
 						break;
 					}
+
+					case SUBOPT_HEAD: {
+						futureFlags |= (CASSTCL_FUTURE_QUEUE_HEAD_FLAG);
+						break;
+					}
 				}
 			}
 
 			if (batchObjName != NULL) {
 				if (arg != objc) {
 					Tcl_ResetResult (interp);
-					Tcl_AppendResult (interp, "batch usage: obj ?-callback? -batch batchName", NULL);
+					Tcl_AppendResult (interp, "batch usage: obj ?-callback callback? ?-head? -batch batchName", NULL);
 					return TCL_ERROR;
 				}
 
@@ -4785,7 +4795,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				cass_future_free (future);
 			} else {
 				// asynchronous
-				if (casstcl_createFutureObjectCommand (ct, future, callbackObj) == TCL_ERROR) {
+				if (casstcl_createFutureObjectCommand (ct, future, callbackObj, futureFlags) == TCL_ERROR) {
 					resultCode = TCL_ERROR;
 				}
 			}
@@ -4841,7 +4851,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 
 			if (callbackObj != NULL) {
 				// asynchronous
-				if (casstcl_createFutureObjectCommand (ct, future, callbackObj) == TCL_ERROR) {
+				if (casstcl_createFutureObjectCommand (ct, future, callbackObj, 0) == TCL_ERROR) {
 					resultCode = TCL_ERROR;
 				}
 			} else {

@@ -87,9 +87,9 @@ If the connection fails, the callback may not be invoked (i.e. a script error ma
 
 The callback routine will be invoked with a single argument, which is the name of the future object created (such as *::future17*) when the request was made.
 
-* *$cassdb* **exec** *?-callback callbackRoutine?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName? *$statement* *?arg...?*
+* *$cassdb* **exec** *?-callback callbackRoutine?* *?-head?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName? *$statement* *?arg...?*
 
-* *$cassdb* **async** *?-callback callbackRoutine?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName?* *?-prepared preparedObjectName? *?$statement?* *?arg...?*
+* *$cassdb* **async** *?-callback callbackRoutine?* *?-head?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName?* *?-prepared preparedObjectName? *?$statement?* *?arg...?*
 
 Perform the requested CQL statement.  Waits for it to complete if **exec** is used without **-callback** (synchronous).   Does not wait if **async** is used or **exec** is used with **-callback** (asynchronous).
 
@@ -100,6 +100,8 @@ If used asynchronously then the request is issued to cassandra and a result obje
 You you can use the methods of the future object to find out the status of your statement, iterate over select results, etc. Asynchronous operation allows for considerable performance gains over synchronous at the cost of greater code complexity.
 
 If the **-callback** argument is specified then the next argument is a callback routine that will be invoked when the Cassandra request has completed or errored or whatnot.  The callback routine will be invoked with a single argument, which is the name of the future object created (such as *::future17*) when the request was made.
+
+If **-head** is specified then when the callback even occurs it is queued at the head of the notifier queue rather than at the tail, causing the event to be processed ahead of other events already in the queue.  This can be useful when you are getting a lot of events to make sure that your important cassandra completion events get priority above, say, the events that are causing your casstcl batches to get added to.
 
 If **-batch** is specified the argument is a batch object and that is used as the source of the statement(s).
 
