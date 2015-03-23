@@ -311,6 +311,8 @@ Reset the batch by deleting all of its data.
 
 Delete the batch object and all of its data.
 
+As of Cassandra 3.1 there is a limit on the maximum size of a batch in the vicinity of 16 megabytes.  Generating batches that are too large will result in "no hosts available" when trying to send the batch and illegal argument exceptions on the backend from java about a mutation being too large.
+
 Configuring SSL Connections
 ---
 
