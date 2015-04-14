@@ -3307,6 +3307,7 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 // printf("casstcl_make_upsert_statement i %d type info %d, %d, %d\n", i, typeInfo[i/2].cassValueType, typeInfo[i/2].valueSubType1, typeInfo[i/2].valueSubType2);
 			// skip value if type lookup previously determined unknown
 			if (typeInfo[i/2].cassValueType == CASS_VALUE_TYPE_UNKNOWN) {
+// printf("skip unknown field '%s', value '%s'\n", Tcl_GetString (listObjv[i]), Tcl_GetString(listObjv[i+1]));
 				continue;
 			}
 
@@ -3315,7 +3316,7 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 
 			assert (bindField < nFields);
 
-// printf("bind field %d, value '%s'\n", bindField, Tcl_GetString(valueObj));
+// printf("bind field %d, name '%s', value '%s'\n", bindField, Tcl_GetString (listObjv[i]), Tcl_GetString(valueObj));
 			tclReturn = casstcl_bind_tcl_obj (ct, statement, NULL, bindField++, &typeInfo[i/2], valueObj);
 			if (tclReturn == TCL_ERROR) {
 				Tcl_AppendResult (interp, " while constructing upsert statement, while attempting to bind field '", Tcl_GetString (listObjv[i]), "' of type '", casstcl_cass_value_type_to_string (typeInfo[i/2].cassValueType), "', value '", Tcl_GetString (valueObj), "' referencing table '", tableName, "'", NULL);
