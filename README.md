@@ -491,8 +491,4 @@ Both error messages are used to generate the error string itself, to the degree 
 Bugs
 ---
 
-Some Cassandra data types are unimplemented or broken.  Specifically *unknown*, *custom*, *decimal*, *varint*, and *timeuuid* either don't or probably don't work.
-
-Memory leaks are a distinct possibility.
-
-The code is new and therefore hasn't gotten a lot of use.  Nonetheless, the workhorse functions **async**, **exec** and **select** seem to work pretty well.
+It seems to be working pretty well and we haven't found memory leaks in quite a while.  Still, the code is pretty new and hasn't gotten a ton of use.  Nonetheless, the workhorse functions **async**, **exec** and **select** seem to work pretty well.
