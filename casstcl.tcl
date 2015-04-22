@@ -329,6 +329,38 @@ proc interact {cassHandle} {
 	}
 }
 
+#
+# translate_array_elements - given a list of pairs of element names, rename
+# any elements matching the first value to have the name of the second
+#
+#
+proc translate_array_elements {_row list} {
+    upvar $_row row
+
+    foreach "iVar oVar" $list {
+        if {[info exists row($iVar)]} {
+            set row($oVar) $row($iVar)
+            unset row($iVar)
+        }
+    }
+}
+
+#
+# confirm_array_elements - return 1 if all elements in list are present in
+# array else 0
+#
+proc confirm_array_elements {_row list} {
+    upvar $_row row
+
+    foreach var $list {
+		if {![info exists row($var)]} {
+			return 0
+		}
+    }
+    return 1
+}
+
+
 } ;# namespace ::casstcl
 
 # vim: set ts=4 sw=4 sts=4 noet :
