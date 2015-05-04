@@ -40,6 +40,7 @@ if {[llength [info commands getEnvVar]] == 0} then {
 
       return $default
     }
+
     return $::env($name)
   }
 }
@@ -217,6 +218,13 @@ if {[llength [info commands cass_test_connect]] == 0} then {
     $newCmdName contact_points $points
     $newCmdName port $port
     $newCmdName connect_timeout $timeout
+
+    set userName [getEnvVar CASSTCL_USERNAME ""]
+    set password [getEnvVar CASSTCL_PASSWORD ""]
+
+    if {[string length $userName] > 0} then {
+      $newCmdName credentials $userName $password
+    }
 
     if {[string length $callback] > 0} then {
       $newCmdName connect -callback $callback

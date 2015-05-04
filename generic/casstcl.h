@@ -43,6 +43,29 @@ extern Tcl_ObjType casstcl_cassTypeTclType;
 extern int
 casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[]);
 
+/*
+** NOTE: The types in this section were "borrowed" from version 1.0 of the
+**       cpp-driver.
+*/
+#if CASS_VERSION_MAJOR > 1
+typedef size_t cass_size_t;
+
+typedef struct CassBytes_ {
+  const cass_byte_t* data;
+  cass_size_t size;
+} CassBytes;
+
+typedef struct CassString_ {
+    const char* data;
+    cass_size_t length;
+} CassString;
+
+typedef struct CassDecimal_ {
+  cass_int32_t scale;
+  CassBytes varint;
+} CassDecimal;
+#endif
+
 typedef struct casstcl_cassTypeInfo {
 	CassValueType cassValueType;
 	CassValueType valueSubType1;
