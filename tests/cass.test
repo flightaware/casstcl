@@ -127,7 +127,7 @@ if {[llength [info commands cass_test_cleanup_server]] == 0} then {
     foreach keyspace [$cmd keyspaces] {
       if {[string match cass_test_safe_to_delete_* $keyspace]} then {
         if {[catch {
-          $cmd exec [subst $::cass_test_cql(drop)]
+          cass_test_exec $cmd [subst $::cass_test_cql(drop)]
         } error] == 0} then {
           cass_test_output [appendArgs \
               "success dropping keyspace \"" $keyspace \"]
@@ -246,13 +246,70 @@ if {[llength [info commands cass_test_batch]] == 0} then {
       set result [$newCmdName batch $cmdName]
     }
 
-    set consistency [getEnvVar CASSTCL_CONSISTENCY ""]
-
-    if {[string length $consistency] > 0} then {
-      $result consistency $consistency
+    if {[string length $::cass_test_consistency] > 0} then {
+      $result consistency $::cass_test_consistency
     }
 
     return $result
+  }
+}
+
+###############################################################################
+
+if {[llength [info commands cass_test_exec]] == 0} then {
+  proc cass_test_exec { cmdName args } {
+    #
+    # TODO: Update these lists if options for the exec sub-command change.
+    #
+    array set prefixOpts [list -batch 1 -callback 1 -head 0]; # value(s)?
+    array set foundOpts [list -batch 0 -callback 0 -head 0]; # quantity?
+
+    #
+    # NOTE: Split the arguments into two lists, one list containing all the
+    #       options that are processed directly by the exec sub-command and
+    #       one list containing everything else.
+    #
+    set length [llength $args]; set beforeOpts [list]; set otherArgs [list]
+
+    for {set index 0} {$index < $length} {incr index} {
+      set arg [lindex $args $index]
+
+      if {[info exists prefixOpts($arg)]} then {
+        if {[info exists foundOpts($arg)]} then {
+          incr foundOpts($arg)
+        }
+
+        set length2 $prefixOpts($arg); lappend beforeOpts $arg
+
+        if {$length2 > 0} then {
+          for {set index2 1} {$index2 <= $length2} {incr index2} {
+            lappend beforeOpts [lindex $args [expr {$index + $index2}]]
+          }
+
+          incr index $length2
+        }
+      } else {
+        lappend otherArgs $arg
+      }
+    }
+
+    set command [list $cmdName exec]
+
+    if {[llength $beforeOpts] > 0} then {
+      eval lappend command $beforeOpts
+    }
+
+    if {$foundOpts(-batch) == 0 && \
+        [string length $::cass_test_consistency] > 0} then {
+      lappend command -consistency $::cass_test_consistency
+    }
+
+    if {[llength $otherArgs] > 0} then {
+      eval lappend command $otherArgs
+    }
+
+    # cass_test_output "EXEC $command"
+    return [uplevel 1 $command]
   }
 }
 
@@ -263,15 +320,19 @@ if {[llength [info commands cass_test_service_events]] == 0} then {
     if {[string length $milliseconds] == 0} then {
       set milliseconds $::cass_test_timeout
     }
+
     if {[tcltest::IsVerbose start]} then {
       cass_test_output "starting to service events"
     }
+
     uplevel 1 [list unset -nocomplain $varName]
     uplevel 1 [list after $milliseconds [list set $varName 1]]
     uplevel 1 [list vwait $varName]
+
     if {[tcltest::IsVerbose start]} then {
       cass_test_output "done with servicing events"
     }
+
     return ""
   }
 }
@@ -291,7 +352,7 @@ if {[llength [info commands cass_test_cleanup_session]] == 0} then {
       set keyspace [cass_test_get_keyspace $suffix]
 
       catch {
-        $cmdName exec [subst $::cass_test_cql(drop)]
+        cass_test_exec $cmdName [subst $::cass_test_cql(drop)]
       }
     }
 
@@ -575,6 +636,12 @@ if {![info exists cass_test_timeout]} then {
 
 ###############################################################################
 
+if {![info exists cass_test_consistency]} then {
+  set cass_test_consistency [getEnvVar CASSTCL_CONSISTENCY ""]
+}
+
+###############################################################################
+
 if {![info exists cass_test_cql]} then {
   set cass_test_cql(0) {
     CREATE KEYSPACE $keyspace WITH REPLICATION = {
@@ -778,8 +845,8 @@ test cass-6.2 {metadata: list tables} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst {
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst {
       CREATE TABLE $keyspace.cass62 (
         column_one text,
         PRIMARY KEY(column_one)
@@ -800,8 +867,8 @@ test cass-6.3 {metadata: list tables with bad keyspace} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst {
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst {
       CREATE TABLE $keyspace.cass63 (
         column_one text,
         PRIMARY KEY(column_one)
@@ -822,8 +889,8 @@ test cass-6.4 {metadata: list columns} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst {
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst {
       CREATE TABLE $keyspace.cass64 (
         column_one text,
         PRIMARY KEY(column_one)
@@ -844,8 +911,8 @@ test cass-6.5 {metadata: list columns with bad keyspace} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst {
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst {
       CREATE TABLE $keyspace.cass65 (
         column_one text,
         PRIMARY KEY(column_one)
@@ -866,8 +933,8 @@ test cass-6.6 {metadata: list columns with bad table} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst {
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst {
       CREATE TABLE $keyspace.cass66 (
         column_one text,
         PRIMARY KEY(column_one)
@@ -889,8 +956,8 @@ test cass-6.7 {metadata: list columns types} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst {
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst {
       CREATE TABLE $keyspace.cass67 (
         column_one text,
         PRIMARY KEY(column_one)
@@ -911,8 +978,8 @@ test cass-6.8 {metadata: list columns types with bad keyspace} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst {
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst {
       CREATE TABLE $keyspace.cass68 (
         column_one text,
         PRIMARY KEY(column_one)
@@ -933,8 +1000,8 @@ test cass-6.9 {metadata: list columns types with bad table} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst {
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst {
       CREATE TABLE $keyspace.cass69 (
         column_one text,
         PRIMARY KEY(column_one)
@@ -1021,7 +1088,7 @@ test cass-8.2 {select with page size} -body {
 test cass-9.1 {exec no batch without callback} -body {
   list [catch {
     cass_test_connect cmd
-    $cmd exec $cass_test_cql(1)
+    cass_test_exec $cmd $cass_test_cql(1)
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
@@ -1036,7 +1103,7 @@ test cass-9.2 {exec no batch with callback} -body {
   list [catch {
     cass_test_connect cmd
     set result [list]
-    $cmd exec \
+    cass_test_exec $cmd \
         -callback [list cass_test_future_callback result -1] \
         $cass_test_cql(1)
     cass_test_service_events svc
@@ -1056,12 +1123,12 @@ test cass-9.3 {exec with batch without callback} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     set batch [cass_test_batch cmd #auto]
     set value 1
     $batch add [cass_test_subst $cass_test_cql(4)]
-    $cmd exec -batch $batch
+    cass_test_exec $cmd -batch $batch
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
@@ -1077,13 +1144,13 @@ test cass-9.4 {exec with batch with callback} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     set batch [cass_test_batch cmd #auto]
     set value 1
     $batch add [cass_test_subst $cass_test_cql(4)]
     set result [list]
-    $cmd exec -batch $batch \
+    cass_test_exec $cmd -batch $batch \
         -callback [list cass_test_future_callback result -1]
     cass_test_service_events svc
     set result
@@ -1102,11 +1169,11 @@ test cass-9.5 {exec no batch without callback -array} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
     array set row [list x 1]
-    $cmd exec \
+    cass_test_exec $cmd \
         -table [appendArgs $keyspace .main] \
         -array row [cass_test_subst $cass_test_cql(5)] x
   } errMsg] $errMsg
@@ -1123,12 +1190,12 @@ test cass-9.6 {exec no batch with callback -array} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
     set result [list]
     array set row [list x 1]
-    $cmd exec \
+    cass_test_exec $cmd \
         -callback [list cass_test_future_callback result -1] \
         -table [appendArgs $keyspace .main] \
         -array row [cass_test_subst $cass_test_cql(5)] x
@@ -1148,14 +1215,14 @@ test cass-9.7 {exec no batch without callback -prepared no args} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
     set value 1
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
         [cass_test_subst $cass_test_cql(4)]]
-    $cmd exec -prepared $prepared
+    cass_test_exec $cmd -prepared $prepared
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
@@ -1170,15 +1237,15 @@ test cass-9.8 {exec no batch with callback -prepared no args} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
     set value 1
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
         [cass_test_subst $cass_test_cql(4)]]
     set result [list]
-    $cmd exec \
+    cass_test_exec $cmd \
         -callback [list cass_test_future_callback result -1] \
         -prepared $prepared
     cass_test_service_events svc
@@ -1197,14 +1264,14 @@ test cass-9.9 {exec no batch without callback -prepared with arg} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
     set value 1
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
         [cass_test_subst $cass_test_cql(5)]]
-    $cmd exec -prepared $prepared [list x 1]
+    cass_test_exec $cmd -prepared $prepared [list x 1]
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
@@ -1219,15 +1286,15 @@ test cass-9.10 {exec no batch with callback -prepared with arg} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
     set value 1
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
         [cass_test_subst $cass_test_cql(5)]]
     set result [list]
-    $cmd exec \
+    cass_test_exec $cmd \
         -callback [list cass_test_future_callback result -1] \
         -prepared $prepared [list x 1]
     cass_test_service_events svc
@@ -1246,14 +1313,14 @@ test cass-9.11 {exec with batch without callback -array} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     set batch [cass_test_batch cmd #auto]
     array set row [list x 1]; set value 1
     $batch add \
         -table [appendArgs $keyspace .main] \
         -array row [cass_test_subst $cass_test_cql(4)]
-    $cmd exec -batch $batch
+    cass_test_exec $cmd -batch $batch
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
@@ -1269,15 +1336,15 @@ test cass-9.12 {exec with batch with callback -array} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     set batch [cass_test_batch cmd #auto]
     array set row [list x 1]; set value 1
     $batch add \
         -table [appendArgs $keyspace .main] \
         -array row [cass_test_subst $cass_test_cql(4)]
     set result [list]
-    $cmd exec -batch $batch \
+    cass_test_exec $cmd -batch $batch \
         -callback [list cass_test_future_callback result -1]
     cass_test_service_events svc
     set result
@@ -1296,15 +1363,15 @@ test cass-9.13 {exec with batch without callback -prepared no args} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     set batch [cass_test_batch cmd #auto]
     set value 1
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
         [cass_test_subst $cass_test_cql(4)]]
     $batch add -prepared $prepared
-    $cmd exec -batch $batch
+    cass_test_exec $cmd -batch $batch
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
@@ -1320,8 +1387,8 @@ test cass-9.14 {exec with batch with callback -prepared no args} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     set batch [cass_test_batch cmd #auto]
     set value 1
     set prepared [$cmd prepare #auto \
@@ -1329,7 +1396,7 @@ test cass-9.14 {exec with batch with callback -prepared no args} -body {
         [cass_test_subst $cass_test_cql(4)]]
     $batch add -prepared $prepared
     set result [list]
-    $cmd exec -batch $batch \
+    cass_test_exec $cmd -batch $batch \
         -callback [list cass_test_future_callback result -1]
     cass_test_service_events svc
     set result
@@ -1348,8 +1415,8 @@ test cass-9.15 {exec with batch without callback -prepared with arg} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
     set batch [cass_test_batch cmd #auto]
     set value 1
@@ -1357,7 +1424,7 @@ test cass-9.15 {exec with batch without callback -prepared with arg} -body {
         [appendArgs $keyspace .main] \
         [cass_test_subst $cass_test_cql(5)]]
     $batch add -prepared $prepared [list x 1]
-    $cmd exec -batch $batch
+    cass_test_exec $cmd -batch $batch
   } errMsg] $errMsg
 } -cleanup {
   cass_test_service_events svc
@@ -1373,8 +1440,8 @@ test cass-9.16 {exec with batch with callback -prepared with arg} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
     set batch [cass_test_batch cmd #auto]
     set value 1
@@ -1383,7 +1450,7 @@ test cass-9.16 {exec with batch with callback -prepared with arg} -body {
         [cass_test_subst $cass_test_cql(5)]]
     $batch add -prepared $prepared [list x 1]
     set result [list]
-    $cmd exec -batch $batch \
+    cass_test_exec $cmd -batch $batch \
         -callback [list cass_test_future_callback result -1]
     cass_test_service_events svc
     set result
@@ -1423,7 +1490,7 @@ test cass-10.2 {async with callback} -body {
   list [catch {
     cass_test_connect cmd
     set result [list]
-    $cmd exec \
+    cass_test_exec $cmd \
         -callback [list cass_test_future_callback result -1] \
         $cass_test_cql(1)
     cass_test_service_events svc
@@ -1443,8 +1510,8 @@ test cass-10.3 {async with batch without callback} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     set batch [cass_test_batch cmd #auto]
     set value 1
     $batch add [cass_test_subst $cass_test_cql(4)]
@@ -1466,8 +1533,8 @@ test cass-10.4 {async with batch with callback} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     set batch [cass_test_batch cmd #auto]
     set value 1
     $batch add [cass_test_subst $cass_test_cql(4)]
@@ -1491,8 +1558,8 @@ test cass-10.5 {async no batch without callback -array} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
     array set row [list x 1]
     $cmd async \
@@ -1513,8 +1580,8 @@ test cass-10.6 {async no batch with callback -array} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
     set result [list]
     array set row [list x 1]
@@ -1538,8 +1605,8 @@ test cass-10.7 {async no batch without callback -prepared no args} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
     set value 1
     set prepared [$cmd prepare #auto \
@@ -1561,8 +1628,8 @@ test cass-10.8 {async no batch with callback -prepared no args} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
     set value 1
     set prepared [$cmd prepare #auto \
@@ -1588,8 +1655,8 @@ test cass-10.9 {async no batch without callback -prepared with arg} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
     set value 1
     set prepared [$cmd prepare #auto \
@@ -1611,8 +1678,8 @@ test cass-10.10 {async no batch with callback -prepared with arg} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
     set value 1
     set prepared [$cmd prepare #auto \
@@ -1638,8 +1705,8 @@ test cass-10.11 {async with batch without callback -array} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     set batch [cass_test_batch cmd #auto]
     array set row [list x 1]; set value 1
     $batch add \
@@ -1663,8 +1730,8 @@ test cass-10.12 {async with batch with callback -array} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     set batch [cass_test_batch cmd #auto]
     array set row [list x 1]; set value 1
     $batch add \
@@ -1690,8 +1757,8 @@ test cass-10.13 {async with batch without callback -prepared no args} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     set batch [cass_test_batch cmd #auto]
     set value 1
     set prepared [$cmd prepare #auto \
@@ -1716,8 +1783,8 @@ test cass-10.14 {async with batch with callback -prepared no args} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     set batch [cass_test_batch cmd #auto]
     set value 1
     set prepared [$cmd prepare #auto \
@@ -1744,8 +1811,8 @@ test cass-10.15 {async with batch without callback -prepared with arg} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
     set batch [cass_test_batch cmd #auto]
     set value 1
@@ -1771,8 +1838,8 @@ test cass-10.16 {async with batch with callback -prepared with arg} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(3)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
     set batch [cass_test_batch cmd #auto]
     set value 1
@@ -1852,8 +1919,8 @@ test cass-11.3 {batch upsert} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst {
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst {
       CREATE TABLE $keyspace.cass113 (
         column_one text,
         PRIMARY KEY(column_one)
@@ -1881,8 +1948,8 @@ test cass-11.4 {batch upsert -mapunknown} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst {
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst {
       CREATE TABLE $keyspace.cass114 (
         column_one text,
         column_two map<text, text>,
@@ -1894,7 +1961,7 @@ test cass-11.4 {batch upsert -mapunknown} -body {
     $batch upsert -mapunknown column_two \
         [appendArgs $keyspace .cass114] [list column_one \
         test1 two 2 three 3.14 four test]
-    $cmd exec -batch $batch
+    cass_test_exec $cmd -batch $batch
     cass_test_service_events svc
     set result [list]
     $cmd select [cass_test_subst {SELECT * FROM $keyspace.cass114;}] row {
@@ -1916,8 +1983,8 @@ test cass-11.5 {batch upsert -nocomplain} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst {
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst {
       CREATE TABLE $keyspace.cass115 (
         column_one text,
         PRIMARY KEY(column_one)
@@ -1928,7 +1995,7 @@ test cass-11.5 {batch upsert -nocomplain} -body {
     $batch upsert -nocomplain \
         [appendArgs $keyspace .cass115] [list column_one \
         test1 two 2 three 3.14 four test]
-    $cmd exec -batch $batch
+    cass_test_exec $cmd -batch $batch
     cass_test_service_events svc
     set result [list]
     $cmd select [cass_test_subst {SELECT * FROM $keyspace.cass115;}] row {
@@ -1950,8 +2017,8 @@ test cass-11.6 {batch upsert -ifnotexists} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst {
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst {
       CREATE TABLE $keyspace.cass116 (
         column_one text,
         column_two map<text, text>,
@@ -1963,13 +2030,13 @@ test cass-11.6 {batch upsert -ifnotexists} -body {
     $batch(1) upsert -mapunknown column_two \
         [appendArgs $keyspace .cass116] [list column_one \
         test1 two 2 three 3.14 four test]
-    $cmd exec -batch $batch(1)
+    cass_test_exec $cmd -batch $batch(1)
     cass_test_service_events svc
     set batch(2) [cass_test_batch cmd #auto]
     $batch(2) upsert -mapunknown column_two -ifnotexists \
         [appendArgs $keyspace .cass116] [list column_one \
         test1 two 3 three 4.25 four bad]
-    $cmd exec -batch $batch(2)
+    cass_test_exec $cmd -batch $batch(2)
     cass_test_service_events svc
     set result [list]
     $cmd select [cass_test_subst {SELECT * FROM $keyspace.cass116;}] row {
@@ -1991,8 +2058,8 @@ test cass-12.1 {prepare with manual name} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst {
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst {
       CREATE TABLE $keyspace.cass121 (
         column_one text,
         PRIMARY KEY(column_one)
@@ -2019,8 +2086,8 @@ test cass-12.2 {prepare with automatic name} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst {
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst {
       CREATE TABLE $keyspace.cass122 (
         column_one text,
         PRIMARY KEY(column_one)
@@ -2046,13 +2113,13 @@ test cass-13.1 {binding of data types with placeholder values} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(6)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(6)]
     $cmd reimport_column_type_map
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
         [cass_test_subst $cass_test_cql(7)]]
-    $cmd exec -prepared $prepared [concat \
+    cass_test_exec $cmd -prepared $prepared [concat \
         [list key01 1] [cass_test_get_value_columns \
         [cass_test_subst $cass_test_cql(6)] true]]
   } errMsg] $errMsg
@@ -2069,13 +2136,13 @@ test cass-13.2 {binding of data types with trivial values} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(6)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(6)]
     $cmd reimport_column_type_map
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
         [cass_test_subst $cass_test_cql(7)]]
-    $cmd exec -prepared $prepared [concat \
+    cass_test_exec $cmd -prepared $prepared [concat \
         [list key01 1] [cass_test_get_value_columns \
         [cass_test_subst $cass_test_cql(6)] true 1]]
   } errMsg] $errMsg
@@ -2092,13 +2159,13 @@ test cass-13.3 {reading of data types with placeholder values} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(6)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(6)]
     $cmd reimport_column_type_map
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
         [cass_test_subst $cass_test_cql(7)]]
-    $cmd exec -prepared $prepared [concat \
+    cass_test_exec $cmd -prepared $prepared [concat \
         [list key01 1] [cass_test_get_value_columns \
         [cass_test_subst $cass_test_cql(6)] true]]
     set result [list]
@@ -2123,13 +2190,13 @@ test cass-13.4 {reading of data types with trivial values} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(6)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(6)]
     $cmd reimport_column_type_map
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
         [cass_test_subst $cass_test_cql(7)]]
-    $cmd exec -prepared $prepared [concat \
+    cass_test_exec $cmd -prepared $prepared [concat \
         [list key01 1] [cass_test_get_value_columns \
         [cass_test_subst $cass_test_cql(6)] true 1]]
     set result [list]
@@ -2152,13 +2219,13 @@ test cass-13.5 {reading of data types with real-world values} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(6)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(6)]
     $cmd reimport_column_type_map
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
         [cass_test_subst $cass_test_cql(7)]]
-    $cmd exec -prepared $prepared [concat \
+    cass_test_exec $cmd -prepared $prepared [concat \
         [list key01 1] [cass_test_get_value_columns \
         [cass_test_subst $cass_test_cql(6)] true 2]]
     set result [list]
@@ -2181,13 +2248,13 @@ test cass-14.1 {automatic scaling of timestamp data type} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(9)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(9)]
     $cmd reimport_column_type_map
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
         [cass_test_subst $cass_test_cql(10)]]
-    $cmd exec -prepared $prepared [list key01 4294967295]
+    cass_test_exec $cmd -prepared $prepared [list key01 4294967295]
     set result [list]
     $cmd select [cass_test_subst $cass_test_cql(8)] row {
       lappend result [lsort -stride 2 [array get row]]
@@ -2207,13 +2274,13 @@ test cass-14.2 {automatic scaling of timestamp data type} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(9)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(9)]
     $cmd reimport_column_type_map
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
         [cass_test_subst $cass_test_cql(10)]]
-    $cmd exec -prepared $prepared [list key01 4294967295.999]
+    cass_test_exec $cmd -prepared $prepared [list key01 4294967295.999]
     set result [list]
     $cmd select [cass_test_subst $cass_test_cql(8)] row {
       lappend result [lsort -stride 2 [array get row]]
@@ -2233,13 +2300,13 @@ test cass-14.3 {automatic scaling of timestamp data type} -body {
   list [catch {
     set keyspace [cass_test_get_keyspace]
     cass_test_connect cmd
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
-    $cmd exec [cass_test_subst $cass_test_cql(9)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(9)]
     $cmd reimport_column_type_map
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
         [cass_test_subst $cass_test_cql(10)]]
-    $cmd exec -prepared $prepared [list key01 4294967296]
+    cass_test_exec $cmd -prepared $prepared [list key01 4294967296]
     set result [list]
     $cmd select [cass_test_subst $cass_test_cql(8)] row {
       lappend result [lsort -stride 2 [array get row]]
@@ -2285,7 +2352,7 @@ test cass-15.2 {asynchronous connect (success)} -body {
     cass_test_connect cmd \
         "" "" "" "" [list cass_test_future_callback result -1]
     cass_test_service_events svc
-    $cmd exec [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
     set result
   } errMsg] $errMsg
 } -cleanup {

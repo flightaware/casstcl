@@ -639,6 +639,42 @@ int casstcl_cass_error_to_tcl (casstcl_sessionClientData *ct, CassError cassErro
 /*
  *--------------------------------------------------------------
  *
+ * casstcl_setStatementConsistency -- Setup the consistency
+ *   level for the specified statement, if necessary.  Special
+ *   handling is automatically used for serial consistency
+ *   levels.
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ * Side effects:
+ *      The statement will be freed upon error.
+ *
+ *--------------------------------------------------------------
+ */
+int
+casstcl_setStatementConsistency (casstcl_sessionClientData *ct, CassStatement *statementPtr, CassConsistency *consistencyPtr)
+{
+	if (consistencyPtr != NULL) {
+		CassConsistency consistency = *consistencyPtr;
+		CassError consistencyErr;
+		if (consistency == CASS_CONSISTENCY_SERIAL ||
+		    consistency == CASS_CONSISTENCY_LOCAL_SERIAL) {
+			consistencyErr = cass_statement_set_serial_consistency(statementPtr, consistency);
+		} else {
+			consistencyErr = cass_statement_set_consistency(statementPtr, consistency);
+		}
+		if (consistencyErr != CASS_OK) {
+			cass_statement_free(statementPtr);
+			return casstcl_cass_error_to_tcl (ct, consistencyErr);
+		}
+	}
+	return TCL_OK;
+}
+
+/*
+ *--------------------------------------------------------------
+ *
  * casstcl_future_error_to_tcl -- given a CassError code and a future,
  *   if the error code is CASS_OK return TCL_OK but if it's anything
  *   else, set the interpreter result to the corresponding error message
@@ -2717,7 +2753,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
  *----------------------------------------------------------------------
  */
 int
-casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int objc, Tcl_Obj *CONST objv[], CassStatement **statementPtr)
+casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int objc, Tcl_Obj *CONST objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
 {
 	int i;
 	int masterReturn = TCL_OK;
@@ -2734,6 +2770,10 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
 	}
 
 	CassStatement *statement = cass_statement_new(query, objc / 2);
+
+	if (casstcl_setStatementConsistency(ct, statement, consistencyPtr) != TCL_OK) {
+		return TCL_ERROR;
+	}
 
 	for (i = 0; i < objc; i += 2) {
 		tclReturn = casstcl_obj_to_compound_cass_value_types (interp, objv[i+1], &typeInfo);
@@ -2964,7 +3004,7 @@ casstcl_typename_obj_to_cass_value_types (Tcl_Interp *interp, char *table, Tcl_O
  *----------------------------------------------------------------------
  */
 int
-casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char *query, char *tclArray, int objc, Tcl_Obj *CONST objv[], CassStatement **statementPtr)
+casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char *query, char *tclArray, int objc, Tcl_Obj *CONST objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
 {
 	int i;
 	int masterReturn = TCL_OK;
@@ -2976,6 +3016,10 @@ casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char 
 	*statementPtr = NULL;
 
 	CassStatement *statement = cass_statement_new(query, objc);
+
+	if (casstcl_setStatementConsistency(ct, statement, consistencyPtr) != TCL_OK) {
+		return TCL_ERROR;
+	}
 
 	for (i = 0; i < objc; i ++) {
 		tclReturn = casstcl_typename_obj_to_cass_value_types (interp, table, objv[i], &typeInfo);
@@ -3043,7 +3087,7 @@ casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char 
  *----------------------------------------------------------------------
  */
 int
-casstcl_bind_names_from_prepared (casstcl_preparedClientData *pcd, int objc, Tcl_Obj *CONST objv[], CassStatement **statementPtr)
+casstcl_bind_names_from_prepared (casstcl_preparedClientData *pcd, int objc, Tcl_Obj *CONST objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
 {
 	Tcl_Interp *interp = pcd->ct->interp;
 	CassStatement *statement = cass_prepared_bind (pcd->prepared);
@@ -3056,6 +3100,10 @@ casstcl_bind_names_from_prepared (casstcl_preparedClientData *pcd, int objc, Tcl
 	casstcl_cassTypeInfo typeInfo;
 
 	*statementPtr = NULL;
+
+	if (casstcl_setStatementConsistency(ct, statement, consistencyPtr) != TCL_OK) {
+		return TCL_ERROR;
+	}
 
 //printf("objc = %d\n", objc);
 	for (i = 0; i < objc; i += 2) {
@@ -3122,7 +3170,7 @@ casstcl_bind_names_from_prepared (casstcl_preparedClientData *pcd, int objc, Tcl
  *----------------------------------------------------------------------
  */
 int
-casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *query, int objc, Tcl_Obj *CONST objv[], CassStatement **statementPtr)
+casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *query, int objc, Tcl_Obj *CONST objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
 {
 	int i;
 	int masterReturn = TCL_OK;
@@ -3134,6 +3182,10 @@ casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *
 	*statementPtr = NULL;
 
 	CassStatement *statement = cass_statement_new(query, objc / 2);
+
+	if (casstcl_setStatementConsistency(ct, statement, consistencyPtr) != TCL_OK) {
+		return TCL_ERROR;
+	}
 
 	for (i = 0; i < objc; i += 2) {
 		tclReturn = casstcl_typename_obj_to_cass_value_types (interp, table, objv[i], &typeInfo);
@@ -3193,7 +3245,7 @@ casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *
  *----------------------------------------------------------------------
  */
 int
-casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, Tcl_Obj *listObj, CassStatement **statementPtr, char *mapUnknown, int dropUnknown, int ifNotExists) {
+casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, Tcl_Obj *listObj, CassConsistency *consistencyPtr, CassStatement **statementPtr, char *mapUnknown, int dropUnknown, int ifNotExists) {
 	int listObjc;
 	Tcl_Obj **listObjv;
 	Tcl_Interp *interp = ct->interp;
@@ -3305,6 +3357,13 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 // printf("nFields %d, upsert query is '%s'\n", nFields, query);
 		CassStatement *statement = cass_statement_new (query, nFields);
 		int bindField = 0;
+
+		tclReturn = casstcl_setStatementConsistency(ct, statement, consistencyPtr);
+
+		if (tclReturn != TCL_OK) {
+			goto cleanup;
+		}
+
 		for (i = 0; i < listObjc; i += 2) {
 // printf("casstcl_make_upsert_statement i %d type info %d, %d, %d\n", i, typeInfo[i/2].cassValueType, typeInfo[i/2].valueSubType1, typeInfo[i/2].valueSubType2);
 			// skip value if type lookup previously determined unknown
@@ -3370,6 +3429,8 @@ casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, T
 		}
 	}
 
+cleanup:
+
 	// free the insert statement
 	Tcl_DStringFree (&ds);
 
@@ -3415,19 +3476,24 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 	char *arrayName = NULL;
 	char *tableName = NULL;
 	char *preparedName = NULL;
+	char *consistencyName = NULL;
+	Tcl_Obj *consistencyObj = NULL;
+	CassConsistency consistency;
 	Tcl_Interp *interp = ct->interp;
 
     static CONST char *options[] = {
         "-array",
 		"-table",
 		"-prepared",
+		"-consistency",
         NULL
     };
 
     enum options {
         OPT_ARRAY,
 		OPT_TABLE,
-		OPT_PREPARED
+		OPT_PREPARED,
+		OPT_CONSISTENCY
 	};
 
 	int newObjc = objc - argOffset;
@@ -3483,6 +3549,21 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 // printf("saw prepared case, name = '%s'\n", preparedName);
 				break;
 			}
+
+			case OPT_CONSISTENCY: {
+				if (arg >= newObjc) {
+					goto wrong_numargs;
+				}
+
+				consistencyObj = newObjv[arg++];
+				consistencyName = Tcl_GetString(consistencyObj);
+// printf("saw consistency case, name = '%s'\n", consistencyName);
+
+				if (strlen(consistencyName) > 0 && casstcl_obj_to_cass_consistency(ct, consistencyObj, &consistency) != TCL_OK) {
+					return TCL_ERROR;
+				}
+				break;
+			}
 		}
 	}
 
@@ -3507,7 +3588,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 	//
 	if (arg >= newObjc && preparedName == NULL) {
 	  wrong_numargs:
-		Tcl_WrongNumArgs (interp, (argOffset <= 2) ? argOffset : 2, objv, "?-array arrayName? ?-table tableName? ?-prepared prepared? ?query? ?arg...?");
+		Tcl_WrongNumArgs (interp, (argOffset <= 2) ? argOffset : 2, objv, "?-array arrayName? ?-table tableName? ?-prepared preparedName? ?-consistency level? ?query? ?arg...?");
 		return TCL_ERROR;
 	}
 
@@ -3553,7 +3634,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 				return TCL_ERROR;
 			}
 		}
-		return casstcl_bind_names_from_prepared (pcd, listObjc, listObjv, statementPtr);
+		return casstcl_bind_names_from_prepared (pcd, listObjc, listObjv, (consistencyObj != NULL) ? &consistency : NULL, statementPtr);
 	}
 
 	char *query = Tcl_GetString (newObjv[arg++]);
@@ -3572,9 +3653,9 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 			return TCL_ERROR;
 		}
 
-		return casstcl_bind_names_from_array (ct, tableName, query, arrayName, newObjc - arg, &newObjv[arg], statementPtr);
+		return casstcl_bind_names_from_array (ct, tableName, query, arrayName, newObjc - arg, &newObjv[arg], (consistencyObj != NULL) ? &consistency : NULL, statementPtr);
 	} else {
-		return casstcl_bind_values_and_types (ct, query, newObjc - arg, &newObjv[arg], statementPtr);
+		return casstcl_bind_values_and_types (ct, query, newObjc - arg, &newObjv[arg], (consistencyObj != NULL) ? &consistency : NULL, statementPtr);
 	}
 }
 
@@ -3604,7 +3685,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
  *----------------------------------------------------------------------
  */
 int
-casstcl_make_upsert_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_Obj *CONST objv[], CassStatement **statementPtr)
+casstcl_make_upsert_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_Obj *CONST objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
 {
 	Tcl_Interp *interp = ct->interp;
 	int ifNotExists = 0;
@@ -3663,7 +3744,7 @@ casstcl_make_upsert_statement_from_objv (casstcl_sessionClientData *ct, int objc
 
 	char *tableName = Tcl_GetString (objv[objc - 2]);
 
-	return casstcl_make_upsert_statement (ct, tableName, objv[objc - 1], statementPtr, mapUnknown, dropUnknown, ifNotExists);
+	return casstcl_make_upsert_statement (ct, tableName, objv[objc - 1], consistencyPtr, statementPtr, mapUnknown, dropUnknown, ifNotExists);
 }
 
 /*
@@ -4111,7 +4192,7 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
 		case OPT_UPSERT: {
 			CassStatement* statement = NULL;
 
-			resultCode = casstcl_make_upsert_statement_from_objv (bcd->ct, objc - 2, &objv[2], &statement);
+			resultCode = casstcl_make_upsert_statement_from_objv (bcd->ct, objc - 2, &objv[2], NULL, &statement);
 
 			if (resultCode != TCL_ERROR) {
 //printf("calling cass_batch_add_statement\n");
@@ -4726,7 +4807,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 
 			// if we don't have at least three arguments, it's an error
 			if (objc < 3) {
-				Tcl_WrongNumArgs (interp, 2, objv, "?-callback n? ?-head? ?-batch batchObject? ?-array array? ?-table table? statement ?args?");
+				Tcl_WrongNumArgs (interp, 2, objv, "?-callback n? ?-batch batchObject? ?-head? ?-array arrayName? ?-table tableName? ?-prepared preparedName? ?-consistency level? statement ?args?");
 				return TCL_ERROR;
 			}
 
