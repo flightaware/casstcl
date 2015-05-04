@@ -3880,7 +3880,7 @@ casstcl_iterate_over_future (casstcl_sessionClientData *ct, CassFuture *future, 
  *----------------------------------------------------------------------
  */
 
-int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName, Tcl_Obj *codeObj, int pagingSize) {
+int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName, Tcl_Obj *codeObj, int pagingSize, CassConsistency *consistencyPtr) {
 	CassStatement* statement = NULL;
 	int tclReturn = TCL_OK;
 	Tcl_Interp *interp = ct->interp;
@@ -3891,6 +3891,10 @@ int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName,
 	const CassResult* result = NULL;
 	CassError rc = CASS_OK;
 	int columnCount = -1;
+
+	if (casstcl_setStatementConsistency(ct, statement, consistencyPtr) != TCL_OK) {
+		return TCL_ERROR;
+	}
 
 	cass_statement_set_paging_size(statement, pagingSize);
 
@@ -4738,6 +4742,9 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		case OPT_SELECT: {
 			char *query;
 			char *arrayName;
+			char *consistencyName = NULL;
+			Tcl_Obj *consistencyObj = NULL;
+			CassConsistency consistency;
 			Tcl_Obj *code;
 			int pagingSize = 100;
 			int arg = 2;
@@ -4745,11 +4752,13 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 
 			static CONST char *subOptions[] = {
 				"-pagesize",
+				"-consistency",
 				NULL
 			};
 
 			enum subOptions {
-				SUBOPT_PAGESIZE
+				SUBOPT_PAGESIZE,
+				SUBOPT_CONSISTENCY
 			};
 
 			// if we don't have at least five arguments and an odd number
@@ -4772,6 +4781,14 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 						}
 						break;
 					}
+					case SUBOPT_CONSISTENCY: {
+						consistencyObj = objv[arg++];
+						consistencyName = Tcl_GetString(consistencyObj);
+						if (strlen(consistencyName) > 0 && casstcl_obj_to_cass_consistency(ct, consistencyObj, &consistency) != TCL_OK) {
+							return TCL_ERROR;
+						}
+						break;
+					}
 				}
 			}
 
@@ -4779,7 +4796,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			arrayName = Tcl_GetString (objv[arg++]);
 			code = objv[arg++];
 
-			return casstcl_select (ct, query, arrayName, code, pagingSize);
+			return casstcl_select (ct, query, arrayName, code, pagingSize, (consistencyObj != NULL) ? &consistency : NULL);
 		}
 
 		case OPT_EXEC:

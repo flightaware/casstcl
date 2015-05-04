@@ -87,9 +87,9 @@ If the connection fails, the callback may not be invoked (i.e. a script error ma
 
 The callback routine will be invoked with a single argument, which is the name of the future object created (such as *::future17*) when the request was made.
 
-* *$cassdb* **exec** *?-callback callbackRoutine?* *?-head?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName? *$statement* *?arg...?*
+* *$cassdb* **exec** *?-callback callbackRoutine?* *?-head?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName?* *?-consistency consistencyLevel?* *$statement* *?arg...?*
 
-* *$cassdb* **async** *?-callback callbackRoutine?* *?-head?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName?* *?-prepared preparedObjectName? *?$statement?* *?arg...?*
+* *$cassdb* **async** *?-callback callbackRoutine?* *?-head?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName?* *?-consistency consistencyLevel?* *?$statement?* *?arg...?*
 
 Perform the requested CQL statement.  Waits for it to complete if **exec** is used without **-callback** (synchronous).   Does not wait if **async** is used or **exec** is used with **-callback** (asynchronous).
 
@@ -113,7 +113,7 @@ If neither *-table*, *-array*, *-batch* or *-prepared* has been specified, the a
 
 See also the future object.
 
-* **$cassdb select** *?-pagesize n?* **$statement array code**
+* **$cassdb select** *?-pagesize n?* *?-consistency consistencyLevel?* **$statement array code**
 
 Iterate filling array with results of the select statement and executing code upon it.  break, continue and return from the code is supported.
 
