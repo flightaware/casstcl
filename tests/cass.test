@@ -236,6 +236,28 @@ if {[llength [info commands cass_test_connect]] == 0} then {
 
 ###############################################################################
 
+if {[llength [info commands cass_test_batch]] == 0} then {
+  proc cass_test_batch { varName cmdName {type ""} } {
+    upvar 1 $varName newCmdName
+
+    if {[string length $type] > 0} then {
+      set result [$newCmdName batch $cmdName $type]
+    } else {
+      set result [$newCmdName batch $cmdName]
+    }
+
+    set consistency [getEnvVar CASSTCL_CONSISTENCY ""]
+
+    if {[string length $consistency] > 0} then {
+      $result consistency $consistency
+    }
+
+    return $result
+  }
+}
+
+###############################################################################
+
 if {[llength [info commands cass_test_service_events]] == 0} then {
   proc cass_test_service_events { varName {milliseconds ""} } {
     if {[string length $milliseconds] == 0} then {
@@ -1036,7 +1058,7 @@ test cass-9.3 {exec with batch without callback} -body {
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
     $cmd exec [cass_test_subst $cass_test_cql(3)]
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     set value 1
     $batch add [cass_test_subst $cass_test_cql(4)]
     $cmd exec -batch $batch
@@ -1057,7 +1079,7 @@ test cass-9.4 {exec with batch with callback} -body {
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
     $cmd exec [cass_test_subst $cass_test_cql(3)]
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     set value 1
     $batch add [cass_test_subst $cass_test_cql(4)]
     set result [list]
@@ -1226,7 +1248,7 @@ test cass-9.11 {exec with batch without callback -array} -body {
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
     $cmd exec [cass_test_subst $cass_test_cql(3)]
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     array set row [list x 1]; set value 1
     $batch add \
         -table [appendArgs $keyspace .main] \
@@ -1249,7 +1271,7 @@ test cass-9.12 {exec with batch with callback -array} -body {
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
     $cmd exec [cass_test_subst $cass_test_cql(3)]
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     array set row [list x 1]; set value 1
     $batch add \
         -table [appendArgs $keyspace .main] \
@@ -1276,7 +1298,7 @@ test cass-9.13 {exec with batch without callback -prepared no args} -body {
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
     $cmd exec [cass_test_subst $cass_test_cql(3)]
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     set value 1
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
@@ -1300,7 +1322,7 @@ test cass-9.14 {exec with batch with callback -prepared no args} -body {
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
     $cmd exec [cass_test_subst $cass_test_cql(3)]
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     set value 1
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
@@ -1329,7 +1351,7 @@ test cass-9.15 {exec with batch without callback -prepared with arg} -body {
     $cmd exec [cass_test_subst $cass_test_cql(0)]
     $cmd exec [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     set value 1
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
@@ -1354,7 +1376,7 @@ test cass-9.16 {exec with batch with callback -prepared with arg} -body {
     $cmd exec [cass_test_subst $cass_test_cql(0)]
     $cmd exec [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     set value 1
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
@@ -1423,7 +1445,7 @@ test cass-10.3 {async with batch without callback} -body {
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
     $cmd exec [cass_test_subst $cass_test_cql(3)]
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     set value 1
     $batch add [cass_test_subst $cass_test_cql(4)]
     set future [$cmd async -batch $batch]
@@ -1446,7 +1468,7 @@ test cass-10.4 {async with batch with callback} -body {
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
     $cmd exec [cass_test_subst $cass_test_cql(3)]
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     set value 1
     $batch add [cass_test_subst $cass_test_cql(4)]
     set result [list]
@@ -1618,7 +1640,7 @@ test cass-10.11 {async with batch without callback -array} -body {
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
     $cmd exec [cass_test_subst $cass_test_cql(3)]
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     array set row [list x 1]; set value 1
     $batch add \
         -table [appendArgs $keyspace .main] \
@@ -1643,7 +1665,7 @@ test cass-10.12 {async with batch with callback -array} -body {
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
     $cmd exec [cass_test_subst $cass_test_cql(3)]
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     array set row [list x 1]; set value 1
     $batch add \
         -table [appendArgs $keyspace .main] \
@@ -1670,7 +1692,7 @@ test cass-10.13 {async with batch without callback -prepared no args} -body {
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
     $cmd exec [cass_test_subst $cass_test_cql(3)]
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     set value 1
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
@@ -1696,7 +1718,7 @@ test cass-10.14 {async with batch with callback -prepared no args} -body {
     cass_test_connect cmd
     $cmd exec [cass_test_subst $cass_test_cql(0)]
     $cmd exec [cass_test_subst $cass_test_cql(3)]
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     set value 1
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
@@ -1725,7 +1747,7 @@ test cass-10.15 {async with batch without callback -prepared with arg} -body {
     $cmd exec [cass_test_subst $cass_test_cql(0)]
     $cmd exec [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     set value 1
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
@@ -1752,7 +1774,7 @@ test cass-10.16 {async with batch with callback -prepared with arg} -body {
     $cmd exec [cass_test_subst $cass_test_cql(0)]
     $cmd exec [cass_test_subst $cass_test_cql(3)]
     $cmd reimport_column_type_map
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     set value 1
     set prepared [$cmd prepare #auto \
         [appendArgs $keyspace .main] \
@@ -1778,8 +1800,7 @@ test cass-11.1 {batch with manual name and type} -body {
   list [catch {
     cass_test_connect cmd
     set result [list]
-    set batch cass-11.1
-    $cmd batch $batch unlogged
+    set batch [cass_test_batch cmd cass-11.1 unlogged]
     lappend result [$batch count]
     lappend result [$batch add $cass_test_cql(1)]
     lappend result [$batch count]
@@ -1805,7 +1826,7 @@ test cass-11.2 {batch with automatic name and type} -body {
   list [catch {
     cass_test_connect cmd
     set result [list]
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     lappend result [$batch count]
     lappend result [$batch add $cass_test_cql(1)]
     lappend result [$batch count]
@@ -1840,7 +1861,7 @@ test cass-11.3 {batch upsert} -body {
     }]
     $cmd reimport_column_type_map
     set result [list]
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     lappend result [$batch count]
     lappend result [$batch upsert \
         [appendArgs $keyspace .cass113] [list column_one test1]]
@@ -1869,7 +1890,7 @@ test cass-11.4 {batch upsert -mapunknown} -body {
       );
     }]
     $cmd reimport_column_type_map
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     $batch upsert -mapunknown column_two \
         [appendArgs $keyspace .cass114] [list column_one \
         test1 two 2 three 3.14 four test]
@@ -1903,7 +1924,7 @@ test cass-11.5 {batch upsert -nocomplain} -body {
       );
     }]
     $cmd reimport_column_type_map
-    set batch [$cmd batch #auto]
+    set batch [cass_test_batch cmd #auto]
     $batch upsert -nocomplain \
         [appendArgs $keyspace .cass115] [list column_one \
         test1 two 2 three 3.14 four test]
@@ -1938,13 +1959,13 @@ test cass-11.6 {batch upsert -ifnotexists} -body {
       );
     }]
     $cmd reimport_column_type_map
-    set batch(1) [$cmd batch #auto]
+    set batch(1) [cass_test_batch cmd #auto]
     $batch(1) upsert -mapunknown column_two \
         [appendArgs $keyspace .cass116] [list column_one \
         test1 two 2 three 3.14 four test]
     $cmd exec -batch $batch(1)
     cass_test_service_events svc
-    set batch(2) [$cmd batch #auto]
+    set batch(2) [cass_test_batch cmd #auto]
     $batch(2) upsert -mapunknown column_two -ifnotexists \
         [appendArgs $keyspace .cass116] [list column_one \
         test1 two 3 three 4.25 four bad]

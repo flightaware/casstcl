@@ -2408,9 +2408,9 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 			unsigned char *value = Tcl_GetByteArrayFromObj (obj, &length);
 
 			if (name == NULL) {
-				cassError = cass_statement_bind_bytes (statement, index, value, (size_t)length);
+				cassError = cass_statement_bind_bytes (statement, index, value, length);
 			} else {
-				cassError = cass_statement_bind_bytes_by_name (statement, name, value, (size_t)length);
+				cassError = cass_statement_bind_bytes_by_name (statement, name, value, length);
 			}
 			break;
 		}
