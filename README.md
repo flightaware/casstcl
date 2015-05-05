@@ -109,11 +109,13 @@ If **-table** is specified it is the fully qualified name of a table and *-array
 
 If **-prepared** is specified it is the name of a prepared statement object and the final argument is a list of key value pairs where the key corresponds to the name of a value in the prepared statement and the value is to be correspondingly bound to the matching **?** argument in the statement.
 
+If **-consistency** is specified it is the consistency level to use for any created statement(s).  Cannot be used with **-batch**.
+
 If neither *-table*, *-array*, *-batch* or *-prepared* has been specified, the arguments to the right of the statement need to be alternating between data and data type, like *14 int 3.7 float*.  This is the simplest for casstcl but requires the code to be more intimate with the data types than it otherwise would be.  If you use this style and you change a data type in the schema you also have to change it in the code.  So we don't like it.
 
 See also the future object.
 
-* **$cassdb select** *?-pagesize n?* *?-consistency consistencyLevel?* **$statement array code**
+* *$cassdb* **select** *?-pagesize n?* *?-consistency consistencyLevel?* **$statement array code**
 
 Iterate filling array with results of the select statement and executing code upon it.  break, continue and return from the code is supported.
 
@@ -122,6 +124,8 @@ Null values are unset from the array, so you have to use info exists to see if a
 The array is cleared each iteration for you automatically so you don't neeed to jack with unset.
 
 If the **-pagesize** argument is present then it should be followed by an integer which is the number of query results that should be returned "per pass".  Changing this should transparent to the caller but smaller pagesize numbers should allow greater concurrency in many cases by allowing the application to process some results while the cluster is still producing them.  The default pagesize is 100 rows.
+
+If the **-consistency** argument is present then it should be followed by a consistency level, which will be used when creating any statement(s).
 
 * *$cassdb* **connect** *?keyspace?*
 
