@@ -3514,7 +3514,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 
 		// OK so we aren't going to accept anything starting with - that
 		// isn't in our option list
-		if (Tcl_GetIndexFromObj (interp, newObjv[arg++], options, "options",
+		if (Tcl_GetIndexFromObj (interp, newObjv[arg++], options, "option",
 			TCL_EXACT, &optIndex) != TCL_OK) {
 			return TCL_ERROR;
 		}

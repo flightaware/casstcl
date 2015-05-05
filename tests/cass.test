@@ -15,7 +15,7 @@ if {[lsearch [namespace children] ::tcltest] == -1} then {
 }
 
 set path [file normalize [file dirname [info script]]]
-package require casstcl
+package require casstcl 2.3
 
 ###############################################################################
 
