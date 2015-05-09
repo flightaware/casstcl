@@ -21,3 +21,4 @@ CREATE TABLE rock_blobster (
 	blobbie blob,
 	primary key(row)
 );
+
