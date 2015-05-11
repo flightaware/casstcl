@@ -4676,6 +4676,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		"credentials",
 		"tcp_nodelay",
 		"token_aware_routing",
+		"latency_aware_routing",
 		"tcp_keepalive",
 		"add_trusted_cert",
 		"ssl_cert",
@@ -4719,6 +4720,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		OPT_CREDENTIALS,
 		OPT_TCP_NODELAY,
 		OPT_TOKEN_AWARE_ROUTING,
+		OPT_LATENCY_AWARE_ROUTING,
 		OPT_TCP_KEEPALIVE,
 		OPT_ADD_TRUSTED_CERT,
 		OPT_SSL_CERT,
@@ -5303,6 +5305,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_cluster_set_write_bytes_high_water_mark (ct->cluster, writeBytesHighWaterMark);
+printf("invoked cass_cluster_set_write_bytes_high_water_mark with value %d\n", writeBytesHighWaterMark);
 			break;
 		}
 
@@ -5439,6 +5442,23 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_cluster_set_token_aware_routing(ct->cluster, enable);
+			break;
+		}
+
+		case OPT_LATENCY_AWARE_ROUTING: {
+			int enable = 0;
+
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "enableFlag");
+				return TCL_ERROR;
+			}
+
+			if (Tcl_GetBooleanFromObj (interp, objv[2], &enable) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting enable element", NULL);
+				return TCL_ERROR;
+			}
+
+			cass_cluster_set_latency_aware_routing(ct->cluster, enable);
 			break;
 		}
 

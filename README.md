@@ -253,7 +253,11 @@ This routing policy composes the base routing policy, routing requests first to 
 
 The default is enabled.
 
-This routing policy composes the base routing policy, routing requests first to replicas on nodes considered local by the base load balancing policy.
+* *$cassdb* **latency_aware_routing** *$enabled*
+
+Configures the cluster to use latency-aware request routing, or not.
+
+This routing policy composes the base routing policy tracks the exponentially weighted moving average of query latencies to nodes in the cluster.  If a given node's latency exceeds an exclusion threshold, it is no longer queried.
 
 * *$cassdb* **tcp_keepalive** *$enabled $delaySecs*
 
