@@ -344,6 +344,10 @@ This sets the verification that the client will perform on the peer's certificat
 
 Finally, **verify_peer_identity** will match the IP address to the certificate's common name or one of its subject alternative names.  This implies that the certificate is also present.
 
+* *$cassdb* **ssl_enable**
+
+This attaches the SSL context configured using the aforementioned SSL methods to our cassandra cluster structure and enables SSL.
+
 Future Objects
 ---
 

@@ -4682,6 +4682,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		"ssl_cert",
 		"ssl_private_key",
 		"ssl_verify_flag",
+		"ssl_enable",
 		"delete",
 		"close",
         NULL
@@ -4726,6 +4727,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		OPT_SSL_CERT,
 		OPT_SSL_PRIVATE_KEY,
 		OPT_SSL_VERIFY_FLAG,
+		OPT_SSL_ENABLE,
 		OPT_DELETE,
 		OPT_CLOSE
     };
@@ -5576,6 +5578,16 @@ printf("invoked cass_cluster_set_write_bytes_high_water_mark with value %d\n", w
 			}
 
 			cass_ssl_set_verify_flags (ct->ssl, flags);
+			break;
+		}
+
+		case OPT_SSL_ENABLE: {
+			if (objc != 2) {
+				Tcl_WrongNumArgs (interp, 2, objv, "");
+				return TCL_ERROR;
+			}
+
+			cass_cluster_set_ssl (ct->cluster, ct->ssl);
 			break;
 		}
 
