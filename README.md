@@ -249,6 +249,20 @@ Set credentials for plaintext authentication.
 
 Enable/Disable Nagel's algorithm on connections.  The default is disabled.
 
+* *$cassdb* **load_balance_round_robin**
+
+Requests that the driver discover all nodes in a cluster and cycles through the per request.  All are considered local.
+
+* *$cassdb* **load_balance_dc_aware** *localDC* *usedHostsPerRemoteDC* *allowRemoteDCs*
+
+Configures the cluster to use data center-aware load balancing.  For each query all the live inodes in the local data center are tried first, followed by any node from other data centers.
+
+This is the default and does not need to called unless switching an existing from another policy or changing settings.
+
+Without further configuration a default local data center is chosen from the first connected contact point and no remote hosts are considered in query plans.  If you use this mechanism be sure to use only contact points from the local data center.
+
+*localDC* is the name of the data center to try first.  *usedHostsPerRemoteDC* is the number of hosts used in each remote data center if no hosts are available in the local data center.  *allowRemoteDCs* is a boolean.  If true it allows remote hosts to be used to no local data center hosts are available and the consistency level is *one* or *quorum*.
+
 * *$cassdb* **token_aware_routing** *$enabled*
 
 Configures the cluster to use Token-aware request routing, or not.

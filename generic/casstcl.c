@@ -4676,6 +4676,8 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		"reconnect_wait_time",
 		"credentials",
 		"tcp_nodelay",
+		"load_balance_round_robin",
+		"load_balance_dc_aware",
 		"token_aware_routing",
 		"latency_aware_routing",
 		"tcp_keepalive",
@@ -4722,6 +4724,8 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		OPT_RECONNECT_WAIT_TIME,
 		OPT_CREDENTIALS,
 		OPT_TCP_NODELAY,
+		OPT_LOAD_BALANCE_ROUND_ROBIN,
+		OPT_LOAD_BALANCE_DC_AWARE,
 		OPT_TOKEN_AWARE_ROUTING,
 		OPT_LATENCY_AWARE_ROUTING,
 		OPT_TCP_KEEPALIVE,
@@ -5448,6 +5452,48 @@ printf("invoked cass_cluster_set_write_bytes_high_water_mark with value %d\n", w
 			cass_cluster_set_tcp_nodelay(ct->cluster, enable);
 			break;
 		}
+
+		case OPT_LOAD_BALANCE_ROUND_ROBIN: {
+			if (objc != 2) {
+				Tcl_WrongNumArgs (interp, 2, objv, "");
+				return TCL_ERROR;
+			}
+
+			cass_cluster_set_load_balance_round_robin (ct->cluster);
+			break;
+		}
+
+		case OPT_LOAD_BALANCE_DC_AWARE: {
+			char *localDC;
+			int usedHostsPerRemoteDC;
+			cass_bool_t allowRemoteDCS;
+			int allowFlag;
+
+			if (objc != 5) {
+				Tcl_WrongNumArgs (interp, 2, objv, "local_dc hosts_per_remote_dc allow_remote_dcs");
+				return TCL_ERROR;
+			}
+
+			localDC = Tcl_GetString (objv[3]);
+
+			if (Tcl_GetIntFromObj (interp, objv[4], &usedHostsPerRemoteDC) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting usedHostsPerRemoteDC element", NULL);
+				return TCL_ERROR;
+			}
+
+			if (Tcl_GetBooleanFromObj (interp, objv[5], &allowFlag) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting allowRemoteDCS element", NULL);
+				return TCL_ERROR;
+			}
+			allowRemoteDCS = (allowFlag) ? cass_true : cass_false;
+
+			CassError cassError = cass_cluster_set_load_balance_dc_aware (ct->cluster, localDC, usedHostsPerRemoteDC, allowRemoteDCS);
+			if (cassError != CASS_OK) {
+				return casstcl_cass_error_to_tcl (ct, cassError);
+			}
+			break;
+		}
+
 
 		case OPT_TOKEN_AWARE_ROUTING: {
 			int enable = 0;
