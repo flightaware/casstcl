@@ -209,6 +209,10 @@ Sets the maximum number of connections that will be created concurrently.  Conne
 
 Sets the threshold for the maximum number of concurrent requests in-flight on a connection before creating a new connection.  The number of new connections created will not exceed max_connections_per_host.  Default 100.
 
+* *$cassdb* **max_requests_per_flush* *$numRequests*
+
+Set the maximum number of requests processed by an I/O worker per flush.  Default 128.
+
 * *$cassdb* **write_bytes_high_water_mark** *$highWaterMarkBytes*
 
 Sets the high water mark for the number of bytes outstanding on a connection.  Disables writes to a connection if the number of bytes queued exceeds this value. cpp-driver documented default is 64 KB.

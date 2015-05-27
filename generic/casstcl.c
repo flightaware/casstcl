@@ -4666,6 +4666,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		"max_connections_per_host",
 		"max_concurrent_creation",
 		"max_concurrent_requests_threshold",
+		"max_requests_per_flush",
 		"write_bytes_high_water_mark",
 		"write_bytes_low_water_mark",
 		"pending_requests_high_water_mark",
@@ -4711,6 +4712,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		OPT_MAX_CONNECTIONS_PER_HOST,
 		OPT_MAX_CONCURRENT_CREATION,
 		OPT_MAX_CONCURRENT_REQUESTS_THRESHOLD,
+		OPT_MAX_REQUESTS_PER_FLUSH,
 		OPT_WRITE_BYTES_HIGH_WATER_MARK,
 		OPT_WRITE_BYTES_LOW_WATER_MARK,
 		OPT_PENDING_REQUESTS_HIGH_WATER_MARK,
@@ -5290,6 +5292,23 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_cluster_set_max_concurrent_requests_threshold (ct->cluster, maxConcurrentRequestsThreshold);
+			break;
+		}
+
+		case OPT_MAX_REQUESTS_PER_FLUSH: {
+			int maxRequestsPerFlush = 0;
+
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "maxRequestsPerFlush");
+				return TCL_ERROR;
+			}
+
+			if (Tcl_GetIntFromObj (interp, objv[2], &maxRequestsPerFlush) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting maxRequestsPerFlush element", NULL);
+				return TCL_ERROR;
+			}
+
+			cass_cluster_set_max_requests_per_flush (ct->cluster, maxRequestsPerFlush);
 			break;
 		}
 
