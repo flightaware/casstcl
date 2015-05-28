@@ -135,9 +135,9 @@ Connect to the cassandra cluster.  Use the specified keyspace if the keyspace ar
 $cassdb exec "use wx;"
 ```
 
-* *$cassdb* **prepare** *tableName* *$statement*
+* *$cassdb* **prepare** *objName* *tableName* *$statement*
 
-Prepare the specified statement.  Although the table name shouldn't technically need to be specified, since the cpp-driver API doesn't provide access to the data types of the elements of the statement (yet; they have a ticket open to do it), we need the table name so we can look up the data types of the values being substituted when a prepared statement is being bound.  (It's OK to specify the table name since Cassandra doesn't support joins and whatnot so there shouldn't be more than one table referenced.)
+Prepare the specified statement and creates a prepared object named *objName*.  Although the table name shouldn't technically need to be specified, since the cpp-driver API doesn't provide access to the data types of the elements of the statement (yet; they have a ticket open to do it), we need the table name so we can look up the data types of the values being substituted when a prepared statement is being bound.  (It's OK to specify the table name since Cassandra doesn't support joins and whatnot so there shouldn't be more than one table referenced.)
 
 The result is a prepared statement object that currently has a single method, **delete**, which does the needful, but the statement can also be passed as an argument to adding a statement to a batch or execing or asyncing a statement.
 
