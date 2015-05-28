@@ -209,7 +209,7 @@ proc quote_typeof {tableColumn value {subType ""}} {
 # ::casstcl::connect - convenience function to create a cassandra object
 #   with optional specification of host and port
 #
-#   set cassHandle [::casstcl::connect -host $host -port $port]
+#   set cassHandle [::casstcl::connect -host $host -port $port -user $user -password $password]
 #
 proc connect {args} {
 	package require cmdline
@@ -217,18 +217,25 @@ proc connect {args} {
 	set options {
 		{host.arg "127.0.0.1" "address of cluster host"}
 		{port.arg "9042" "port of cluster host"}
+		{user.arg "" "specify user credentials"}
+		{password.arg "" "specify password credentials"}
 	}
 
-	set usage "connect ?-host host? ?-port port?"
+	set usage "connect ?-host host? ?-port port? ?-user user? ?-password password?"
 
-	if {[catch {array set params [::cmdline::getKnownOptions argv $options $usage]} catchResult] == 1} {
+	if {[catch {array set params [::cmdline::getoptions args $options $usage]} catchResult] == 1} {
 		error $catchResult
 	}
 
     set cass [::casstcl::cass create #auto]
 
-    $cass contact_points $::params(host)
-    $cass port $::params(port)
+    $cass contact_points $params(host)
+    $cass port $params(port)
+
+	if {[info exists params(user)] && [info exists params(password)]} {
+		$cass credentials $params(user) $params(password)
+	}
+
     $cass connect
 
     return $cass
