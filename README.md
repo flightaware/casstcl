@@ -97,7 +97,7 @@ If synchronous then tcl waits for the cassandra call to complete and gives you b
 
 If used asynchronously then the request is issued to cassandra and a result object called a *future* object is created and returned.
 
-You you can use the methods of the future object to find out the status of your statement, iterate over select results, etc. Asynchronous operation allows for considerable performance gains over synchronous at the cost of greater code complexity.
+You can use the methods of the future object to find out the status of your statement, iterate over select results, etc. Asynchronous operation allows for considerable performance gains over synchronous at the cost of greater code complexity.
 
 If the **-callback** argument is specified then the next argument is a callback routine that will be invoked when the Cassandra request has completed or errored or whatnot.  The callback routine will be invoked with a single argument, which is the name of the future object created (such as *::future17*) when the request was made.
 
