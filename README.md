@@ -139,7 +139,7 @@ $cassdb exec "use wx;"
 
 Prepare the specified statement and creates a prepared object named *objName*.  Although the table name shouldn't technically need to be specified, since the cpp-driver API doesn't provide access to the data types of the elements of the statement (yet; they have a ticket open to do it), we need the table name so we can look up the data types of the values being substituted when a prepared statement is being bound.  (It's OK to specify the table name since Cassandra doesn't support joins and whatnot so there shouldn't be more than one table referenced.)
 
-The result is a prepared statement object that currently has a single method, **delete**, which does the needful, but the statement can also be passed as an argument to adding a statement to a batch or execing or asyncing a statement.
+The result is a prepared statement object that currently has two methods, **delete**, which does the needful, and **statement**, which returns the string that was prepared as a statement.  The important thing is that prepared objects can be passed as arguments to the **batch**, **async** and **exec** methods.
 
 * *$cassdb* **keyspaces**
 

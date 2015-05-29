@@ -115,6 +115,7 @@ casstcl_preparedObjectDelete (ClientData clientData)
 
 	cass_prepared_free (pcd->prepared);
 	Tcl_DecrRefCount (pcd->tableNameObj);
+	ckfree (pcd->string);
     ckfree((char *)clientData);
 }
 
@@ -3119,10 +3120,11 @@ casstcl_bind_names_from_prepared (casstcl_preparedClientData *pcd, int objc, Tcl
 
 		// failed to find it?  in this case it's an error
 		if (tclReturn == TCL_CONTINUE) {
-			Tcl_ResetResult (interp);
-			Tcl_AppendResult (interp, "couldn't look up data type for column '", Tcl_GetString (objv[i]), "' from table '", table, "'", NULL);
-			masterReturn = TCL_ERROR;
-			break;
+			// Tcl_ResetResult (interp);
+			// Tcl_AppendResult (interp, "couldn't look up data type for column '", Tcl_GetString (objv[i]), "' from table '", table, "'", NULL);
+			// masterReturn = TCL_ERROR;
+			// break;
+			continue;
 		}
 
 		// get the value out of the list
@@ -4354,11 +4356,13 @@ casstcl_preparedObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl
 	int resultCode = TCL_OK;
 
     static CONST char *options[] = {
+        "statement",
         "delete",
         NULL
     };
 
     enum options {
+		OPT_STATEMENT,
 		OPT_DELETE
     };
 
@@ -4373,6 +4377,15 @@ casstcl_preparedObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl
     }
 
     switch ((enum options) optIndex) {
+		case OPT_STATEMENT: {
+			if (objc != 2) {
+				Tcl_WrongNumArgs (interp, 2, objv, "");
+				return TCL_ERROR;
+			}
+			Tcl_SetObjResult (interp, Tcl_NewStringObj (pcd->string, -1));
+
+			break;
+		}
 		case OPT_DELETE: {
 			if (objc != 2) {
 				Tcl_WrongNumArgs (interp, 2, objv, "");
@@ -4986,13 +4999,17 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			char *query = NULL;
 			CassError rc = CASS_OK;
 			CassFuture *future;
+			char *statementString;
+			int statementStringLength;
 
 			if (objc != 5) {
 				Tcl_WrongNumArgs (interp, 2, objv, "name table statement");
 				return TCL_ERROR;
 			}
 
-			future = cass_session_prepare (ct->session, Tcl_GetString (objv[4]));
+			statementString = Tcl_GetStringFromObj (objv[4], &statementStringLength);
+
+			future = cass_session_prepare (ct->session, statementString);
 
 			cass_future_wait (future);
 
@@ -5014,6 +5031,9 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			pcd->cass_prepared_magic = CASS_PREPARED_MAGIC;
 			pcd->ct = ct;
 			pcd->prepared = cassPrepared;
+
+			pcd->string = ckalloc (statementStringLength + 1);
+			strncpy (pcd->string, statementString, statementStringLength);
 
 			pcd->tableNameObj = objv[3];
 			Tcl_IncrRefCount (pcd->tableNameObj);
