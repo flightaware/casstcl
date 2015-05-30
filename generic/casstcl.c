@@ -5350,7 +5350,6 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_cluster_set_write_bytes_high_water_mark (ct->cluster, writeBytesHighWaterMark);
-printf("invoked cass_cluster_set_write_bytes_high_water_mark with value %d\n", writeBytesHighWaterMark);
 			break;
 		}
 
