@@ -1324,10 +1324,9 @@ const char *casstcl_batch_type_to_batch_type_string (CassBatchType cassBatchType
  *--------------------------------------------------------------
  */
 casstcl_batchClientData *
-casstcl_batch_command_to_batchClientData (casstcl_sessionClientData *ct, char *batchCommandName)
+casstcl_batch_command_to_batchClientData (Tcl_Interp *interp, char *batchCommandName)
 {
 	Tcl_CmdInfo batchCmdInfo;
-	Tcl_Interp *interp = ct->interp;
 
 	if (!Tcl_GetCommandInfo (interp, batchCommandName, &batchCmdInfo)) {
 		return NULL;
@@ -1357,10 +1356,9 @@ casstcl_batch_command_to_batchClientData (casstcl_sessionClientData *ct, char *b
  *--------------------------------------------------------------
  */
 casstcl_preparedClientData *
-casstcl_prepared_command_to_preparedClientData (casstcl_sessionClientData *ct, char *preparedCommandName)
+casstcl_prepared_command_to_preparedClientData (Tcl_Interp *interp, char *preparedCommandName)
 {
 	Tcl_CmdInfo preparedCmdInfo;
-	Tcl_Interp *interp = ct->interp;
 
 	if (!Tcl_GetCommandInfo (interp, preparedCommandName, &preparedCmdInfo)) {
 		return NULL;
@@ -3605,7 +3603,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 // printf("prepared case branch, name = '%s'\n", preparedName);
 
 		// locate the prepared statement structure we created earlier
-		casstcl_preparedClientData * pcd = casstcl_prepared_command_to_preparedClientData (ct, preparedName);
+		casstcl_preparedClientData * pcd = casstcl_prepared_command_to_preparedClientData (interp, preparedName);
 		int listObjc = 0;
 		Tcl_Obj **listObjv = NULL;
 
@@ -4886,7 +4884,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				}
 
 				// get the batch object from the command name we extracted
-				casstcl_batchClientData *bcd = casstcl_batch_command_to_batchClientData (ct, batchObjName);
+				casstcl_batchClientData *bcd = casstcl_batch_command_to_batchClientData (interp, batchObjName);
 				if (bcd == NULL) {
 					Tcl_ResetResult (interp);
 					Tcl_AppendResult (interp, "batch object '", batchObjName, "' doesn't exist or isn't a batch object", NULL);
