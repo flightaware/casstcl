@@ -1375,6 +1375,38 @@ casstcl_prepared_command_to_preparedClientData (Tcl_Interp *interp, char *prepar
 /*
  *--------------------------------------------------------------
  *
+ * casstcl_future_command_to_futureClientData -- given a "future"
+ * command name like future0, find it
+ *   in the interpreter and return a pointer to its future client
+ *   data or NULL
+ *
+ * Results:
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+casstcl_futureClientData *
+casstcl_future_command_to_futureClientData (Tcl_Interp *interp, char *futureCommandName)
+{
+	Tcl_CmdInfo futureCmdInfo;
+
+	if (!Tcl_GetCommandInfo (interp, futureCommandName, &futureCmdInfo)) {
+		return NULL;
+	}
+
+	casstcl_futureClientData *fcd = (casstcl_futureClientData *)futureCmdInfo.objClientData;
+    if (fcd->cass_future_magic != CASS_FUTURE_MAGIC) {
+		return NULL;
+	}
+
+	return fcd;
+}
+
+/*
+ *--------------------------------------------------------------
+ *
  * casstcl_invoke_callback_with_argument --
  *
  *     The twist here is that a callback object might be a list, not
