@@ -63,7 +63,11 @@ casstcl_futureObjectDelete (ClientData clientData)
     assert (fcd->cass_future_magic == CASS_FUTURE_MAGIC);
 
 	cass_future_free (fcd->future);
-	Tcl_DecrRefCount(fcd->callbackObj);
+
+	if (fcd->callbackObj != NULL) {
+		Tcl_DecrRefCount(fcd->callbackObj);
+	}
+
     ckfree((char *)clientData);
 }
 
