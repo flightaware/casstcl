@@ -1,7 +1,7 @@
-CassTcl, a Tcl C extension providing a Tcl interface to the Cassandra database
+CassTcl, a Tcl language interface to the Cassandra database
 ===
 
-CassTcl provides a Tcl interface to the Cassandra cpp-driver C/C++ API.
+CassTcl provides a Tcl interface to the Cassandra database using the cpp-driver C/C++ API.
 
 Functionality
 ---
@@ -13,7 +13,7 @@ Functionality
 - Ad-hoc queries in CQL
 - Supports prepared statements
 - Supports batches
-- Supports all types Cassandra collections
+- Supports all types of Cassandra collections
 - Compatible with binary protocol version 1 and 2
 - Supports authentication via credentials using SASL PLAIN
 - Supports SSL
