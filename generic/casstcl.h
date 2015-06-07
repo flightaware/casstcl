@@ -125,7 +125,10 @@ typedef struct casstcl_futureEvent
 	casstcl_futureClientData *fcd;
 } casstcl_futureEvent;
 
+#ifdef __cplusplus
 extern "C" {
+#endif
+
 extern int
 casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[]);
 
@@ -137,6 +140,9 @@ casstcl_future_error_to_tcl (casstcl_sessionClientData *ct, CassError cassError,
 
 extern int
 casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValue *cassValue, Tcl_Obj **tclObj);
+
+#ifdef __cplusplus
 }
+#endif
 
 /* vim: set ts=4 sw=4 sts=4 noet : */
