@@ -1493,7 +1493,6 @@ casstcl_logging_eventProc (Tcl_Event *tevPtr, int flags) {
 	// Go get that.
 
 	casstcl_loggingEvent *evPtr = (casstcl_loggingEvent *)tevPtr;
-	int tclReturnCode;
 	Tcl_Interp *interp = evPtr->interp;
 
 #define CASSTCL_LOG_CALLBACK_LISTCOUNT 12
@@ -1533,7 +1532,7 @@ casstcl_logging_eventProc (Tcl_Event *tevPtr, int flags) {
 	// even if this fails we still want the event taken off the queue
 	// this function will do the background error thing if there is a tcl
 	// error running the callback
-	tclReturnCode = casstcl_invoke_callback_with_argument (interp, casstcl_loggingCallbackObj, listObj);
+	casstcl_invoke_callback_with_argument (interp, casstcl_loggingCallbackObj, listObj);
 
 	// tell the dispatcher we handled it.  0 would mean we didn't deal with
 	// it and don't want it removed from the queue
@@ -4551,7 +4550,6 @@ casstcl_future_eventProc (Tcl_Event *tevPtr, int flags) {
 
 	casstcl_futureEvent *evPtr = (casstcl_futureEvent *)tevPtr;
 	casstcl_futureClientData *fcd = evPtr->fcd;
-	int tclReturnCode;
 	Tcl_Interp *interp = fcd->ct->interp;
 
 	Tcl_Obj *futureObj;
@@ -4565,7 +4563,7 @@ casstcl_future_eventProc (Tcl_Event *tevPtr, int flags) {
 	// first argument and the future object we created, like future0, as
 	// the second.
 
-	tclReturnCode = casstcl_invoke_callback_with_argument (interp, fcd->callbackObj, futureObj);
+	casstcl_invoke_callback_with_argument (interp, fcd->callbackObj, futureObj);
 
 	// tell the dispatcher we handled it.  0 would mean we didn't deal with
 	// it and don't want it removed from the queue
@@ -5650,7 +5648,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 
 		case OPT_SSL_VERIFY_FLAG: {
 			int         subOptIndex;
-			int flags;
+			int flags = 0;
 
 			static CONST char *subOptions[] = {
 				"none",
