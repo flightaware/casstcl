@@ -380,6 +380,13 @@ if {[$future isready]} {
 		set errorString [$future error_message]
 	}
 }
+
+$future foreach row {
+	parray row
+	puts ""
+}
+
+$future delete
 ```
 
 * *$future* **isready**
@@ -405,6 +412,18 @@ Return the cassandra error message for the future, empty string if none.
 * *$future* **delete**
 
 Delete the future.  Care should be taken to delete these when done with them to avoid leaking memory.
+
+Exec and select kind of hide the future object to make things simpler.  Sometimes you may like to go synchronously because given the nature of your application you're willing to wait for the result and you don't want to jack around with callbacks, yadda.  Great.  Exec and select are normally pretty good for that but future objects have some capabilities you can't get with them so you can do an async without the callback then wait immediately on the future object.  Remember to delete your future objects when you're done with them.
+
+```tcl
+set future [$cassObj async "select * from wx_metar where airport = 'KHOU' order by time desc limit 1"]
+$future wait
+if {[$future status] != "CASS_OK"} {
+	set errorString [$future error_message]
+}
+...
+$future delete
+```
 
 Casstcl logging callback
 ---
