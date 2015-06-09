@@ -299,11 +299,17 @@ While you can construct batches out of straight CQL with BEGIN BATCH and APPLY B
 Create a new batch using the batch method of the cassandra object:
 
 ```tcl
-$cassdb create mybatch
-set mybatch [$cassdb create #auto]
+$cassdb batch mybatch
+set mybatch [$cassdb batch #auto]
 ```
 
 Both styles work.
+
+The default batch type is *logged*.  An optional argument to the batch creation command is the batch type, which can be *logged*, *unlogged* or *counter*.
+
+```tcl
+set mybatch [$cassdb batch #auto unlogged]
+```
 
 * *$batch* **add** *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName? ?args..?
 

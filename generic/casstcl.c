@@ -1268,14 +1268,17 @@ casstcl_obj_to_cass_batch_type (Tcl_Interp *interp, Tcl_Obj *tclObj, CassBatchTy
     switch ((enum batchTypes) batchTypeIndex) {
         case OPT_LOGGED: {
 			*cassBatchType = CASS_BATCH_TYPE_LOGGED;
+			break;
 		}
 
         case OPT_UNLOGGED: {
 			*cassBatchType = CASS_BATCH_TYPE_UNLOGGED;
+			break;
 		}
 
         case OPT_COUNTER: {
 			*cassBatchType = CASS_BATCH_TYPE_COUNTER;
+			break;
 		}
 	}
 
