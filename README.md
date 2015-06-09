@@ -79,57 +79,57 @@ Methods of cassandra cluster interface object
 
 * *$cassdb* **connect** *?-callback callbackRoutine?* *keyspaceName*
 
-Attempts to connect to the specified database, optionally setting the keyspace.
+ Attempts to connect to the specified database, optionally setting the keyspace.
 
-If the **-callback** argument is specified then the next argument is a callback routine that will be invoked when successfully connected.
+ If the **-callback** argument is specified then the next argument is a callback routine that will be invoked when successfully connected.
 
-If the connection fails, the callback may not be invoked (i.e. a script error may be generated instead).
+ If the connection fails, the callback may not be invoked (i.e. a script error may be generated instead).
 
-The callback routine will be invoked with a single argument, which is the name of the future object created (such as *::future17*) when the request was made.
+ The callback routine will be invoked with a single argument, which is the name of the future object created (such as *::future17*) when the request was made.
 
 * *$cassdb* **exec** *?-callback callbackRoutine?* *?-head?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName?* *?-consistency consistencyLevel?* *$statement* *?arg...?*
 
 * *$cassdb* **async** *?-callback callbackRoutine?* *?-head?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName?* *?-consistency consistencyLevel?* *?$statement?* *?arg...?*
 
-Perform the requested CQL statement.  Waits for it to complete if **exec** is used without **-callback** (synchronous).   Does not wait if **async** is used or **exec** is used with **-callback** (asynchronous).
+ Perform the requested CQL statement.  Waits for it to complete if **exec** is used without **-callback** (synchronous).   Does not wait if **async** is used or **exec** is used with **-callback** (asynchronous).
 
-If synchronous then tcl waits for the cassandra call to complete and gives you back an error if an error occurs.
+ If synchronous then tcl waits for the cassandra call to complete and gives you back an error if an error occurs.
 
-If used asynchronously then the request is issued to cassandra and a result object called a *future* object is created and returned.
+ If used asynchronously then the request is issued to cassandra and a result object called a *future* object is created and returned.
 
-You can use the methods of the future object to find out the status of your statement, iterate over select results, etc. Asynchronous operation allows for considerable performance gains over synchronous at the cost of greater code complexity.
+ You can use the methods of the future object to find out the status of your statement, iterate over select results, etc. Asynchronous operation allows for considerable performance gains over synchronous at the cost of greater code complexity.
 
-If the **-callback** argument is specified then the next argument is a callback routine that will be invoked when the Cassandra request has completed or errored or whatnot.  The callback routine will be invoked with a single argument, which is the name of the future object created (such as *::future17*) when the request was made.
+ If the **-callback** argument is specified then the next argument is a callback routine that will be invoked when the Cassandra request has completed or errored or whatnot.  The callback routine will be invoked with a single argument, which is the name of the future object created (such as *::future17*) when the request was made.
 
-If **-head** is specified then when the callback even occurs it is queued at the head of the notifier queue rather than at the tail, causing the event to be processed ahead of other events already in the queue.  This can be useful when you are getting a lot of events to make sure that your important cassandra completion events get priority above, say, the events that are causing your casstcl batches to get added to.
+ If **-head** is specified then when the callback even occurs it is queued at the head of the notifier queue rather than at the tail, causing the event to be processed ahead of other events already in the queue.  This can be useful when you are getting a lot of events to make sure that your important cassandra completion events get priority above, say, the events that are causing your casstcl batches to get added to.
 
-If **-batch** is specified the argument is a batch object and that is used as the source of the statement(s).
+ If **-batch** is specified the argument is a batch object and that is used as the source of the statement(s).
 
-If **-table** is specified it is the fully qualified name of a table and *-array* is also required, and vice versa.  These specify the affected table name and an array that the data elements will come from.  Args are zero or more arguments which are element names for the array and also legal column names for the table.  This technology will infer the data types and handle them behind your back as long as import_column_type_map has been run on the connection.
+ If **-table** is specified it is the fully qualified name of a table and *-array* is also required, and vice versa.  These specify the affected table name and an array that the data elements will come from.  Args are zero or more arguments which are element names for the array and also legal column names for the table.  This technology will infer the data types and handle them behind your back as long as import_column_type_map has been run on the connection.
 
-If **-prepared** is specified it is the name of a prepared statement object and the final argument is a list of key value pairs where the key corresponds to the name of a value in the prepared statement and the value is to be correspondingly bound to the matching **?** argument in the statement.
+ If **-prepared** is specified it is the name of a prepared statement object and the final argument is a list of key value pairs where the key corresponds to the name of a value in the prepared statement and the value is to be correspondingly bound to the matching **?** argument in the statement.
 
-If **-consistency** is specified it is the consistency level to use for any created statement(s).  Cannot be used with **-batch**.
+ If **-consistency** is specified it is the consistency level to use for any created statement(s).  Cannot be used with **-batch**.
 
-If neither *-table*, *-array*, *-batch* or *-prepared* has been specified, the arguments to the right of the statement need to be alternating between data and data type, like *14 int 3.7 float*.  This is the simplest for casstcl but requires the code to be more intimate with the data types than it otherwise would be.  If you use this style and you change a data type in the schema you also have to change it in the code.  So we don't like it.
+ If neither *-table*, *-array*, *-batch* or *-prepared* has been specified, the arguments to the right of the statement need to be alternating between data and data type, like *14 int 3.7 float*.  This is the simplest for casstcl but requires the code to be more intimate with the data types than it otherwise would be.  If you use this style and you change a data type in the schema you also have to change it in the code.  So we don't like it.
 
-See also the future object.
+ See also the future object.
 
 * *$cassdb* **select** *?-pagesize n?* *?-consistency consistencyLevel?* **$statement array code**
 
-Iterate filling array with results of the select statement and executing code upon it.  break, continue and return from the code is supported.
+ Iterate filling array with results of the select statement and executing code upon it.  break, continue and return from the code is supported.
 
-Null values are unset from the array, so you have to use info exists to see if a value is not null.
+ Null values are unset from the array, so you have to use info exists to see if a value is not null.
 
-The array is cleared each iteration for you automatically so you don't neeed to jack with unset.
+ The array is cleared each iteration for you automatically so you don't neeed to jack with unset.
 
-If the **-pagesize** argument is present then it should be followed by an integer which is the number of query results that should be returned "per pass".  Changing this should transparent to the caller but smaller pagesize numbers should allow greater concurrency in many cases by allowing the application to process some results while the cluster is still producing them.  The default pagesize is 100 rows.
+ If the **-pagesize** argument is present then it should be followed by an integer which is the number of query results that should be returned "per pass".  Changing this should transparent to the caller but smaller pagesize numbers should allow greater concurrency in many cases by allowing the application to process some results while the cluster is still producing them.  The default pagesize is 100 rows.
 
-If the **-consistency** argument is present then it should be followed by a consistency level, which will be used when creating any statement(s).
+ If the **-consistency** argument is present then it should be followed by a consistency level, which will be used when creating any statement(s).
 
 * *$cassdb* **connect** *?keyspace?*
 
-Connect to the cassandra cluster.  Use the specified keyspace if the keyspace argument is present.  Alternatively after connecting you can specify the keyspace to use with something like
+ Connect to the cassandra cluster.  Use the specified keyspace if the keyspace argument is present.  Alternatively after connecting you can specify the keyspace to use with something like
 
 ```tcl
 $cassdb exec "use wx;"
@@ -137,157 +137,157 @@ $cassdb exec "use wx;"
 
 * *$cassdb* **prepare** *objName* *tableName* *$statement*
 
-Prepare the specified statement and creates a prepared object named *objName*.  Although the table name shouldn't technically need to be specified, since the cpp-driver API doesn't provide access to the data types of the elements of the statement (yet; they have a ticket open to do it), we need the table name so we can look up the data types of the values being substituted when a prepared statement is being bound.  (It's OK to specify the table name since Cassandra doesn't support joins and whatnot so there shouldn't be more than one table referenced.)
+ Prepare the specified statement and creates a prepared object named *objName*.  Although the table name shouldn't technically need to be specified, since the cpp-driver API doesn't provide access to the data types of the elements of the statement (yet; they have a ticket open to do it), we need the table name so we can look up the data types of the values being substituted when a prepared statement is being bound.  (It's OK to specify the table name since Cassandra doesn't support joins and whatnot so there shouldn't be more than one table referenced.)
 
-The result is a prepared statement object that currently has two methods, **delete**, which does the needful, and **statement**, which returns the string that was prepared as a statement.  The important thing is that prepared objects can be passed as arguments to the **batch**, **async** and **exec** methods.
+ The result is a prepared statement object that currently has two methods, **delete**, which does the needful, and **statement**, which returns the string that was prepared as a statement.  The important thing is that prepared objects can be passed as arguments to the **batch**, **async** and **exec** methods.
 
 * *$cassdb* **keyspaces**
 
-Return a list of all of the keyspaces known to the cluster.
+ Return a list of all of the keyspaces known to the cluster.
 
 * *$cassdb* **tables** *$keyspace*
 
-Return a list of all of the tables within the named keyspace.
+ Return a list of all of the tables within the named keyspace.
 
 * *$cassdb* **columns** *$keyspace* *$table*
 
-Returns a list of the names of all of the columns within the specified table within the specified keyspace.
+ Returns a list of the names of all of the columns within the specified table within the specified keyspace.
 
 * *$cassdb* **columns_with_types** *$keyspace* *$table*
 
-Returns a list of key-value pairs consisting of all of the columns and their Cassandra data types.
+ Returns a list of key-value pairs consisting of all of the columns and their Cassandra data types.
 
-All of the schema-accessing functions, *list_keyspaces*, *list_tables*, *list_columns* and *list_column_types* locate this information using the metadata access capabilities provided by the cpp-driver.  As the cpp-driver will update its metadata on the fly as changes to the schema are made, the schema-accessing functions likewise will reflect any changes in the schema if called subsequently to schema changes occurring.
+ All of the schema-accessing functions, *list_keyspaces*, *list_tables*, *list_columns* and *list_column_types* locate this information using the metadata access capabilities provided by the cpp-driver.  As the cpp-driver will update its metadata on the fly as changes to the schema are made, the schema-accessing functions likewise will reflect any changes in the schema if called subsequently to schema changes occurring.
 
 * *$cassdb* **reimport_type_map**
 
-Casstcl maintains the data type of each column for each table for each schema in the cluster.  As the metadata can change on the fly, long-running programs that want to try to adapt to changes in the cluster schema can invoke this to regenerate casstcl's column-to-datatype mapping cache.
+ Casstcl maintains the data type of each column for each table for each schema in the cluster.  As the metadata can change on the fly, long-running programs that want to try to adapt to changes in the cluster schema can invoke this to regenerate casstcl's column-to-datatype mapping cache.
 
 * *$cassdb* **contact_points** *$addressList*
 
-Provide a list of one or more addresses to contact the cluster at.
+ Provide a list of one or more addresses to contact the cluster at.
 
-The first call sets the contact points and any subsequent calls appends additional contact points. Passing an empty string will clear the contact points. White space is striped from the contact points.
+ The first call sets the contact points and any subsequent calls appends additional contact points. Passing an empty string will clear the contact points. White space is striped from the contact points.
 
 * *$cassdb* **port** *$port*
 
-Specify a port to connect to the cluster on.  Since the cpp-driver uses the native binary CQL protocol, this would normally be 9042.
+ Specify a port to connect to the cluster on.  Since the cpp-driver uses the native binary CQL protocol, this would normally be 9042.
 
 * *$cassdb* **protocol_version** *$protocolVersion*
 
-Sets the protocol version. This will theoretically automatically downgrade to protocol version 1 if necessary.  The default value is 2.
+ Sets the protocol version. This will theoretically automatically downgrade to protocol version 1 if necessary.  The default value is 2.
 
 * *$cassdb* **num_threads_io** *$numThreads*
 
-Set the number of IO threads. This is the number of threads that will handle query requests.  The default is 1.
+ Set the number of IO threads. This is the number of threads that will handle query requests.  The default is 1.
 
 * *$cassdb* **queue_size_io** *$queueSize*
 
-Sets the size of the the fixed size queue that stores pending requests.  The default is 4096.
+ Sets the size of the the fixed size queue that stores pending requests.  The default is 4096.
 
 * *$cassdb* **queue_size_event** *$queueSize*
 
-Sets the size of the the fixed size queue that stores pending requests.  The default is 4096.
+ Sets the size of the the fixed size queue that stores pending requests.  The default is 4096.
 
 * *$cassdb* **queue_size_log** *$logSize*
 
-Sets the size of the the fixed size queue that stores log messages.  The default is 4096.
+ Sets the size of the the fixed size queue that stores log messages.  The default is 4096.
 
 * *$cassdb* **core_connections_per_host** *$numConnections*
 
-Sets the number of connections made to each server in each IO thread.  Defaults to 1.
+ Sets the number of connections made to each server in each IO thread.  Defaults to 1.
 
 * *$cassdb* **max_connections_per_host** *$numConnections*
 
-Sets the maximum number of connections made to each server in each IO thread.  Defaults to 2.
+ Sets the maximum number of connections made to each server in each IO thread.  Defaults to 2.
 
 * *$cassdb* **max_concurrent_creation** *$numConnections*
 
-Sets the maximum number of connections that will be created concurrently.  Connections are created when the current connections are unable to keep up with request throughput.  The default is 1.
+ Sets the maximum number of connections that will be created concurrently.  Connections are created when the current connections are unable to keep up with request throughput.  The default is 1.
 
 * *$cassdb* **max_concurrent_requests_threshold** *$numRequests*
 
-Sets the threshold for the maximum number of concurrent requests in-flight on a connection before creating a new connection.  The number of new connections created will not exceed max_connections_per_host.  Default 100.
+ Sets the threshold for the maximum number of concurrent requests in-flight on a connection before creating a new connection.  The number of new connections created will not exceed max_connections_per_host.  Default 100.
 
 * *$cassdb* **max_requests_per_flush* *$numRequests*
 
-Set the maximum number of requests processed by an I/O worker per flush.  Default 128.
+ Set the maximum number of requests processed by an I/O worker per flush.  Default 128.
 
 * *$cassdb* **write_bytes_high_water_mark** *$highWaterMarkBytes*
 
-Sets the high water mark for the number of bytes outstanding on a connection.  Disables writes to a connection if the number of bytes queued exceeds this value. cpp-driver documented default is 64 KB.
+ Sets the high water mark for the number of bytes outstanding on a connection.  Disables writes to a connection if the number of bytes queued exceeds this value. cpp-driver documented default is 64 KB.
 
 * *$cassdb* **write_bytes_low_water_mark** *$lowWaterMarkBytes*
 
-Sets the low water mark for the number of bytes outstanding on a connection.  After exceeding high water mark bytes, writes will only resume once the number of outstanding bytes falls below this value.  Default is 32 KB.
+ Sets the low water mark for the number of bytes outstanding on a connection.  After exceeding high water mark bytes, writes will only resume once the number of outstanding bytes falls below this value.  Default is 32 KB.
 
 * *$cassdb* **pending_requests_high_water_mark** *$highWaterMark*
 
-Sets the high water mark for the number of requests queued waiting for a connection in a connection pool.  Disables writes to a host on an IO worker if the number of requests queued exceeds this value.  Default is 128 * max_connections_per_host.
+ Sets the high water mark for the number of requests queued waiting for a connection in a connection pool.  Disables writes to a host on an IO worker if the number of requests queued exceeds this value.  Default is 128 * max_connections_per_host.
 
 * *$cassdb* **wpending_requests_low_water_mark** *$lowWaterMark*
 
-Sets the low water mark for the number of requests queued waiting for a connection in a connection pool.  After exceeding high water mark requests, writes to a host will only resume once the number of requests falls below this value.  Default is 64 * max_connections_per_host.
+ Sets the low water mark for the number of requests queued waiting for a connection in a connection pool.  After exceeding high water mark requests, writes to a host will only resume once the number of requests falls below this value.  Default is 64 * max_connections_per_host.
 
 * *$cassdb* **connect_timeout** *$timeoutMS*
 
-Sets the timeout for connecting to a node.  Timeout is in milliseconds.  The default is 5000 ms.
+ Sets the timeout for connecting to a node.  Timeout is in milliseconds.  The default is 5000 ms.
 
 * *$cassdb* **request_timeout** *$timeoutMS*
 
-Sets the timeout for waiting for a response from a node.  Timeout is in milliseconds.  The default is 12000 ms.
+ Sets the timeout for waiting for a response from a node.  Timeout is in milliseconds.  The default is 12000 ms.
 
 * *$cassdb* **reconnect_wait_time** *$timeoutMS*
 
-Sets the amount of time to wait before attempting to reconnect.  Default 2000 ms.
+ Sets the amount of time to wait before attempting to reconnect.  Default 2000 ms.
 
 * *$cassdb* **credentials** *$user $password*
 
-Set credentials for plaintext authentication.
+ Set credentials for plaintext authentication.
 
 * *$cassdb* **tcp_nodelay** *$enabled*
 
-Enable/Disable Nagel's algorithm on connections.  The default is disabled.
+ Enable/Disable Nagel's algorithm on connections.  The default is disabled.
 
 * *$cassdb* **load_balance_round_robin**
 
-Requests that the driver discover all nodes in a cluster and cycles through the per request.  All are considered local.
+ Requests that the driver discover all nodes in a cluster and cycles through the per request.  All are considered local.
 
 * *$cassdb* **load_balance_dc_aware** *localDC* *usedHostsPerRemoteDC* *allowRemoteDCs*
 
-Configures the cluster to use data center-aware load balancing.  For each query all the live inodes in the local data center are tried first, followed by any node from other data centers.
+ Configures the cluster to use data center-aware load balancing.  For each query all the live inodes in the local data center are tried first, followed by any node from other data centers.
 
-This is the default and does not need to called unless switching an existing from another policy or changing settings.
+ This is the default and does not need to called unless switching an existing from another policy or changing settings.
 
-Without further configuration a default local data center is chosen from the first connected contact point and no remote hosts are considered in query plans.  If you use this mechanism be sure to use only contact points from the local data center.
+ Without further configuration a default local data center is chosen from the first connected contact point and no remote hosts are considered in query plans.  If you use this mechanism be sure to use only contact points from the local data center.
 
-*localDC* is the name of the data center to try first.  *usedHostsPerRemoteDC* is the number of hosts used in each remote data center if no hosts are available in the local data center.  *allowRemoteDCs* is a boolean.  If true it allows remote hosts to be used to no local data center hosts are available and the consistency level is *one* or *quorum*.
+ *localDC* is the name of the data center to try first.  *usedHostsPerRemoteDC* is the number of hosts used in each remote data center if no hosts are available in the local data center.  *allowRemoteDCs* is a boolean.  If true it allows remote hosts to be used to no local data center hosts are available and the consistency level is *one* or *quorum*.
 
 * *$cassdb* **token_aware_routing** *$enabled*
 
-Configures the cluster to use Token-aware request routing, or not.
+ Configures the cluster to use Token-aware request routing, or not.
 
-This routing policy composes the base routing policy, routing requests first to replicas on nodes considered 'local' by the base load balancing policy.
+ This routing policy composes the base routing policy, routing requests first to replicas on nodes considered 'local' by the base load balancing policy.
 
-The default is enabled.
+ The default is enabled.
 
 * *$cassdb* **latency_aware_routing** *$enabled*
 
-Configures the cluster to use latency-aware request routing, or not.
+ Configures the cluster to use latency-aware request routing, or not.
 
-This routing policy composes the base routing policy tracks the exponentially weighted moving average of query latencies to nodes in the cluster.  If a given node's latency exceeds an exclusion threshold, it is no longer queried.
+ This routing policy composes the base routing policy tracks the exponentially weighted moving average of query latencies to nodes in the cluster.  If a given node's latency exceeds an exclusion threshold, it is no longer queried.
 
 * *$cassdb* **tcp_keepalive** *$enabled $delaySecs*
 
-Enables/Disables TCP keep-alive.  Default is disabled.  delaySecs is the initial delay in seconds; it is ignored when disabled.
+ Enables/Disables TCP keep-alive.  Default is disabled.  delaySecs is the initial delay in seconds; it is ignored when disabled.
 
 * *$cassdb* **delete**
 
-Disconnect from the cluster and delete the cluster connection object.
+ Disconnect from the cluster and delete the cluster connection object.
 
 * *$cassdb* **close**
 
-Disconnect from the cluster.
+ Disconnect from the cluster.
 
 Batches
 ---
@@ -313,64 +313,81 @@ set mybatch [$cassdb batch #auto unlogged]
 
 * *$batch* **add** *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName? ?args..?
 
-Adds the specified statement to the batch. Processes arguments similarly to the **exec** and **async** methods.
+ Adds the specified statement to the batch. Processes arguments similarly to the **exec** and **async** methods.
 
 * *$batch* **consistency** *?$consistencyLevel?*
 
-Sets the batch write consistency level to the specified level.  Consistency must be **any**, **one**, **two**, **three**, **quorum**, **all**, **local_quorum**, **each_quorum**, **serial**, **local_serial**, or **local_one**.
+ Sets the batch write consistency level to the specified level.  Consistency must be **any**, **one**, **two**, **three**, **quorum**, **all**, **local_quorum**, **each_quorum**, **serial**, **local_serial**, or **local_one**.
 
 * *$batch* **upsert** ?-mapunknown mapcolumn? ?-nocomplain? ?-ifnotexists? *$table* *$list*
 
-Generate in upsert into the batch.  List contains key value pairs where keys should be columns that exist in the fully qualified table.
+ Generate in upsert into the batch.  List contains key value pairs where keys should be columns that exist in the fully qualified table.
 
-A typical usage would be:
+ A typical usage would be:
 
 ```tcl
 $batch upsert wx.wx_metar [array get row]
 ```
 
-If *-nocomplain* is specified then any column names not found in the column map for the specified table are silently dropped along with their values.
+ If *-nocomplain* is specified then any column names not found in the column map for the specified table are silently dropped along with their values.
 
-If *-mapunknown* is specified then an additional argument containing a column name should be specified.  With this usage any column names not found in the column map are written to a map collection of the specified column name.  The column name must exist as a column in the table and be of the *map* type and the key and values types of the map must be *text*.
+ If *-mapunknown* is specified then an additional argument containing a column name should be specified.  With this usage any column names not found in the column map are written to a map collection of the specified column name.  The column name must exist as a column in the table and be of the *map* type and the key and values types of the map must be *text*.
 
 * *$batch* **count**
 
-Return the number of rows added to the batch using *add* or *upsert*.
+ Return the number of rows added to the batch using *add* or *upsert*.
 
 * *$batch* **reset**
 
-Reset the batch by deleting all of its data.
+ Reset the batch by deleting all of its data.
 
 * *$batch* **delete**
 
-Delete the batch object and all of its data.
+ Delete the batch object and all of its data.
+
+Note on batch size
+----
 
 As of Cassandra 3.1 there is a limit on the maximum size of a batch in the vicinity of 16 megabytes.  Generating batches that are too large will result in "no hosts available" when trying to send the batch and illegal argument exceptions on the backend from java about a mutation being too large.
+
+Note on batch performance
+----
+
+A number of people have said that batching doesn't improve insert performance and puts a lot of load on the Cassandra coordinator handling the request.  The author has found with a single writer and a small cluster, at least, that batching does improve performance.  YMMV.
+
+Note on logged versus unlogged batches
+----
+
+casstcl batches are logged by default.  From the Cassandra documentation:
+
+ Cassandra uses a batch log to ensure all operations in a batch are applied atomically. (Note that the operations are still only isolated within a single partition.)
+
+ There is a performance penalty for batch atomicity when a batch spans multiple partitions. If you do not want to incur this penalty, you can tell Cassandra to skip the batchlog with the UNLOGGED option. If the UNLOGGED option is used, operations are only atomic within a single partition.
 
 Configuring SSL Connections
 ---
 
 * *$cassdb* **ssl_cert** *$pemFormattedCertString*
 
-This sets the client-side certificate chain.  This is used by the server to authenticate the client.  This should contain the entire certificate chain starting with the certificate itself.
+ This sets the client-side certificate chain.  This is used by the server to authenticate the client.  This should contain the entire certificate chain starting with the certificate itself.
 
 * *$cassdb* **ssl_private_key** *$pemFormattedCertString $password*
 
-This sets the client-side private key.  This is by the server to authenticate the client.
+ This sets the client-side private key.  This is by the server to authenticate the client.
 
 * *$cassdb* **add_trusted_cert** *$pemFormattedCertString*
 
-This adds a trusted certificate.  This is used to verify the peer's certificate.
+ This adds a trusted certificate.  This is used to verify the peer's certificate.
 
 * *$cassdb* **ssl_verify_flag** *$flag*
 
-This sets the verification that the client will perform on the peer's certificate.  **none** selects that no verification will be performed, while **verify_peer_certificate** will verify that a certificate is present and valid.
+ This sets the verification that the client will perform on the peer's certificate.  **none** selects that no verification will be performed, while **verify_peer_certificate** will verify that a certificate is present and valid.
 
-Finally, **verify_peer_identity** will match the IP address to the certificate's common name or one of its subject alternative names.  This implies that the certificate is also present.
+ Finally, **verify_peer_identity** will match the IP address to the certificate's common name or one of its subject alternative names.  This implies that the certificate is also present.
 
 * *$cassdb* **ssl_enable**
 
-This attaches the SSL context configured using the aforementioned SSL methods to our cassandra cluster structure and enables SSL.
+ This attaches the SSL context configured using the aforementioned SSL methods to our cassandra cluster structure and enables SSL.
 
 Future Objects
 ---
@@ -397,27 +414,27 @@ $future delete
 
 * *$future* **isready**
 
-Returns 1 if the future (query result) is ready, else 0.
+ Returns 1 if the future (query result) is ready, else 0.
 
 * *$future* **wait** *?us?*
 
-Waits for the request to complete.  If the optional argument us is specified, times out after that number of microseconds.
+ Waits for the request to complete.  If the optional argument us is specified, times out after that number of microseconds.
 
 * *$future* **foreach** *rowArray code*
 
-Iterate through the query results, filling the named array with the columns of the row and their values and executing code thereupon.
+ Iterate through the query results, filling the named array with the columns of the row and their values and executing code thereupon.
 
 * *$future* **status**
 
-Return the cassandra status code converted back to a string, like CASS_OK and CASS_ERROR_SSL_NO_PEER_CERT and whatnot.  If it's anything other than CASS_OK then whatever you did didn't work.
+ Return the cassandra status code converted back to a string, like CASS_OK and CASS_ERROR_SSL_NO_PEER_CERT and whatnot.  If it's anything other than CASS_OK then whatever you did didn't work.
 
 * *$future* **error_message**
 
-Return the cassandra error message for the future, empty string if none.
+ Return the cassandra error message for the future, empty string if none.
 
 * *$future* **delete**
 
-Delete the future.  Care should be taken to delete these when done with them to avoid leaking memory.
+ Delete the future.  Care should be taken to delete these when done with them to avoid leaking memory.
 
 Exec and select kind of hide the future object to make things simpler.  Sometimes you may like to go synchronously because given the nature of your application you're willing to wait for the result and you don't want to jack around with callbacks, yadda.  Great.  Exec and select are normally pretty good for that but future objects have some capabilities you can't get with them so you can do an async without the callback then wait immediately on the future object.  Remember to delete your future objects when you're done with them.
 
@@ -500,37 +517,37 @@ The library functions such as *download_schema*, *list_schema*, *list_tables*, e
 
 * **::casstcl::validator_to_type** *$type*
 
-Given a validator type such as "org.apache.cassandra.db.marshal.AsciiType" and return the corresponding Cassandra type.  Can decode complex type references including reversed, list, set, and map.  This function is used by casstcl's *list_column_types* method.
+ Given a validator type such as "org.apache.cassandra.db.marshal.AsciiType" and return the corresponding Cassandra type.  Can decode complex type references including reversed, list, set, and map.  This function is used by casstcl's *list_column_types* method.
 
 * **::casstcl::quote** *$value* *$type*
 
-Return a quote of the specified value according to the specified cassandra type.
+ Return a quote of the specified value according to the specified cassandra type.
 
 * **casstcl::typeof** *table.columnName*
 
 * **casstcl::quote_typeof** *table.columnName* *value* *?subType?*
 
-Quote the value according to the field *columnName* in table *table*.  *subType* can be **key** for collection sets and lists and can be **key** or **value** for collection maps.  For these usages it returns the corresponding data type.  If the subType is specified and the column is a collection you get a list back like *list text* and *map int text*.
+ Quote the value according to the field *columnName* in table *table*.  *subType* can be **key** for collection sets and lists and can be **key** or **value** for collection maps.  For these usages it returns the corresponding data type.  If the subType is specified and the column is a collection you get a list back like *list text* and *map int text*.
 
 * **casstcl::assemble_statement** *statementVar* *line*
 
-Given the name of a variable (initially set to an empty string) to contain a CQL statement, and a line containing possibly a statement or part of a statement, append the line to the statement and return 1 if a complete statement is present, else 0.
+ Given the name of a variable (initially set to an empty string) to contain a CQL statement, and a line containing possibly a statement or part of a statement, append the line to the statement and return 1 if a complete statement is present, else 0.
 
-Comments and blank lines are skipped.
+ Comments and blank lines are skipped.
 
-(The check for a complete statement is the mere presence of a semicolon anywhere on the line, which is kind of meatball.)
+ (The check for a complete statement is the mere presence of a semicolon anywhere on the line, which is kind of meatball.)
 
 * **run_fp** *cassdb* *fp*
 
-Read from a file pointer and execute complete commands through the specified cassandra object.
+ Read from a file pointer and execute complete commands through the specified cassandra object.
 
 * **run_file** *cassdb* *fileName*
 
-Run CQL commands from a file.
+ Run CQL commands from a file.
 
 * **interact** *cassdb*
 
-Enter a primitive cqlsh-like shell.  Provides a prompt of *tcqlsh>* when no partial command has been entered or *......>* when a partial command is present.  Once a semicolon is seen via one input line or multiple, the command is executed.  "exit" to exit the interact proc.
+ Enter a primitive cqlsh-like shell.  Provides a prompt of *tcqlsh>* when no partial command has been entered or *......>* when a partial command is present.  Once a semicolon is seen via one input line or multiple, the command is executed.  "exit" to exit the interact proc.
 
 errorCode
 ---
