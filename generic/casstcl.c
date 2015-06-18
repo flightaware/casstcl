@@ -1565,7 +1565,7 @@ void casstcl_logging_callback (const CassLogMessage *message, void *data) {
 	casstcl_loggingEvent *evPtr;
 
 	Tcl_Interp *interp = data;
-	evPtr = ckalloc (sizeof (casstcl_loggingEvent));
+	evPtr = (casstcl_loggingEvent *)ckalloc (sizeof (casstcl_loggingEvent));
 	evPtr->event.proc = casstcl_logging_eventProc;
 	evPtr->interp = interp;
 	evPtr->message = *message; /* structure copy */
@@ -1608,7 +1608,7 @@ casstcl_InitCassBytesFromBignum(
 	    Tcl_ResetResult(interp);
 	    Tcl_AppendResult(interp, "could not init bytes", NULL);
 	}
-	ckfree(data);
+	ckfree((char *)data);
 	return TCL_ERROR;
     }
 
@@ -2579,7 +2579,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 			} else {
 				cassError = cass_statement_bind_decimal_by_name (statement, name, cassDecimal.varint.data, cassDecimal.varint.size, cassDecimal.scale);
 			}
-			ckfree(cassBytes.data);
+			ckfree((char *) cassBytes.data);
 			break;
 		}
 
@@ -3473,7 +3473,7 @@ cleanup:
 	Tcl_DStringFree (&ds);
 
 	// free the type info cache
-	ckfree(typeInfo);
+	ckfree((char *) typeInfo);
 
 	return tclReturn;
 }
@@ -4603,7 +4603,7 @@ void casstcl_future_callback (CassFuture* future, void* data) {
 	casstcl_futureEvent *evPtr;
 
 	casstcl_futureClientData *fcd = data;
-	evPtr = ckalloc (sizeof (casstcl_futureEvent));
+	evPtr = (casstcl_futureEvent *) ckalloc (sizeof (casstcl_futureEvent));
 	evPtr->event.proc = casstcl_future_eventProc;
 	evPtr->fcd = fcd;
 	int queueEnd = (fcd->flags & CASSTCL_FUTURE_QUEUE_HEAD_FLAG) ? TCL_QUEUE_HEAD : TCL_QUEUE_TAIL;
