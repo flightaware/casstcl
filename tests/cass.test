@@ -69,6 +69,39 @@ if {[llength [info commands getDictValue]] == 0} then {
 
 ###############################################################################
 
+if {[llength [info commands lsortStride2]] == 0} then {
+  proc lsortStride2 { list } {
+    if {$::tcl_version >= 8.6} then {
+      return [lsort -stride 2 $list]
+    } elseif {[llength $list] % 2} then {
+      error "list must have an even number of elements"
+    } else {
+      if {[llength [info commands lsortStride2_compare]] == 0} then {
+        proc lsortStride2_compare { a b } {
+          return [string compare [lindex $a 0] [lindex $b 0]]
+        }
+      }
+
+      set newLists(1) [list]
+
+      foreach {name value} $list {
+        lappend newLists(1) [list $name $value]
+      }
+
+      set newLists(1) [lsort -command lsortStride2_compare $newLists(1)]
+      set newLists(2) [list]
+
+      foreach subList $newLists(1) {
+        lappend newLists(2) [lindex $subList 0] [lindex $subList 1]
+      }
+
+      return $newLists(2)
+    }
+  }
+}
+
+###############################################################################
+
 if {[llength [info commands cass_test_subst]] == 0} then {
   proc cass_test_subst { value } {
     set did_set_keyspace false
@@ -1965,7 +1998,7 @@ test cass-11.4 {batch upsert -mapunknown} -body {
     cass_test_service_events svc
     set result [list]
     $cmd select [cass_test_subst {SELECT * FROM $keyspace.cass114;}] row {
-      lappend result [lsort -stride 2 [array get row]]
+      lappend result [lsortStride2 [array get row]]
     }
     set result
   } errMsg] $errMsg
@@ -1999,7 +2032,7 @@ test cass-11.5 {batch upsert -nocomplain} -body {
     cass_test_service_events svc
     set result [list]
     $cmd select [cass_test_subst {SELECT * FROM $keyspace.cass115;}] row {
-      lappend result [lsort -stride 2 [array get row]]
+      lappend result [lsortStride2 [array get row]]
     }
     set result
   } errMsg] $errMsg
@@ -2040,7 +2073,7 @@ test cass-11.6 {batch upsert -ifnotexists} -body {
     cass_test_service_events svc
     set result [list]
     $cmd select [cass_test_subst {SELECT * FROM $keyspace.cass116;}] row {
-      lappend result [lsort -stride 2 [array get row]]
+      lappend result [lsortStride2 [array get row]]
     }
     set result
   } errMsg] $errMsg
@@ -2170,7 +2203,7 @@ test cass-13.3 {reading of data types with placeholder values} -body {
         [cass_test_subst $cass_test_cql(6)] true]]
     set result [list]
     $cmd select [cass_test_subst $cass_test_cql(8)] row {
-      lappend result [lsort -stride 2 [array get row]]
+      lappend result [lsortStride2 [array get row]]
     }
     set result
   } errMsg] $errMsg
@@ -2201,7 +2234,7 @@ test cass-13.4 {reading of data types with trivial values} -body {
         [cass_test_subst $cass_test_cql(6)] true 1]]
     set result [list]
     $cmd select [cass_test_subst $cass_test_cql(8)] row {
-      lappend result [lsort -stride 2 [array get row]]
+      lappend result [lsortStride2 [array get row]]
     }
     set result
   } errMsg] $errMsg
@@ -2230,7 +2263,7 @@ test cass-13.5 {reading of data types with real-world values} -body {
         [cass_test_subst $cass_test_cql(6)] true 2]]
     set result [list]
     $cmd select [cass_test_subst $cass_test_cql(8)] row {
-      lappend result [lsort -stride 2 [array get row]]
+      lappend result [lsortStride2 [array get row]]
     }
     set result
   } errMsg] $errMsg
@@ -2257,7 +2290,7 @@ test cass-14.1 {automatic scaling of timestamp data type} -body {
     cass_test_exec $cmd -prepared $prepared [list key01 4294967295]
     set result [list]
     $cmd select [cass_test_subst $cass_test_cql(8)] row {
-      lappend result [lsort -stride 2 [array get row]]
+      lappend result [lsortStride2 [array get row]]
     }
     set result
   } errMsg] $errMsg
@@ -2283,7 +2316,7 @@ test cass-14.2 {automatic scaling of timestamp data type} -body {
     cass_test_exec $cmd -prepared $prepared [list key01 4294967295.999]
     set result [list]
     $cmd select [cass_test_subst $cass_test_cql(8)] row {
-      lappend result [lsort -stride 2 [array get row]]
+      lappend result [lsortStride2 [array get row]]
     }
     set result
   } errMsg] $errMsg
@@ -2309,7 +2342,7 @@ test cass-14.3 {automatic scaling of timestamp data type} -body {
     cass_test_exec $cmd -prepared $prepared [list key01 4294967296]
     set result [list]
     $cmd select [cass_test_subst $cass_test_cql(8)] row {
-      lappend result [lsort -stride 2 [array get row]]
+      lappend result [lsortStride2 [array get row]]
     }
     set result
   } errMsg] $errMsg
@@ -2341,7 +2374,8 @@ test cass-15.1 {asynchronous connect (failure)} -body {
   cass_test_cleanup_session cmd
 
   unset -nocomplain result svc cmd errMsg
-} -result {1 {cassandra error: No hosts available: No hosts available for the control connection}}
+} -result {1 {cassandra error: No hosts available: No hosts available for the\
+control connection}}
 
 ###############################################################################
 
@@ -2384,7 +2418,7 @@ if {0} then {
 ###############################################################################
 
 foreach procName [concat [info commands cass_test_*] \
-    [list appendArgs getEnvVar getDictValue]] {
+    [list appendArgs getEnvVar getDictValue lsortStride2]] {
   rename $procName ""
 }
 
