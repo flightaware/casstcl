@@ -1466,11 +1466,7 @@ casstcl_invoke_callback_with_argument (Tcl_Interp *interp, Tcl_Obj *callbackObj,
 	// a background error, which will generally cause the bgerror proc
 	// to get invoked
 	if (tclReturnCode == TCL_ERROR) {
-#if TCL_MAJOR_VERSION == 8 && TCL_MINOR_VERSION < 6
-		Tcl_BackgroundError (interp);
-#else
 		Tcl_BackgroundException (interp, TCL_ERROR);
-#endif
 	}
 
 	for (i = 0; i < evalObjc; i++) {
@@ -3885,15 +3881,12 @@ casstcl_iterate_over_future (casstcl_sessionClientData *ct, CassFuture *future, 
 			}
 
 			if (evalReturnCode == TCL_ERROR) {
-				tclReturn = TCL_ERROR;
-
-#if TCL_MAJOR_VERSION == 8 && TCL_MINOR_VERSION > 5
 				char        msg[60];
+				tclReturn = TCL_ERROR;
 
 				sprintf(msg, "\n    (\"select\" body line %d)",
 						Tcl_GetErrorLine(interp));
 				Tcl_AddErrorInfo(interp, msg);
-#endif
 			}
 
 			break;
@@ -4020,15 +4013,12 @@ int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName,
 				}
 
 				if (evalReturnCode == TCL_ERROR) {
-					tclReturn = TCL_ERROR;
-
-#if TCL_MAJOR_VERSION == 8 && TCL_MINOR_VERSION > 5
 					char        msg[60];
+					tclReturn = TCL_ERROR;
 
 					sprintf(msg, "\n    (\"select\" body line %d)",
 							Tcl_GetErrorLine(interp));
 					Tcl_AddErrorInfo(interp, msg);
-#endif
 				}
 
 				break;
