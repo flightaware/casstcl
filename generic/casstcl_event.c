@@ -97,9 +97,9 @@ casstcl_logging_eventProc (Tcl_Event *tevPtr, int flags) {
  */
 void casstcl_logging_callback (const CassLogMessage *message, void *data) {
 	casstcl_loggingEvent *evPtr;
-
+	
 	Tcl_Interp *interp = data;
-	evPtr = ckalloc (sizeof (casstcl_loggingEvent));
+	evPtr = (casstcl_loggingEvent *)ckalloc (sizeof(casstcl_loggingEvent));
 	evPtr->event.proc = casstcl_logging_eventProc;
 	evPtr->interp = interp;
 	evPtr->message = *message; /* structure copy */

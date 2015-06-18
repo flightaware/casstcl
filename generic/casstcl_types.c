@@ -407,7 +407,7 @@ casstcl_InitCassBytesFromBignum(
 	    Tcl_ResetResult(interp);
 	    Tcl_AppendResult(interp, "could not init bytes", NULL);
 	}
-	ckfree(data);
+	ckfree((char *)data);
 	return TCL_ERROR;
     }
 
@@ -777,7 +777,7 @@ DupCassTypeTypeInternalRep (Tcl_Obj *srcPtr, Tcl_Obj *copyPtr)
 {
   // not much to this... since we use the wide int representation,
   // all we have to do is copy the wide into from the source to the copy
-  copyPtr->internalRep.wideValue = srcPtr->internalRep.wideValue;
+  copyPtr->internalRep.otherValuePtr = srcPtr->internalRep.otherValuePtr;
   copyPtr->typePtr = &casstcl_cassTypeTclType;
 }
 
@@ -785,7 +785,7 @@ DupCassTypeTypeInternalRep (Tcl_Obj *srcPtr, Tcl_Obj *copyPtr)
 int
 SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj)
 {
-  casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&obj->internalRep.wideValue;
+  casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&obj->internalRep.otherValuePtr;
   casstcl_cassTypeInfo localTypeInfo;
 
   // convert it using our handy routine for doing that
@@ -819,7 +819,7 @@ SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj)
 // hasn't ever been called
 //
 void UpdateCassTypeString (Tcl_Obj *obj) {
-  casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&obj->internalRep.wideValue;
+  casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&obj->internalRep.otherValuePtr;
   CassValueType cassType = typeInfo->cassValueType;
   const char *string = casstcl_cass_value_type_to_string (cassType);
   int len = strlen(string);
@@ -909,7 +909,7 @@ casstcl_typename_obj_to_cass_value_types (Tcl_Interp *interp, char *table, Tcl_O
     return TCL_ERROR;
   }
 
-  casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&typeObj->internalRep.wideValue;
+  casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&typeObj->internalRep.otherValuePtr;
   *typeInfoPtr = *typeInfo; // structure copy
 
 // printf("casstcl_typename_obj_to_cass_value_types took table '%s' type '%s' and produced %x, %x, %x\n", table, Tcl_GetString (typenameObj), *valueType, *valueSubType1, *valueSubType2);
@@ -1262,7 +1262,7 @@ int casstcl_append_tcl_obj_to_collection (casstcl_sessionClientData *ct, CassCol
     }
 
     case CASS_VALUE_TYPE_TIMESTAMP: {
-      Tcl_WideInt wideValue = 0;
+      cass_int64_t wideValue = 0;
 
       if (casstcl_GetTimestampFromObj (interp, obj, &wideValue) == TCL_ERROR) {
         Tcl_AppendResult (interp, " while converting 'timestamp' element", NULL);
@@ -1480,7 +1480,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
     }
 
     case CASS_VALUE_TYPE_TIMESTAMP: {
-      Tcl_WideInt wideValue = 0;
+      cass_int64_t wideValue = 0;
 
       if (casstcl_GetTimestampFromObj (interp, obj, &wideValue) == TCL_ERROR) {
         Tcl_AppendResult (interp, " while converting 'timestamp' element", NULL);
@@ -1554,7 +1554,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
       } else {
         cassError = cass_statement_bind_decimal_by_name (statement, name, cassDecimal.varint.data, cassDecimal.varint.size, cassDecimal.scale);
       }
-      ckfree(cassBytes.data);
+      ckfree((char *) cassBytes.data);
       break;
     }
 

@@ -20,6 +20,18 @@
 #include <sys/types.h>
 #include <cassandra.h>
 
+/*
+ * NOTE: If we are using Tcl 8.5, there are several new or modified
+ *       things we use from Tcl 8.6 that require slight workarounds.
+ */
+#if !defined(TCL_MAJOR_VERSION) || !defined(TCL_MINOR_VERSION) || \
+	(TCL_MAJOR_VERSION < 8) || ((TCL_MAJOR_VERSION == 8) && \
+	(TCL_MINOR_VERSION < 6))
+#  include "tclInt.h"			/* HACK: Internal Tcl API. */
+#  define Tcl_GetErrorLine(interp)	((interp)->errorLine)
+#  define Tcl_BackgroundException	TclBackgroundException
+#endif
+
 #define CASS_SESSION_MAGIC 7138570
 #define CASS_FUTURE_MAGIC 71077345
 #define CASS_BATCH_MAGIC 14215469

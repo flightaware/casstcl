@@ -867,7 +867,7 @@ cleanup:
 	Tcl_DStringFree (&ds);
 
 	// free the type info cache
-	ckfree(typeInfo);
+	ckfree((char *) typeInfo);
 
 	return tclReturn;
 }

@@ -90,7 +90,7 @@ void casstcl_future_callback (CassFuture* future, void* data) {
 	casstcl_futureEvent *evPtr;
 
 	casstcl_futureClientData *fcd = data;
-	evPtr = ckalloc (sizeof (casstcl_futureEvent));
+	evPtr = (casstcl_futureEvent *) ckalloc (sizeof (casstcl_futureEvent));
 	evPtr->event.proc = casstcl_future_eventProc;
 	evPtr->fcd = fcd;
 	int queueEnd = (fcd->flags & CASSTCL_FUTURE_QUEUE_HEAD_FLAG) ? TCL_QUEUE_HEAD : TCL_QUEUE_TAIL;
@@ -373,7 +373,6 @@ casstcl_iterate_over_future (casstcl_sessionClientData *ct, CassFuture *future, 
 
 			if (evalReturnCode == TCL_ERROR) {
 				char        msg[60];
-
 				tclReturn = TCL_ERROR;
 
 				sprintf(msg, "\n    (\"select\" body line %d)",
