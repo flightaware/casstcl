@@ -9,6 +9,8 @@
  * freely redistributable under the Berkeley license
  */
 
+ #include "casstcl_cassandra.h"
+
 /*
  *--------------------------------------------------------------
  *
@@ -1125,4 +1127,6 @@ casstcl_reimport_column_type_map (casstcl_sessionClientData *ct)
 
 	return tclReturnCode;
 }
+
+/* vim: set ts=4 sw=4 sts=4 noet : */
 

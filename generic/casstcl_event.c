@@ -1,4 +1,14 @@
 /*
+ * casstcl_event - Functions used to log and handle events
+ *
+ * casstcl - Tcl interface to CassDB
+ *
+ * Copyright (C) 2014 FlightAware LLC
+ *
+ * freely redistributable under the Berkeley license
+ */
+
+/*
  *----------------------------------------------------------------------
  *
  * casstcl_logging_eventProc --
@@ -141,5 +151,6 @@ casstcl_EventCheckProc (ClientData data, int flags)
 {
 }
 
+/* vim: set ts=4 sw=4 sts=4 noet : */
 
 

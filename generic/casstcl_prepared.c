@@ -1,5 +1,5 @@
 /*
- * casstcl_cassandra - Functions used to handle, make, and delete prepared objects
+ * casstcl_prepared - Functions used to handle, make, and delete prepared objects
  *
  * casstcl - Tcl interface to CassDB
  *
@@ -8,6 +8,7 @@
  * freely redistributable under the Berkeley license
  */
 
+#include "casstcl_prepared.h"
 
 /*
  *--------------------------------------------------------------
@@ -224,3 +225,5 @@ casstcl_preparedObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl
     }
     return resultCode;
 }
+
+/* vim: set ts=4 sw=4 sts=4 noet : */

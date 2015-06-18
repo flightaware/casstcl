@@ -1,3 +1,14 @@
+/*
+ * casstcl_batcj - Functions used to create, delete, and handle batches
+ *
+ * casstcl - Tcl interface to CassDB
+ *
+ * Copyright (C) 2014 FlightAware LLC
+ *
+ * freely redistributable under the Berkeley license
+ */
+
+ #include "casstcl_batch.h"
 
 /*
  *--------------------------------------------------------------
@@ -355,3 +366,5 @@ casstcl_batchObjectDelete (ClientData clientData)
 	cass_batch_free (bcd->batch);
     ckfree((char *)clientData);
 }
+
+/* vim: set ts=4 sw=4 sts=4 noet : */

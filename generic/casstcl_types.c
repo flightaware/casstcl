@@ -1,3 +1,14 @@
+/*
+ * casstcl_types - Functions for converting between cassandra and casstcl types
+ *
+ * casstcl - Tcl interface to CassDB
+ *
+ * Copyright (C) 2014 FlightAware LLC
+ *
+ * freely redistributable under the Berkeley license
+ */
+
+#include "casstcl_types.h"
 
 /*
  *--------------------------------------------------------------
@@ -1839,3 +1850,4 @@ casstcl_GetInetFromObj(
   }
 }
 
+/* vim: set ts=4 sw=4 sts=4 noet : */

@@ -1,3 +1,14 @@
+/*
+ * casstcl_error - Functions used to interpret errors
+ *
+ * casstcl - Tcl interface to CassDB
+ *
+ * Copyright (C) 2014 FlightAware LLC
+ *
+ * freely redistributable under the Berkeley license
+ */
+
+ #include "casstcl_error.h"
 
 /*
  *--------------------------------------------------------------
@@ -223,3 +234,5 @@ int casstcl_future_error_to_tcl (casstcl_sessionClientData *ct, CassError cassEr
 	Tcl_AppendResult (ct->interp, "cassandra error: ", cassErrorDesc, ": ", message.data, NULL);
 	return TCL_ERROR;
 }
+
+/* vim: set ts=4 sw=4 sts=4 noet : */

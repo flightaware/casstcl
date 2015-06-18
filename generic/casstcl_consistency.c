@@ -1,3 +1,14 @@
+/*
+ * casstcl_consistency - Functions for setting and managing cassandra consistency
+ *
+ * casstcl - Tcl interface to CassDB
+ *
+ * Copyright (C) 2014 FlightAware LLC
+ *
+ * freely redistributable under the Berkeley license
+ */
+
+#include "casstcl_consistency.h"
 
 /*
  *--------------------------------------------------------------
@@ -219,3 +230,4 @@ casstcl_cass_consistency_to_string (CassConsistency consistency) {
 	}
 }
 
+/* vim: set ts=4 sw=4 sts=4 noet : */

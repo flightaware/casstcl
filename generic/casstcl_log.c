@@ -1,3 +1,14 @@
+/*
+ * casstcl_log - Functions to support custom logging
+ *
+ * casstcl - Tcl interface to CassDB
+ *
+ * Copyright (C) 2014 FlightAware LLC
+ *
+ * freely redistributable under the Berkeley license
+ */
+
+ #include "casstcl_log.h"
 
 /*
  *--------------------------------------------------------------
@@ -131,4 +142,4 @@ casstcl_cass_log_level_to_string (CassLogLevel severity) {
 	}
 }
 
-
+/* vim: set ts=4 sw=4 sts=4 noet : */

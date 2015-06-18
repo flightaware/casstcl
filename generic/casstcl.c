@@ -7,6 +7,7 @@
  */
 
 #include "casstcl.h"
+#include "casstcl_log.h"
 #include <assert.h>
 
 // possibly unfortunately, the cassandra cpp-driver logging stuff is global

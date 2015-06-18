@@ -1,3 +1,14 @@
+/*
+ * casstcl_futures - Functions used to create, delete, and handle futures
+ *
+ * casstcl - Tcl interface to CassDB
+ *
+ * Copyright (C) 2014 FlightAware LLC
+ *
+ * freely redistributable under the Berkeley license
+ */
+
+ #include "casstcl_future.h"
 
 /*
  *----------------------------------------------------------------------
@@ -433,3 +444,5 @@ casstcl_future_command_to_futureClientData (Tcl_Interp *interp, char *futureComm
 
 	return fcd;
 }
+
+/* vim: set ts=4 sw=4 sts=4 noet : */
