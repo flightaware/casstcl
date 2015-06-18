@@ -8,7 +8,13 @@
  * freely redistributable under the Berkeley license
  */
 
- #include "casstcl_batch.h"
+#include "casstcl.h"
+#include "casstcl_batch.h"
+#include "casstcl_cassandra.h"
+#include "casstcl_error.h"
+#include "casstcl_consistency.h"
+
+#include <assert.h>
 
 /*
  *--------------------------------------------------------------

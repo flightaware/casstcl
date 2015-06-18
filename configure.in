@@ -70,8 +70,14 @@ TEA_SETUP_COMPILER
 # and PKG_TCL_SOURCES.
 #-----------------------------------------------------------------------
 
-TEA_ADD_SOURCES([casstcl.c tclcasstcl.c])
-TEA_ADD_HEADERS([generic/casstcl.h])
+TEA_ADD_SOURCES([casstcl.c tclcasstcl.c casstcl_batch.c casstcl_event.c 
+casstcl_cassandra.c casstcl_consistency.c casstcl_error.c casstcl_future.c 
+casstcl_log.c casstcl_prepared.c casstcl_types.c])
+TEA_ADD_HEADERS([generic/casstcl.h generic/casstcl_batch.h 
+generic/casstcl_event.h generic/casstcl_cassandra.h 
+generic/casstcl_consistency.h generic/casstcl_error.h 
+generic/casstcl_future.h generic/casstcl_log.h 
+generic/casstcl_prepared.h generic/casstcl_types.h])
 TEA_ADD_INCLUDES([])
 TEA_ADD_LIBS([])
 TEA_ADD_CFLAGS([])

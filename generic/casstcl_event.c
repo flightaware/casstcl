@@ -8,6 +8,9 @@
  * freely redistributable under the Berkeley license
  */
 
+#include "casstcl.h"
+#include "casstcl_log.h"
+#include "casstcl_event.h"
 /*
  *----------------------------------------------------------------------
  *

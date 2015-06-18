@@ -8,6 +8,8 @@
  * freely redistributable under the Berkeley license
  */
 
+#include "casstcl.h"
+#include "casstcl_error.h"
 #include "casstcl_consistency.h"
 
 /*

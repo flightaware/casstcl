@@ -9,7 +9,16 @@
  * freely redistributable under the Berkeley license
  */
 
- #include "casstcl_cassandra.h"
+#include "casstcl.h"
+#include "casstcl_log.h"
+#include "casstcl_prepared.h"
+#include "casstcl_cassandra.h"
+#include "casstcl_types.h"
+#include "casstcl_error.h"
+#include "casstcl_consistency.h"
+#include "casstcl_event.h"
+
+#include <assert.h>
 
 /*
  *--------------------------------------------------------------

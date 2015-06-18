@@ -8,7 +8,12 @@
  * freely redistributable under the Berkeley license
  */
 
+#include "casstcl.h"
 #include "casstcl_prepared.h"
+#include "casstcl_types.h"
+#include "casstcl_consistency.h"
+
+#include <assert.h>
 
 /*
  *--------------------------------------------------------------

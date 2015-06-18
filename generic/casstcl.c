@@ -7,12 +7,17 @@
  */
 
 #include "casstcl.h"
-#include "casstcl_log.h"
-#include <assert.h>
+#include "casstcl_batch.h"
+#include "casstcl_prepared.h"
+#include "casstcl_cassandra.h"
+#include "casstcl_future.h"
+#include "casstcl_error.h"
+#include "casstcl_consistency.h"
 
 // possibly unfortunately, the cassandra cpp-driver logging stuff is global
 Tcl_Obj *casstcl_loggingCallbackObj = NULL;
 Tcl_ThreadId casstcl_loggingCallbackThreadId = NULL;
+
 
 /*
  *--------------------------------------------------------------

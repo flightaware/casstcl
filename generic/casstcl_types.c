@@ -8,7 +8,60 @@
  * freely redistributable under the Berkeley license
  */
 
+#include "casstcl.h"
 #include "casstcl_types.h"
+#include "casstcl_error.h"
+#include "casstcl_consistency.h"
+
+#include <assert.h>
+
+// Tcl type definition for caching CassValueType
+
+// we don't have to free any internal representation because our representation
+// fits into the exist Tcl_Obj definition without a pointer to anything else
+
+// we never invalidate the string representation so we can set the
+// UpdateStringOf... function pointer to null
+
+void DupCassTypeTypeInternalRep (Tcl_Obj *srcPtr, Tcl_Obj *copyPtr);
+int SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj);
+void UpdateCassTypeString (Tcl_Obj *obj);
+
+// copy the internal representation of a cassTypeTclType Tcl object
+// to a new Tcl object
+void DupCassTypeTypeInternalRep (Tcl_Obj *srcPtr, Tcl_Obj *copyPtr);
+
+// convert any tcl object to be a cassTypeTclType
+int SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj);
+
+// this converts our internal data type to a string
+// it is probably not needed and will not be unless you some day
+// write a casstcl_cassTypeInfo into a Tcl object that you didn't
+// create with a string or copy to (like for the int data type an object
+// that is the target of a calculation will get its int set and its
+// string rep invalidated and regenerated later
+//
+// this also probably means that the routine is buggy because it probably
+// hasn't ever been called
+//
+void UpdateCassTypeString (Tcl_Obj *obj);
+
+
+
+// Tcl object type definition for the internal representation of a
+// cassTypeTclType.  this allows us to cache the lookup of a type
+// like "int" to CASS_VALUE_TYPE_INT or
+// "map int text" to
+// CASS_VALUE_TYPE_MAP CASS_VALUE_TYPE_INT CASS_VALUE_TYPE_TEXT
+//
+Tcl_ObjType casstcl_cassTypeTclType = {
+  "CassType",
+  NULL,
+  DupCassTypeTypeInternalRep,
+  UpdateCassTypeString,
+  SetCassTypeTypeFromAny
+};
+
 
 /*
  *--------------------------------------------------------------
@@ -716,34 +769,6 @@ casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *
 
   return masterReturn;
 }
-
-
-
-// Tcl type definition for caching CassValueType
-
-// we don't have to free any internal representation because our representation
-// fits into the exist Tcl_Obj definition without a pointer to anything else
-
-// we never invalidate the string representation so we can set the
-// UpdateStringOf... function pointer to null
-
-void DupCassTypeTypeInternalRep (Tcl_Obj *srcPtr, Tcl_Obj *copyPtr);
-int SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj);
-void UpdateCassTypeString (Tcl_Obj *obj);
-
-// Tcl object type definition for the internal representation of a
-// cassTypeTclType.  this allows us to cache the lookup of a type
-// like "int" to CASS_VALUE_TYPE_INT or
-// "map int text" to
-// CASS_VALUE_TYPE_MAP CASS_VALUE_TYPE_INT CASS_VALUE_TYPE_TEXT
-//
-Tcl_ObjType casstcl_cassTypeTclType = {
-  "CassType",
-  NULL,
-  DupCassTypeTypeInternalRep,
-  UpdateCassTypeString,
-  SetCassTypeTypeFromAny
-};
 
 // copy the internal representation of a cassTypeTclType Tcl object
 // to a new Tcl object
