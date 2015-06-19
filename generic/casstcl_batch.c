@@ -19,6 +19,31 @@
 /*
  *--------------------------------------------------------------
  *
+ * casstcl_batchObjectDelete -- command deletion callback routine.
+ *
+ * Results:
+ *      ...destroys the batch object.
+ *      ...frees memory.
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+void
+casstcl_batchObjectDelete (ClientData clientData)
+{
+    casstcl_batchClientData *bcd = (casstcl_batchClientData *)clientData;
+
+    assert (bcd->cass_batch_magic == CASS_BATCH_MAGIC);
+
+	cass_batch_free (bcd->batch);
+    ckfree((char *)clientData);
+}
+
+/*
+ *--------------------------------------------------------------
+ *
  * casstcl_obj_to_cass_batch_type -- lookup a string in a Tcl object
  *   to be one of the batch_type strings for CassBatchType and set
  *   a pointer to a passed-in CassBatchType value to the corresponding
@@ -348,29 +373,6 @@ casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Ob
     return resultCode;
 }
 
-/*
- *--------------------------------------------------------------
- *
- * casstcl_batchObjectDelete -- command deletion callback routine.
- *
- * Results:
- *      ...destroys the batch object.
- *      ...frees memory.
- *
- * Side effects:
- *      None.
- *
- *--------------------------------------------------------------
- */
-void
-casstcl_batchObjectDelete (ClientData clientData)
-{
-    casstcl_batchClientData *bcd = (casstcl_batchClientData *)clientData;
 
-    assert (bcd->cass_batch_magic == CASS_BATCH_MAGIC);
-
-	cass_batch_free (bcd->batch);
-    ckfree((char *)clientData);
-}
 
 /* vim: set ts=4 sw=4 sts=4 noet : */

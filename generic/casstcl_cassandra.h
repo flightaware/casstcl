@@ -24,6 +24,31 @@
  */
 void casstcl_cassObjectDelete (ClientData clientData);
 
+
+/*
+ *--------------------------------------------------------------
+ *
+ * casstcl_invoke_callback_with_argument --
+ *
+ *     The twist here is that a callback object might be a list, not
+ *     just a command name, like the argument to -callback might be
+ *     more than just a function name, like it could be an object name
+ *     and a method name and an argument or whatever.
+ *
+ *     This code splits out that list and generates up an eval thingie
+ *     and invokes it with the additional argument tacked onto the end,
+ *     a future object or the like.
+ *
+ * Results:
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+int casstcl_invoke_callback_with_argument (Tcl_Interp *interp, Tcl_Obj *callbackObj, Tcl_Obj *argumentObj);
+
+
 /*
  *----------------------------------------------------------------------
  *
@@ -55,100 +80,6 @@ int casstcl_make_upsert_statement_from_objv (
 	Tcl_Obj *CONST objv[], 
 	CassConsistency *consistencyPtr, 
 	CassStatement **statementPtr);
-
-/*
- *----------------------------------------------------------------------
- *
- * casstcl_select --
- *
- *      Given a cassandra query, array name and Tcl_Obj pointing to some
- *      Tcl code, perform the select, filling the named array with elements
- *      from each row in turn and executing code against it.
- *
- *      break, continue and return are supported (probably)
- *
- *      Issuing commands with async and processing the results with
- *      async foreach allows for greater concurrency.
- *
- * Results:
- *      A standard Tcl result.
- *
- *
- *----------------------------------------------------------------------
- */
-
-int casstcl_select (
-	casstcl_sessionClientData *ct, 
-	char *query, 
-	char *arrayName, 
-	Tcl_Obj *codeObj, 
-	int pagingSize, 
-	CassConsistency *consistencyPtr);
-
-
-/*
- *----------------------------------------------------------------------
- *
- * casstcl_list_keyspaces --
- *
- *      Return a list of the extant keyspaces in the cluster by
- *      examining the metadata managed by the driver.
- *
- *      The cpp-driver docs indicate that the driver stays abreast with
- *      changes to the schema so we prefer to ask it rather than
- *      caching our own copy, or something.
- *
- * Results:
- *      A standard Tcl result.
- *
- *----------------------------------------------------------------------
- */
-int casstcl_list_keyspaces (casstcl_sessionClientData *ct, Tcl_Obj **objPtr);
-
-/*
- *----------------------------------------------------------------------
- *
- * casstcl_list_tables --
- *
- *      Set the Tcl result to a list of the extant tables in a keyspace by
- *      examining the metadata managed by the driver.
- *
- *      This is cool because the driver will update the metadata if the
- *      schema changes during the session and further examinations of the
- *      metadata by the casstcl metadata-accessing functions will see the
- *      changes
- *
- * Results:
- *      A standard Tcl result.
- *
- *----------------------------------------------------------------------
- */
-int casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **objPtr);
-
-/*
- *----------------------------------------------------------------------
- *
- * casstcl_list_columns --
- *
- *      Set a Tcl object pointer to a list of the extant columns in the
- *      specified table in the specified keyspace by examining the
- *      metadata managed by the driver.
- *
- *      If includeTypes is 1 then instead of listing just the columns it
- *      also lists their data types, as a list of key-value pairs.
- *
- * Results:
- *      A standard Tcl result.
- *
- *----------------------------------------------------------------------
- */
-int casstcl_list_columns (
-	casstcl_sessionClientData *ct, 
-	char *keyspace, 
-	char *table, 
-	int includeTypes, 
-	Tcl_Obj **objPtr);
-
 
 /*
  *----------------------------------------------------------------------
@@ -242,24 +173,5 @@ int casstcl_make_statement_from_objv (
 	int objc, Tcl_Obj *CONST objv[], 
 	int argOffset, 
 	CassStatement **statementPtr);
-
-
-/*
- *----------------------------------------------------------------------
- *
- * casstcl_reimport_column_type_map --
- *    Call out to the Tcl interpreter to invoke
- *    ::casstcl::import_column_type_map from the casstcl library;
- *    the proc resides in source file is casstcl.tcl.
- *
- *    This convenience function gets called from a method of the
- *    casstcl cass object and is invoked upon connection as well
- *
- * Results:
- *    The program compiles.
- *
- *----------------------------------------------------------------------
- */
-int casstcl_reimport_column_type_map (casstcl_sessionClientData *ct);
 
 /* vim: set ts=4 sw=4 sts=4 noet : */

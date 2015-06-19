@@ -18,6 +18,33 @@
 /*
  *--------------------------------------------------------------
  *
+ * casstcl_preparedObjectDelete -- command deletion callback routine.
+ *
+ * Results:
+ *      ...destroys the prepared object.
+ *      ...frees memory.
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+void
+casstcl_preparedObjectDelete (ClientData clientData)
+{
+    casstcl_preparedClientData *pcd = (casstcl_preparedClientData *)clientData;
+
+    assert (pcd->cass_prepared_magic == CASS_PREPARED_MAGIC);
+
+	cass_prepared_free (pcd->prepared);
+	Tcl_DecrRefCount (pcd->tableNameObj);
+	ckfree (pcd->string);
+    ckfree((char *)clientData);
+}
+
+/*
+ *--------------------------------------------------------------
+ *
  * casstcl_prepared_command_to_preparedClientData -- given a "prepared"
  * command name like prepared0, find it
  *   in the interpreter and return a pointer to its prepared client
@@ -45,33 +72,6 @@ casstcl_prepared_command_to_preparedClientData (Tcl_Interp *interp, char *prepar
 	}
 
 	return pcd;
-}
-
-/*
- *--------------------------------------------------------------
- *
- * casstcl_preparedObjectDelete -- command deletion callback routine.
- *
- * Results:
- *      ...destroys the prepared object.
- *      ...frees memory.
- *
- * Side effects:
- *      None.
- *
- *--------------------------------------------------------------
- */
-void
-casstcl_preparedObjectDelete (ClientData clientData)
-{
-    casstcl_preparedClientData *pcd = (casstcl_preparedClientData *)clientData;
-
-    assert (pcd->cass_prepared_magic == CASS_PREPARED_MAGIC);
-
-	cass_prepared_free (pcd->prepared);
-	Tcl_DecrRefCount (pcd->tableNameObj);
-	ckfree (pcd->string);
-    ckfree((char *)clientData);
 }
 
 

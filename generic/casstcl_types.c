@@ -266,109 +266,6 @@ casstcl_string_to_cass_value_type (char *string) {
   return CASS_VALUE_TYPE_UNKNOWN;
 }
 
-/*
- *--------------------------------------------------------------
- *
- * casstcl_obj_to_compound_cass_value_types
- *
- * Lookup a string from a Tcl object and identify it as one of the cass
- * value type strings for CassValueType (int, text uuid, etc.) and set
- * a pointer to a passed-in CassValueType value to the corresponding
- * type such as CASS_VALUE_TYPE_DOUBLE, etc
- *
- * Also if it is a list of "map type type" or "set type" or "list type"
- * then set the valueSubType1 to type defined by the set or list and
- * in the case of a map set valueSubType1 for the key datatype and
- * valueSubType2 for the value datatype
- *
- * Results:
- *      ...cass value types gets set
- *      ...a standard Tcl result is returned
- *
- * Side effects:
- *      None.
- *
- *--------------------------------------------------------------
- */
-int
-casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, casstcl_cassTypeInfo *typeInfo) {
-  int listObjc;
-  Tcl_Obj **listObjv;
-
-  typeInfo->cassValueType = CASS_VALUE_TYPE_UNKNOWN;
-  typeInfo->valueSubType1 = CASS_VALUE_TYPE_UNKNOWN;
-  typeInfo->valueSubType2 = CASS_VALUE_TYPE_UNKNOWN;
-
-  // try straight lookup.  this should get everything except for
-  // maps, sets and lists
-  char *string = Tcl_GetString (tclObj);
-  CassValueType valueType = casstcl_string_to_cass_value_type (string);
-
-  if (valueType != CASS_VALUE_TYPE_UNKNOWN) {
-    typeInfo->cassValueType = valueType;
-    return TCL_OK;
-  }
-
-  if (Tcl_ListObjGetElements (interp, tclObj, &listObjc, &listObjv) == TCL_ERROR) {
-    Tcl_AppendResult (interp, " while parsing cassandra data type", NULL);
-    return TCL_ERROR;
-  }
-
-  // the list parsed, now look up the first element, if we don't find it
-  // in the type list, we have a bad tyupe
-  string = Tcl_GetString (listObjv[0]);
-  valueType = casstcl_string_to_cass_value_type (string);
-
-  if ((valueType != CASS_VALUE_TYPE_MAP) && (valueType != CASS_VALUE_TYPE_SET) && (valueType != CASS_VALUE_TYPE_LIST)) {
-    Tcl_ResetResult (interp);
-    Tcl_AppendResult (interp, "cassandra type spec '", string, "' is invalid", NULL);
-    return TCL_ERROR;
-  }
-
-  // it's a collection, so it will have one or two sub values depending
-  // on if it's a list or set (1) or a map (2).
-  // anyway, set the first type to the map, list or set type that we
-  // figured out.
-  typeInfo->cassValueType = valueType;
-
-  if (valueType == CASS_VALUE_TYPE_MAP) {
-    if (listObjc != 3) {
-      Tcl_ResetResult (interp);
-      Tcl_AppendResult (interp, "cassandra map type must contain three type values", NULL);
-      return TCL_ERROR;
-    }
-  } else {
-    if (listObjc != 2) {
-      Tcl_ResetResult (interp);
-      Tcl_AppendResult (interp, "cassandra ", string, " type ('", Tcl_GetString (tclObj), "') must contain two values", NULL);
-      return TCL_ERROR;
-    }
-  }
-
-  // at this point it's a colleciton and the list count is correct so
-  // there is at least one subType that has to be looked up successfully
-
-  typeInfo->valueSubType1 = casstcl_string_to_cass_value_type (Tcl_GetString(listObjv[1]));
-  if (typeInfo->valueSubType1 == CASS_VALUE_TYPE_UNKNOWN) {
-    Tcl_ResetResult (interp);
-    Tcl_AppendResult (interp, "cassandra ", string, " type spec unrecognized subtype '", Tcl_GetString (listObjv[1]), "'", NULL);
-    return TCL_ERROR;
-  }
-
-  // only for maps there is a second subType to be checked, converted
-  if (valueType == CASS_VALUE_TYPE_MAP) {
-    typeInfo->valueSubType2 = casstcl_string_to_cass_value_type (Tcl_GetString(listObjv[2]));
-    if (typeInfo->valueSubType2 == CASS_VALUE_TYPE_UNKNOWN) {
-      Tcl_ResetResult (interp);
-      Tcl_AppendResult (interp, "cassandra map type spec unrecognized second subtype '", Tcl_GetString(listObjv[2]), "'", NULL);
-      return TCL_ERROR;
-    }
-  }
-// printf("casstcl_obj_to_compound_cass_value_types took '%s' and made %d, %d, %d\n", Tcl_GetString (tclObj), typeInfo->cassValueType, typeInfo->valueSubType1, typeInfo->valueSubType2);
-  return TCL_OK;
-}
-
-
 
 
 /*
@@ -376,22 +273,22 @@ casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, c
  *
  * casstcl_InitCassBytesFromBignum --
  *
- *	Allocate and initialize a CassBytes from a 'bignum'.
+ *  Allocate and initialize a CassBytes from a 'bignum'.
  *
  * Results:
- *	A standard Tcl result.
+ *  A standard Tcl result.
  *
  * Side effects:
- *	None.
+ *  None.
  *
  *----------------------------------------------------------------------
  */
 
 int
 casstcl_InitCassBytesFromBignum(
-    Tcl_Interp *interp,		/* Used for error reporting if not NULL. */
-    CassBytes *v,		/* CassBytes to initialize */
-    mp_int *a)			/* Initial value */
+    Tcl_Interp *interp,   /* Used for error reporting if not NULL. */
+    CassBytes *v,   /* CassBytes to initialize */
+    mp_int *a)      /* Initial value */
 {
     unsigned char *data;
     unsigned long outlen;
@@ -403,16 +300,62 @@ casstcl_InitCassBytesFromBignum(
     status = TclBN_mp_to_unsigned_bin_n(a, data, &outlen);
 
     if (status != MP_OKAY) {
-	if (interp != NULL) {
-	    Tcl_ResetResult(interp);
-	    Tcl_AppendResult(interp, "could not init bytes", NULL);
-	}
-	ckfree((char *)data);
-	return TCL_ERROR;
+  if (interp != NULL) {
+      Tcl_ResetResult(interp);
+      Tcl_AppendResult(interp, "could not init bytes", NULL);
+  }
+  ckfree((char *)data);
+  return TCL_ERROR;
     }
 
     v->data = data;
     v->size = outlen;
+    return TCL_OK;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_InitBignumFromCassBytes --
+ *
+ *  Allocate and initialize a 'bignum' from a CassBytes.
+ *
+ * Results:
+* A standard Tcl result.
+ *
+ * Side effects:
+ *  None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int
+casstcl_InitBignumFromCassBytes(
+    Tcl_Interp *interp,   /* Used for error reporting if not NULL. */
+    mp_int *a,      /* Bignum to initialize */
+    CassBytes *v)   /* Initial value */
+{
+    int status = TclBN_mp_init(a);
+
+    if (status != MP_OKAY) {
+  if (interp != NULL) {
+      Tcl_ResetResult(interp);
+      Tcl_AppendResult(interp, "could not init bignum", NULL);
+  }
+  return TCL_ERROR;
+    }
+
+    status = mp_read_unsigned_bin(a, v->data, v->size);
+
+    if (status != MP_OKAY) {
+  if (interp != NULL) {
+      Tcl_ResetResult(interp);
+      Tcl_AppendResult(interp, "could not read bignum", NULL);
+  }
+  return TCL_ERROR;
+    }
+
     return TCL_OK;
 }
 
@@ -421,24 +364,24 @@ casstcl_InitCassBytesFromBignum(
  *
  * casstcl_GetTimestampFromObj --
  *
- *	Accepts a Tcl object value that specifies a whole number of
- *	seconds and optionally a fractional number of seconds, and
- *	converts the value to the whole number of milliseconds.
+ *  Accepts a Tcl object value that specifies a whole number of
+ *  seconds and optionally a fractional number of seconds, and
+ *  converts the value to the whole number of milliseconds.
  *
  * Results:
- *	A standard Tcl result.
+ *  A standard Tcl result.
  *
  * Side effects:
- *	None.
+ *  None.
  *
  *----------------------------------------------------------------------
  */
 
 int
 casstcl_GetTimestampFromObj(
-    Tcl_Interp *interp,		/* Used for error reporting if not NULL. */
-    Tcl_Obj *objPtr,		/* Object from which to get milliseconds. */
-    cass_int64_t *milliseconds)	/* Place to store whole milliseconds. */
+    Tcl_Interp *interp,   /* Used for error reporting if not NULL. */
+    Tcl_Obj *objPtr,    /* Object from which to get milliseconds. */
+    cass_int64_t *milliseconds) /* Place to store whole milliseconds. */
 {
   Tcl_WideInt wideVal;
   if (Tcl_GetWideIntFromObj(NULL, objPtr, &wideVal) == TCL_OK) {
@@ -482,20 +425,20 @@ casstcl_GetTimestampFromObj(
  *
  * casstcl_NewTimestampObj --
  *
- *	Accepts a Cassandra 'timestamp' value, in milliseconds, and
- *	creates a Tcl object based on it.  If the milliseconds is
- *	evenly divisible by 1000, a Tcl wide integer object will be
- *	returned, containing the exact number of seconds.  Otherwise,
- *	a Tcl double object will be returned with an approximate value,
- *	where the fractional portion of the double will represent the
- *	milliseconds and the whole portion will represent the number
- *	of seconds.
+ *  Accepts a Cassandra 'timestamp' value, in milliseconds, and
+ *  creates a Tcl object based on it.  If the milliseconds is
+ *  evenly divisible by 1000, a Tcl wide integer object will be
+ *  returned, containing the exact number of seconds.  Otherwise,
+ *  a Tcl double object will be returned with an approximate value,
+ *  where the fractional portion of the double will represent the
+ *  milliseconds and the whole portion will represent the number
+ *  of seconds.
  *
  * Results:
- *	The newly created Tcl object, having a reference count of zero.
+ *  The newly created Tcl object, having a reference count of zero.
  *
  * Side effects:
- *	None.
+ *  None.
  *
  *----------------------------------------------------------------------
  */
@@ -515,16 +458,16 @@ Tcl_Obj *casstcl_NewTimestampObj(
  *
  * mp_read_unsigned_bin --
  *
- *	Read a binary encoded 'bignum' from the specified buffer.  It
- *	must have been initialized first.  This routine was borrowed
- *	directly from the Tcl 8.6 source code (i.e. because we needed
- *	it and it was not available as an export).
+ *  Read a binary encoded 'bignum' from the specified buffer.  It
+ *  must have been initialized first.  This routine was borrowed
+ *  directly from the Tcl 8.6 source code (i.e. because we needed
+ *  it and it was not available as an export).
  *
  * Results:
- *	A standard LibTomMath result.
+ *  A standard LibTomMath result.
  *
  * Side effects:
- *	None.
+ *  None.
  *
  *----------------------------------------------------------------------
  */
@@ -562,308 +505,6 @@ int mp_read_unsigned_bin (mp_int * a, const unsigned char *b, int c)
   return MP_OKAY;
 }
 
-/*
- *----------------------------------------------------------------------
- *
- * casstcl_InitBignumFromCassBytes --
- *
- *	Allocate and initialize a 'bignum' from a CassBytes.
- *
- * Results:
-*	A standard Tcl result.
- *
- * Side effects:
- *	None.
- *
- *----------------------------------------------------------------------
- */
-
-int
-casstcl_InitBignumFromCassBytes(
-    Tcl_Interp *interp,		/* Used for error reporting if not NULL. */
-    mp_int *a,			/* Bignum to initialize */
-    CassBytes *v)		/* Initial value */
-{
-    int status = TclBN_mp_init(a);
-
-    if (status != MP_OKAY) {
-	if (interp != NULL) {
-	    Tcl_ResetResult(interp);
-	    Tcl_AppendResult(interp, "could not init bignum", NULL);
-	}
-	return TCL_ERROR;
-    }
-
-    status = mp_read_unsigned_bin(a, v->data, v->size);
-
-    if (status != MP_OKAY) {
-	if (interp != NULL) {
-	    Tcl_ResetResult(interp);
-	    Tcl_AppendResult(interp, "could not read bignum", NULL);
-	}
-	return TCL_ERROR;
-    }
-
-    return TCL_OK;
-}
-
-
-/*
- *----------------------------------------------------------------------
- *
- * casstcl_bind_names_from_array --
- *
- *   Now this little ditty takes an array name and a query and an objv
- *   and a pointer to a pointer to a cassandra statement
- *
- *   It creates a cassandra statement
- *
- *   It then iterates through the objv as a list of column names
- *
- *   It fetches the data type of the column from the column-datatype cache
- *
- *   It fetches the value from the array and converts it and binds it
- *   to the statement
- *
- *   This requires that the table name and keyspace be known
- *
- *   If the data type is a list or set then the corresponding Tcl object
- *   is converted to a list of that type.
- *
- *   If the data type is a map then the corresponding Tcl object is converted
- *   to a map of alternating key-value pairs of the two specified types.
- *
- *   If the objv is empty the statement is created with nothing bound.
- *   It's probably fine if that happens.
- *
- * Results:
- *      A standard Tcl result.
- *
- *----------------------------------------------------------------------
- */
-int
-casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char *query, char *tclArray, int objc, Tcl_Obj *CONST objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
-{
-  int i;
-  int masterReturn = TCL_OK;
-  int tclReturn = TCL_OK;
-  Tcl_Interp *interp = ct->interp;
-
-  casstcl_cassTypeInfo typeInfo;
-
-  *statementPtr = NULL;
-
-  CassStatement *statement = cass_statement_new(query, objc);
-
-  if (casstcl_setStatementConsistency(ct, statement, consistencyPtr) != TCL_OK) {
-    return TCL_ERROR;
-  }
-
-  for (i = 0; i < objc; i ++) {
-    tclReturn = casstcl_typename_obj_to_cass_value_types (interp, table, objv[i], &typeInfo);
-
-    if (tclReturn == TCL_ERROR) {
-      masterReturn = TCL_ERROR;
-      break;
-    }
-
-    // if the index name wasn't found in the row we get TCL_CONTINUE back.
-    // NB we can either treat it as an error or not
-    // NB eventually we can accumulate unrecognized types into a map
-    if (tclReturn == TCL_CONTINUE) {
-      tclReturn = TCL_OK;
-      continue;
-    }
-
-    // get the value out of the array
-    char *varName = Tcl_GetString (objv[i]);
-    Tcl_Obj *valueObj = Tcl_GetVar2Ex (interp, tclArray, varName, (TCL_GLOBAL_ONLY|TCL_LEAVE_ERR_MSG));
-
-    if (valueObj == NULL) {
-      Tcl_AppendResult (interp, " while trying to look up the data value for column '", varName, "', ", table, "', ", table, "' from array '", tclArray, "'", NULL);
-      masterReturn = TCL_ERROR;
-      break;
-    }
-
-    tclReturn = casstcl_bind_tcl_obj (ct, statement, NULL, 0, i, &typeInfo, valueObj);
-// printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
-    if (tclReturn == TCL_ERROR) {
-      masterReturn = TCL_ERROR;
-      break;
-    }
-  }
-
-  if (masterReturn == TCL_OK) {
-    *statementPtr = statement;
-  }
-
-  return masterReturn;
-}
-
-
-/*
- *----------------------------------------------------------------------
- *
- * casstcl_bind_names_from_list --
- *
- *   fully qualified table name
- *   name of the table
- *   and a pointer to a pointer to a cassandra statement
- *
- *   It creates a cassandra statement
- *
- *   Similar to casstcl_bind_names_from_array
- *
- * Results:
- *      A standard Tcl result.
- *
- *----------------------------------------------------------------------
- */
-int
-casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *query, int objc, Tcl_Obj *CONST objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
-{
-  int i;
-  int masterReturn = TCL_OK;
-  int tclReturn = TCL_OK;
-  Tcl_Interp *interp = ct->interp;
-
-  casstcl_cassTypeInfo typeInfo;
-
-  *statementPtr = NULL;
-
-  CassStatement *statement = cass_statement_new(query, objc / 2);
-
-  if (casstcl_setStatementConsistency(ct, statement, consistencyPtr) != TCL_OK) {
-    return TCL_ERROR;
-  }
-
-  for (i = 0; i < objc; i += 2) {
-    tclReturn = casstcl_typename_obj_to_cass_value_types (interp, table, objv[i], &typeInfo);
-
-    if (tclReturn == TCL_ERROR) {
-      masterReturn = TCL_ERROR;
-      break;
-    }
-
-    // failed to find it?
-    if (tclReturn == TCL_CONTINUE) {
-      tclReturn = TCL_OK;
-      continue;
-    }
-
-    // get the value out of the list
-    Tcl_Obj *valueObj = objv[i+1];
-
-
-    tclReturn = casstcl_bind_tcl_obj (ct, statement, NULL, 0, i / 2, &typeInfo, valueObj);
-    if (tclReturn == TCL_ERROR) {
-      Tcl_AppendResult (interp, " while attempting to bind field '", Tcl_GetString (objv[i]), "' of type '", casstcl_cass_value_type_to_string (typeInfo.cassValueType), "', value '", Tcl_GetString (valueObj), "' referencing table '", table, "'", NULL);
-      masterReturn = TCL_ERROR;
-      break;
-    }
-  }
-
-  if (masterReturn == TCL_OK) {
-    *statementPtr = statement;
-  }
-
-  return masterReturn;
-}
-
-// copy the internal representation of a cassTypeTclType Tcl object
-// to a new Tcl object
-void
-DupCassTypeTypeInternalRep (Tcl_Obj *srcPtr, Tcl_Obj *copyPtr)
-{
-  // not much to this... since we use the wide int representation,
-  // all we have to do is copy the wide into from the source to the copy
-  copyPtr->internalRep.otherValuePtr = srcPtr->internalRep.otherValuePtr;
-  copyPtr->typePtr = &casstcl_cassTypeTclType;
-}
-
-// convert any tcl object to be a cassTypeTclType
-int
-SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj)
-{
-  casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&obj->internalRep.otherValuePtr;
-  casstcl_cassTypeInfo localTypeInfo;
-
-  // convert it using our handy routine for doing that
-  // if we get TCL_ERROR, it's an error
-  // if we get TCL_OK we need to set the object's type pointer to point
-  // to our custom type.
-  //
-  // after this if the object isn't altered future calls to
-  // Tcl_ConvertToType will not do anything and access to the
-  // internal representation will be quick
-  //
-  // see casstcl_typename_obj_to_cass_value_types
-  //
-  if (casstcl_obj_to_compound_cass_value_types (interp, obj, &localTypeInfo) == TCL_OK) {
-    *typeInfo = localTypeInfo; // structure copy
-    // we manage the data type of this object now
-    obj->typePtr = &casstcl_cassTypeTclType;
-    return TCL_OK;
-  }
-  return TCL_ERROR;
-}
-
-// this converts our internal data type to a string
-// it is probably not needed and will not be unless you some day
-// write a casstcl_cassTypeInfo into a Tcl object that you didn't
-// create with a string or copy to (like for the int data type an object
-// that is the target of a calculation will get its int set and its
-// string rep invalidated and regenerated later
-//
-// this also probably means that the routine is buggy because it probably
-// hasn't ever been called
-//
-void UpdateCassTypeString (Tcl_Obj *obj) {
-  casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&obj->internalRep.otherValuePtr;
-  CassValueType cassType = typeInfo->cassValueType;
-  const char *string = casstcl_cass_value_type_to_string (cassType);
-  int len = strlen(string);
-
-  if (cassType != CASS_VALUE_TYPE_MAP && cassType != CASS_VALUE_TYPE_SET && cassType != CASS_VALUE_TYPE_LIST) {
-    char *newString = ckalloc (len + 1);
-    strncpy (newString, string, len);
-    obj->bytes = newString;
-    obj->length = len;
-    return;
-  }
-
-  // it's set, map or list, decode the second type
-  const char *subString1 = casstcl_cass_value_type_to_string (typeInfo->valueSubType1);
-  int len1 = strlen(subString1);
-
-  if (cassType != CASS_VALUE_TYPE_MAP) {
-    int newStringSize = len + 1 + len1 + 1;
-    char *newString = ckalloc (newStringSize);
-    strncpy (newString, string, len);
-    newString[len] = ' ';
-    strncpy (&newString[len+1], subString1, len1);
-
-    obj->bytes = newString;
-    obj->length = newStringSize - 1;
-    return;
-  }
-
-  const char *subString2 = casstcl_cass_value_type_to_string (typeInfo->valueSubType2);
-  int len2 = strlen(subString2);
-  int newStringSize = len + 1 + len1 + 1 + len2 + 1;
-  char *newString = ckalloc (newStringSize);
-  strncpy (newString, string, len);
-  newString[len] = ' ';
-  strncpy (&newString[len+1], subString1, len1);
-  newString[len+1+len1] = ' ';
-  strncpy (&newString[len+1+len1+1], subString2, len2);
-
-  obj->bytes = newString;
-  obj->length = newStringSize - 1;
-
-
-  // ok it's a map, a little more complicated because three strings
-}
 
 
 /*
@@ -1193,6 +834,430 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 
   *tclObj = NULL;
   return TCL_ERROR;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_GetInetFromObj --
+ *
+ *  Attempt to return an Inet from the Tcl object "objPtr".
+ *
+ * Results:
+ *  A standard Tcl result.
+ *
+ * Side effects:
+ *  None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int
+casstcl_GetInetFromObj(
+    Tcl_Interp *interp, /* Used for error reporting if not NULL. */
+    Tcl_Obj *objPtr,  /* The object from which to get an Inet. */
+    CassInet *inetPtr)  /* Place to store resulting Inet. */
+{
+  const char *value = Tcl_GetString(objPtr);
+  struct addrinfo hints;
+  struct addrinfo *result = NULL;
+  int rc;
+
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_flags = AI_NUMERICHOST;
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  rc = getaddrinfo(value, NULL, &hints, &result);
+
+  if (rc == 0) {
+#if 0
+    casstcl_DumpAddrInfo(stdout, result, 0);
+#endif
+    assert(result != NULL);
+    assert(result->ai_addrlen >= 0);
+    assert(result->ai_addrlen <= CASS_INET_V6_LENGTH);
+    memset(inetPtr, 0, sizeof(CassInet));
+    if (result->ai_family == AF_INET) {
+      struct sockaddr_in *pSockAddr = (struct sockaddr_in *)result->ai_addr;
+      *inetPtr = cass_inet_init_v4((const cass_uint8_t *)&pSockAddr->sin_addr.s_addr);
+      freeaddrinfo(result);
+      return TCL_OK;
+    } else if (result->ai_family == AF_INET6) {
+      struct sockaddr_in6 *pSockAddr = (struct sockaddr_in6 *)result->ai_addr;
+      *inetPtr = cass_inet_init_v6((const cass_uint8_t *)&pSockAddr->sin6_addr.s6_addr);
+      freeaddrinfo(result);
+      return TCL_OK;
+    } else {
+      Tcl_ResetResult(interp);
+      Tcl_AppendResult(interp, "address \"", value, "\" is not IPv4 or IPv6", NULL);
+      freeaddrinfo(result);
+      return TCL_ERROR;
+    }
+  } else {
+    Tcl_ResetResult(interp);
+    Tcl_AppendResult(interp, gai_strerror(rc), NULL);
+    return TCL_ERROR;
+  }
+}
+
+/*
+ *--------------------------------------------------------------
+ *
+ * casstcl_obj_to_compound_cass_value_types
+ *
+ * Lookup a string from a Tcl object and identify it as one of the cass
+ * value type strings for CassValueType (int, text uuid, etc.) and set
+ * a pointer to a passed-in CassValueType value to the corresponding
+ * type such as CASS_VALUE_TYPE_DOUBLE, etc
+ *
+ * Also if it is a list of "map type type" or "set type" or "list type"
+ * then set the valueSubType1 to type defined by the set or list and
+ * in the case of a map set valueSubType1 for the key datatype and
+ * valueSubType2 for the value datatype
+ *
+ * Results:
+ *      ...cass value types gets set
+ *      ...a standard Tcl result is returned
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+int
+casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, casstcl_cassTypeInfo *typeInfo) {
+  int listObjc;
+  Tcl_Obj **listObjv;
+
+  typeInfo->cassValueType = CASS_VALUE_TYPE_UNKNOWN;
+  typeInfo->valueSubType1 = CASS_VALUE_TYPE_UNKNOWN;
+  typeInfo->valueSubType2 = CASS_VALUE_TYPE_UNKNOWN;
+
+  // try straight lookup.  this should get everything except for
+  // maps, sets and lists
+  char *string = Tcl_GetString (tclObj);
+  CassValueType valueType = casstcl_string_to_cass_value_type (string);
+
+  if (valueType != CASS_VALUE_TYPE_UNKNOWN) {
+    typeInfo->cassValueType = valueType;
+    return TCL_OK;
+  }
+
+  if (Tcl_ListObjGetElements (interp, tclObj, &listObjc, &listObjv) == TCL_ERROR) {
+    Tcl_AppendResult (interp, " while parsing cassandra data type", NULL);
+    return TCL_ERROR;
+  }
+
+  // the list parsed, now look up the first element, if we don't find it
+  // in the type list, we have a bad tyupe
+  string = Tcl_GetString (listObjv[0]);
+  valueType = casstcl_string_to_cass_value_type (string);
+
+  if ((valueType != CASS_VALUE_TYPE_MAP) && (valueType != CASS_VALUE_TYPE_SET) && (valueType != CASS_VALUE_TYPE_LIST)) {
+    Tcl_ResetResult (interp);
+    Tcl_AppendResult (interp, "cassandra type spec '", string, "' is invalid", NULL);
+    return TCL_ERROR;
+  }
+
+  // it's a collection, so it will have one or two sub values depending
+  // on if it's a list or set (1) or a map (2).
+  // anyway, set the first type to the map, list or set type that we
+  // figured out.
+  typeInfo->cassValueType = valueType;
+
+  if (valueType == CASS_VALUE_TYPE_MAP) {
+    if (listObjc != 3) {
+      Tcl_ResetResult (interp);
+      Tcl_AppendResult (interp, "cassandra map type must contain three type values", NULL);
+      return TCL_ERROR;
+    }
+  } else {
+    if (listObjc != 2) {
+      Tcl_ResetResult (interp);
+      Tcl_AppendResult (interp, "cassandra ", string, " type ('", Tcl_GetString (tclObj), "') must contain two values", NULL);
+      return TCL_ERROR;
+    }
+  }
+
+  // at this point it's a colleciton and the list count is correct so
+  // there is at least one subType that has to be looked up successfully
+
+  typeInfo->valueSubType1 = casstcl_string_to_cass_value_type (Tcl_GetString(listObjv[1]));
+  if (typeInfo->valueSubType1 == CASS_VALUE_TYPE_UNKNOWN) {
+    Tcl_ResetResult (interp);
+    Tcl_AppendResult (interp, "cassandra ", string, " type spec unrecognized subtype '", Tcl_GetString (listObjv[1]), "'", NULL);
+    return TCL_ERROR;
+  }
+
+  // only for maps there is a second subType to be checked, converted
+  if (valueType == CASS_VALUE_TYPE_MAP) {
+    typeInfo->valueSubType2 = casstcl_string_to_cass_value_type (Tcl_GetString(listObjv[2]));
+    if (typeInfo->valueSubType2 == CASS_VALUE_TYPE_UNKNOWN) {
+      Tcl_ResetResult (interp);
+      Tcl_AppendResult (interp, "cassandra map type spec unrecognized second subtype '", Tcl_GetString(listObjv[2]), "'", NULL);
+      return TCL_ERROR;
+    }
+  }
+// printf("casstcl_obj_to_compound_cass_value_types took '%s' and made %d, %d, %d\n", Tcl_GetString (tclObj), typeInfo->cassValueType, typeInfo->valueSubType1, typeInfo->valueSubType2);
+  return TCL_OK;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_bind_names_from_array --
+ *
+ *   Now this little ditty takes an array name and a query and an objv
+ *   and a pointer to a pointer to a cassandra statement
+ *
+ *   It creates a cassandra statement
+ *
+ *   It then iterates through the objv as a list of column names
+ *
+ *   It fetches the data type of the column from the column-datatype cache
+ *
+ *   It fetches the value from the array and converts it and binds it
+ *   to the statement
+ *
+ *   This requires that the table name and keyspace be known
+ *
+ *   If the data type is a list or set then the corresponding Tcl object
+ *   is converted to a list of that type.
+ *
+ *   If the data type is a map then the corresponding Tcl object is converted
+ *   to a map of alternating key-value pairs of the two specified types.
+ *
+ *   If the objv is empty the statement is created with nothing bound.
+ *   It's probably fine if that happens.
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char *query, char *tclArray, int objc, Tcl_Obj *CONST objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
+{
+  int i;
+  int masterReturn = TCL_OK;
+  int tclReturn = TCL_OK;
+  Tcl_Interp *interp = ct->interp;
+
+  casstcl_cassTypeInfo typeInfo;
+
+  *statementPtr = NULL;
+
+  CassStatement *statement = cass_statement_new(query, objc);
+
+  if (casstcl_setStatementConsistency(ct, statement, consistencyPtr) != TCL_OK) {
+    return TCL_ERROR;
+  }
+
+  for (i = 0; i < objc; i ++) {
+    tclReturn = casstcl_typename_obj_to_cass_value_types (interp, table, objv[i], &typeInfo);
+
+    if (tclReturn == TCL_ERROR) {
+      masterReturn = TCL_ERROR;
+      break;
+    }
+
+    // if the index name wasn't found in the row we get TCL_CONTINUE back.
+    // NB we can either treat it as an error or not
+    // NB eventually we can accumulate unrecognized types into a map
+    if (tclReturn == TCL_CONTINUE) {
+      tclReturn = TCL_OK;
+      continue;
+    }
+
+    // get the value out of the array
+    char *varName = Tcl_GetString (objv[i]);
+    Tcl_Obj *valueObj = Tcl_GetVar2Ex (interp, tclArray, varName, (TCL_GLOBAL_ONLY|TCL_LEAVE_ERR_MSG));
+
+    if (valueObj == NULL) {
+      Tcl_AppendResult (interp, " while trying to look up the data value for column '", varName, "', ", table, "', ", table, "' from array '", tclArray, "'", NULL);
+      masterReturn = TCL_ERROR;
+      break;
+    }
+
+    tclReturn = casstcl_bind_tcl_obj (ct, statement, NULL, 0, i, &typeInfo, valueObj);
+// printf ("bound arg %d as %d %d %d value '%s'\n", i, valueType, valueSubType1, valueSubType2, Tcl_GetString(valueObj));
+    if (tclReturn == TCL_ERROR) {
+      masterReturn = TCL_ERROR;
+      break;
+    }
+  }
+
+  if (masterReturn == TCL_OK) {
+    *statementPtr = statement;
+  }
+
+  return masterReturn;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_bind_names_from_list --
+ *
+ *   fully qualified table name
+ *   name of the table
+ *   and a pointer to a pointer to a cassandra statement
+ *
+ *   It creates a cassandra statement
+ *
+ *   Similar to casstcl_bind_names_from_array
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *query, int objc, Tcl_Obj *CONST objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
+{
+  int i;
+  int masterReturn = TCL_OK;
+  int tclReturn = TCL_OK;
+  Tcl_Interp *interp = ct->interp;
+
+  casstcl_cassTypeInfo typeInfo;
+
+  *statementPtr = NULL;
+
+  CassStatement *statement = cass_statement_new(query, objc / 2);
+
+  if (casstcl_setStatementConsistency(ct, statement, consistencyPtr) != TCL_OK) {
+    return TCL_ERROR;
+  }
+
+  for (i = 0; i < objc; i += 2) {
+    tclReturn = casstcl_typename_obj_to_cass_value_types (interp, table, objv[i], &typeInfo);
+
+    if (tclReturn == TCL_ERROR) {
+      masterReturn = TCL_ERROR;
+      break;
+    }
+
+    // failed to find it?
+    if (tclReturn == TCL_CONTINUE) {
+      tclReturn = TCL_OK;
+      continue;
+    }
+
+    // get the value out of the list
+    Tcl_Obj *valueObj = objv[i+1];
+
+
+    tclReturn = casstcl_bind_tcl_obj (ct, statement, NULL, 0, i / 2, &typeInfo, valueObj);
+    if (tclReturn == TCL_ERROR) {
+      Tcl_AppendResult (interp, " while attempting to bind field '", Tcl_GetString (objv[i]), "' of type '", casstcl_cass_value_type_to_string (typeInfo.cassValueType), "', value '", Tcl_GetString (valueObj), "' referencing table '", table, "'", NULL);
+      masterReturn = TCL_ERROR;
+      break;
+    }
+  }
+
+  if (masterReturn == TCL_OK) {
+    *statementPtr = statement;
+  }
+
+  return masterReturn;
+}
+
+// copy the internal representation of a cassTypeTclType Tcl object
+// to a new Tcl object
+void
+DupCassTypeTypeInternalRep (Tcl_Obj *srcPtr, Tcl_Obj *copyPtr)
+{
+  // not much to this... since we use the wide int representation,
+  // all we have to do is copy the wide into from the source to the copy
+  copyPtr->internalRep.otherValuePtr = srcPtr->internalRep.otherValuePtr;
+  copyPtr->typePtr = &casstcl_cassTypeTclType;
+}
+
+// convert any tcl object to be a cassTypeTclType
+int
+SetCassTypeTypeFromAny (Tcl_Interp *interp, Tcl_Obj *obj)
+{
+  casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&obj->internalRep.otherValuePtr;
+  casstcl_cassTypeInfo localTypeInfo;
+
+  // convert it using our handy routine for doing that
+  // if we get TCL_ERROR, it's an error
+  // if we get TCL_OK we need to set the object's type pointer to point
+  // to our custom type.
+  //
+  // after this if the object isn't altered future calls to
+  // Tcl_ConvertToType will not do anything and access to the
+  // internal representation will be quick
+  //
+  // see casstcl_typename_obj_to_cass_value_types
+  //
+  if (casstcl_obj_to_compound_cass_value_types (interp, obj, &localTypeInfo) == TCL_OK) {
+    *typeInfo = localTypeInfo; // structure copy
+    // we manage the data type of this object now
+    obj->typePtr = &casstcl_cassTypeTclType;
+    return TCL_OK;
+  }
+  return TCL_ERROR;
+}
+
+// this converts our internal data type to a string
+// it is probably not needed and will not be unless you some day
+// write a casstcl_cassTypeInfo into a Tcl object that you didn't
+// create with a string or copy to (like for the int data type an object
+// that is the target of a calculation will get its int set and its
+// string rep invalidated and regenerated later
+//
+// this also probably means that the routine is buggy because it probably
+// hasn't ever been called
+//
+void UpdateCassTypeString (Tcl_Obj *obj) {
+  casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&obj->internalRep.otherValuePtr;
+  CassValueType cassType = typeInfo->cassValueType;
+  const char *string = casstcl_cass_value_type_to_string (cassType);
+  int len = strlen(string);
+
+  if (cassType != CASS_VALUE_TYPE_MAP && cassType != CASS_VALUE_TYPE_SET && cassType != CASS_VALUE_TYPE_LIST) {
+    char *newString = ckalloc (len + 1);
+    strncpy (newString, string, len);
+    obj->bytes = newString;
+    obj->length = len;
+    return;
+  }
+
+  // it's set, map or list, decode the second type
+  const char *subString1 = casstcl_cass_value_type_to_string (typeInfo->valueSubType1);
+  int len1 = strlen(subString1);
+
+  if (cassType != CASS_VALUE_TYPE_MAP) {
+    int newStringSize = len + 1 + len1 + 1;
+    char *newString = ckalloc (newStringSize);
+    strncpy (newString, string, len);
+    newString[len] = ' ';
+    strncpy (&newString[len+1], subString1, len1);
+
+    obj->bytes = newString;
+    obj->length = newStringSize - 1;
+    return;
+  }
+
+  const char *subString2 = casstcl_cass_value_type_to_string (typeInfo->valueSubType2);
+  int len2 = strlen(subString2);
+  int newStringSize = len + 1 + len1 + 1 + len2 + 1;
+  char *newString = ckalloc (newStringSize);
+  strncpy (newString, string, len);
+  newString[len] = ' ';
+  strncpy (&newString[len+1], subString1, len1);
+  newString[len+1+len1] = ' ';
+  strncpy (&newString[len+1+len1+1], subString2, len2);
+
+  obj->bytes = newString;
+  obj->length = newStringSize - 1;
+
+
+  // ok it's a map, a little more complicated because three strings
 }
 
 /*
@@ -1811,68 +1876,5 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
 }
 
 
-/*
- *----------------------------------------------------------------------
- *
- * casstcl_GetInetFromObj --
- *
- *  Attempt to return an Inet from the Tcl object "objPtr".
- *
- * Results:
- *  A standard Tcl result.
- *
- * Side effects:
- *  None.
- *
- *----------------------------------------------------------------------
- */
-
-int
-casstcl_GetInetFromObj(
-    Tcl_Interp *interp, /* Used for error reporting if not NULL. */
-    Tcl_Obj *objPtr,  /* The object from which to get an Inet. */
-    CassInet *inetPtr)  /* Place to store resulting Inet. */
-{
-  const char *value = Tcl_GetString(objPtr);
-  struct addrinfo hints;
-  struct addrinfo *result = NULL;
-  int rc;
-
-  memset(&hints, 0, sizeof(struct addrinfo));
-  hints.ai_flags = AI_NUMERICHOST;
-  hints.ai_family = AF_UNSPEC;
-  hints.ai_socktype = SOCK_STREAM;
-  rc = getaddrinfo(value, NULL, &hints, &result);
-
-  if (rc == 0) {
-#if 0
-    casstcl_DumpAddrInfo(stdout, result, 0);
-#endif
-    assert(result != NULL);
-    assert(result->ai_addrlen >= 0);
-    assert(result->ai_addrlen <= CASS_INET_V6_LENGTH);
-    memset(inetPtr, 0, sizeof(CassInet));
-    if (result->ai_family == AF_INET) {
-      struct sockaddr_in *pSockAddr = (struct sockaddr_in *)result->ai_addr;
-      *inetPtr = cass_inet_init_v4((const cass_uint8_t *)&pSockAddr->sin_addr.s_addr);
-      freeaddrinfo(result);
-      return TCL_OK;
-    } else if (result->ai_family == AF_INET6) {
-      struct sockaddr_in6 *pSockAddr = (struct sockaddr_in6 *)result->ai_addr;
-      *inetPtr = cass_inet_init_v6((const cass_uint8_t *)&pSockAddr->sin6_addr.s6_addr);
-      freeaddrinfo(result);
-      return TCL_OK;
-    } else {
-      Tcl_ResetResult(interp);
-      Tcl_AppendResult(interp, "address \"", value, "\" is not IPv4 or IPv6", NULL);
-      freeaddrinfo(result);
-      return TCL_ERROR;
-    }
-  } else {
-    Tcl_ResetResult(interp);
-    Tcl_AppendResult(interp, gai_strerror(rc), NULL);
-    return TCL_ERROR;
-  }
-}
 
 /* vim: set ts=4 sw=4 sts=4 noet : */
