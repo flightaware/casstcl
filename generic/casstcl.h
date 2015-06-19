@@ -51,7 +51,8 @@
 #define CASS_TIMESTAMP_LOWER_LIMIT (-CASS_TIMESTAMP_UPPER_LIMIT)
 
 extern Tcl_ObjType casstcl_cassTypeTclType;
-
+extern Tcl_Obj *casstcl_loggingCallbackObj;
+extern Tcl_ThreadId casstcl_loggingCallbackThreadId;
 /*
 ** NOTE: The types in this section were "borrowed" from version 1.0 of the
 **       cpp-driver.
@@ -156,5 +157,6 @@ casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValue *c
 #ifdef __cplusplus
 }
 #endif
+
 
 /* vim: set ts=4 sw=4 sts=4 noet : */
