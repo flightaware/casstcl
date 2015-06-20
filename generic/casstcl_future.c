@@ -9,6 +9,7 @@
  */
 
 #include "casstcl.h"
+#include "casstcl_cassandra.h"
 #include "casstcl_future.h"
 #include "casstcl_error.h"
 #include "casstcl_event.h"
