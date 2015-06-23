@@ -47,3 +47,4 @@ int casstcl_obj_to_cass_log_level (Tcl_Interp *interp, Tcl_Obj *tclObj, CassLogL
 const char * casstcl_cass_log_level_to_string (CassLogLevel severity);
 
 /* vim: set ts=4 sw=4 sts=4 noet : */
+

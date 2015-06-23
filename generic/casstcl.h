@@ -27,9 +27,7 @@
 #if !defined(TCL_MAJOR_VERSION) || !defined(TCL_MINOR_VERSION) || \
 	(TCL_MAJOR_VERSION < 8) || ((TCL_MAJOR_VERSION == 8) && \
 	(TCL_MINOR_VERSION < 6))
-#  include "tclInt.h"			/* HACK: Internal Tcl API. */
 #  define Tcl_GetErrorLine(interp)	((interp)->errorLine)
-#  define Tcl_BackgroundException	TclBackgroundException
 #endif
 
 #define CASS_SESSION_MAGIC 7138570

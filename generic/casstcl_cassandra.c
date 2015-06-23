@@ -118,7 +118,7 @@ casstcl_invoke_callback_with_argument (Tcl_Interp *interp, Tcl_Obj *callbackObj,
 	// a background error, which will generally cause the bgerror proc
 	// to get invoked
 	if (tclReturnCode == TCL_ERROR) {
-		Tcl_BackgroundException (interp, TCL_ERROR);
+		Tcl_BackgroundError (interp);
 	}
 
 	for (i = 0; i < evalObjc; i++) {
