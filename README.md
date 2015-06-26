@@ -141,6 +141,14 @@ $cassdb exec "use wx;"
 
  The result is a prepared statement object that currently has two methods, **delete**, which does the needful, and **statement**, which returns the string that was prepared as a statement.  The important thing is that prepared objects can be passed as arguments to the **batch**, **async** and **exec** methods.
 
+Here's an example of defining a prepared statement and a subsequent use of it to add to a batch.
+
+```tcl
+    set ::positionsPrepped [$::cass prepare #auto hummingbird.latest_positions_by_facility "INSERT INTO hummingbird.latest_positions_by_facility (facility, hexid, c, s, type, ident, t, alt, clock, gs, heading, lat, lon, reg, squawk, aircrafttype) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) using TTL 3600;"]
+
+    $::batch add -prepared $::positionsPrepped [array get row]
+```
+
 * *$cassdb* **keyspaces**
 
  Return a list of all of the keyspaces known to the cluster.
