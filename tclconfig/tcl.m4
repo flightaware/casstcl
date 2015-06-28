@@ -1646,7 +1646,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    # Version numbers are dot-stripped by system policy.
 	    TCL_TRIM_DOTS=`echo ${VERSION} | tr -d .`
 	    UNSHARED_LIB_SUFFIX='${TCL_TRIM_DOTS}.a'
-	    SHARED_LIB_SUFFIX='${TCL_TRIM_DOTS}\$\{DBGX\}.so.1'
+	    SHARED_LIB_SUFFIX='${TCL_TRIM_DOTS}\$\{DBGX\}.so'
 	    TCL_LIB_VERSIONS_OK=nodots
 	    ;;
 	Darwin-*)
