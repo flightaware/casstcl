@@ -36,6 +36,7 @@
 #define CASS_PREPARED_MAGIC 713832281
 
 #define CASSTCL_FUTURE_QUEUE_HEAD_FLAG 1
+#define CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY 2
 
 /*
  * This is the absolute limit on the whole number of seconds that we can

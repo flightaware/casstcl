@@ -620,13 +620,15 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				"-callback",
 				"-batch",
 				"-head",
+				"-error",
 				NULL
 			};
 
 			enum subOptions {
 				SUBOPT_CALLBACK,
 				SUBOPT_BATCH,
-				SUBOPT_HEAD
+				SUBOPT_HEAD,
+				SUBOPT_ERROR
 			};
 
 			// if we don't have at least three arguments, it's an error
@@ -658,6 +660,10 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 					case SUBOPT_HEAD: {
 						futureFlags |= (CASSTCL_FUTURE_QUEUE_HEAD_FLAG);
 						break;
+					}
+					case SUBOPT_ERROR: {
+					    futureFlags |= (CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY);
+                        break;	
 					}
 				}
 			}
