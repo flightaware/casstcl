@@ -57,14 +57,17 @@ casstcl_future_eventProc (Tcl_Event *tevPtr, int flags) {
 	// eval the command.  it should be the callback we were told as the
 	// first argument and the future object we created, like future0, as
 	// the second.
-	
+
 	CassError rc = cass_future_error_code(fcd->future);
 	
 	// Callback if we have an error OR if CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY not set
-	if ( ((flags & CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY) != CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY ) || 
+	if ( ((fcd->flags & CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY) != CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY ) || 
 		(casstcl_future_error_to_tcl(fcd->ct, rc, fcd->future) == TCL_ERROR ) ) { 
+	
 		casstcl_invoke_callback_with_argument (interp, fcd->callbackObj, futureObj);
+	
 	} else {
+	
 		Tcl_DeleteCommandFromToken (interp, fcd->cmdToken);
 	}
 
