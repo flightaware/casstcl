@@ -690,12 +690,10 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				future = cass_session_execute_batch (ct->session, batch);
 
 			} else if (upsert) {
-				//printf("HEY");
 				int newObjc = objc - arg;
 				Tcl_Obj *CONST *newObjv = objv + arg;
 
 				if (casstcl_make_upsert_statement_from_objv (ct, newObjc, newObjv, NULL, &statement) == TCL_ERROR) {
-                    //printf("args %d, field  '%s'\n", arg, objv[2].);
 					return TCL_ERROR;
 	
 				}
