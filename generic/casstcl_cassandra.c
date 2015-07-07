@@ -611,27 +611,30 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			CassStatement* statement = NULL;
 			CassFuture *future = NULL;
 			int arg = 2;
-			int      subOptIndex;
+			int subOptIndex;
 			Tcl_Obj *callbackObj = NULL;
 			char *batchObjName = NULL;
 			int futureFlags = 0;
+			int upsert = 0;
 
 			static CONST char *subOptions[] = {
 				"-callback",
 				"-batch",
 				"-head",
+				"-upsert",
 				NULL
 			};
 
 			enum subOptions {
 				SUBOPT_CALLBACK,
 				SUBOPT_BATCH,
-				SUBOPT_HEAD
+				SUBOPT_HEAD,
+				SUBOPT_UPSERT
 			};
 
 			// if we don't have at least three arguments, it's an error
 			if (objc < 3) {
-				Tcl_WrongNumArgs (interp, 2, objv, "?-callback n? ?-batch batchObject? ?-head? ?-array arrayName? ?-table tableName? ?-prepared preparedName? ?-consistency level? statement ?args?");
+				Tcl_WrongNumArgs (interp, 2, objv, "?-callback n? ?-batch batchObject? ?-head? ?-array arrayName? ?-table tableName? ?-prepared preparedName? ?-consistency level? statement ?args? OR ?-upsert ?-mapunkown? ?-nocomplain? ?-ifnotexists??");
 				return TCL_ERROR;
 			}
 
@@ -659,6 +662,12 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 						futureFlags |= (CASSTCL_FUTURE_QUEUE_HEAD_FLAG);
 						break;
 					}
+					
+					case SUBOPT_UPSERT: {
+						upsert = 1;
+						break;
+					}
+					
 				}
 			}
 
@@ -679,6 +688,20 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				const CassBatch *batch = bcd->batch;
 
 				future = cass_session_execute_batch (ct->session, batch);
+
+			} else if (upsert) {
+				//printf("HEY");
+				int newObjc = objc - arg;
+				Tcl_Obj *CONST *newObjv = objv + arg;
+
+				if (casstcl_make_upsert_statement_from_objv (ct, newObjc, newObjv, NULL, &statement) == TCL_ERROR) {
+                    //printf("args %d, field  '%s'\n", arg, objv[2].);
+					return TCL_ERROR;
+	
+				}
+				
+                future = cass_session_execute (ct->session, statement);
+                cass_statement_free (statement);
 
 			} else {
 				// it's a statement, possibly with arguments
