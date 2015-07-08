@@ -621,6 +621,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				"-callback",
 				"-batch",
 				"-head",
+				"-error_only",
 				"-upsert",
 				NULL
 			};
@@ -629,6 +630,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 				SUBOPT_CALLBACK,
 				SUBOPT_BATCH,
 				SUBOPT_HEAD,
+				SUBOPT_ERRORONLY,
 				SUBOPT_UPSERT
 			};
 
@@ -661,6 +663,11 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 					case SUBOPT_HEAD: {
 						futureFlags |= (CASSTCL_FUTURE_QUEUE_HEAD_FLAG);
 						break;
+					}
+					
+					case SUBOPT_ERRORONLY: {
+					    futureFlags |= (CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY);
+						break;	
 					}
 					
 					case SUBOPT_UPSERT: {

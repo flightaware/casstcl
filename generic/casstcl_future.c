@@ -58,7 +58,18 @@ casstcl_future_eventProc (Tcl_Event *tevPtr, int flags) {
 	// first argument and the future object we created, like future0, as
 	// the second.
 
-	casstcl_invoke_callback_with_argument (interp, fcd->callbackObj, futureObj);
+	CassError rc = cass_future_error_code(fcd->future);
+	
+	// Callback if we have an error OR if CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY not set
+	if ( ((fcd->flags & CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY) != CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY ) || 
+		(casstcl_future_error_to_tcl(fcd->ct, rc, fcd->future) == TCL_ERROR ) ) { 
+	
+		casstcl_invoke_callback_with_argument (interp, fcd->callbackObj, futureObj);
+	
+	} else {
+	
+		Tcl_DeleteCommandFromToken (interp, fcd->cmdToken);
+	}
 
 	// tell the dispatcher we handled it.  0 would mean we didn't deal with
 	// it and don't want it removed from the queue
@@ -94,7 +105,8 @@ void casstcl_future_callback (CassFuture* future, void* data) {
 	evPtr = (casstcl_futureEvent *) ckalloc (sizeof (casstcl_futureEvent));
 	evPtr->event.proc = casstcl_future_eventProc;
 	evPtr->fcd = fcd;
-	int queueEnd = (fcd->flags & CASSTCL_FUTURE_QUEUE_HEAD_FLAG) ? TCL_QUEUE_HEAD : TCL_QUEUE_TAIL;
+	int queueEnd = ((fcd->flags & CASSTCL_FUTURE_QUEUE_HEAD_FLAG) == CASSTCL_FUTURE_QUEUE_HEAD_FLAG) ? 
+					TCL_QUEUE_HEAD : TCL_QUEUE_TAIL;
 	Tcl_ThreadQueueEvent(fcd->ct->threadId, (Tcl_Event *)evPtr, queueEnd);
 }
 
