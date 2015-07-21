@@ -1799,7 +1799,6 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 				tclReturn = TCL_OK;
 
 				elementObj = Tcl_GetObjResult (interp);
-				Tcl_IncrRefCount(elementObj);
 			}
 
 			// we got here, either we found elementObj by looking it up
