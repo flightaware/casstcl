@@ -47,13 +47,6 @@ casstcl_future_eventProc (Tcl_Event *tevPtr, int flags) {
 	casstcl_futureClientData *fcd = evPtr->fcd;
 	Tcl_Interp *interp = fcd->ct->interp;
 
-	Tcl_Obj *futureObj;
-
-	// get the name of the future object this callback is related to
-	// into an object
-	futureObj = Tcl_NewObj();
-	Tcl_GetCommandFullName(interp, fcd->cmdToken, futureObj);
-
 	// eval the command.  it should be the callback we were told as the
 	// first argument and the future object we created, like future0, as
 	// the second.
@@ -63,6 +56,11 @@ casstcl_future_eventProc (Tcl_Event *tevPtr, int flags) {
 	// Callback if we have an error OR if CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY not set
 	if ( ((fcd->flags & CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY) != CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY ) || 
 		(casstcl_future_error_to_tcl(fcd->ct, rc, fcd->future) == TCL_ERROR ) ) { 
+		// get the name of the future object this callback is related to
+		// into an object so that we can pass it as an argument
+
+		Tcl_Obj *futureObj = Tcl_NewObj();
+		Tcl_GetCommandFullName(interp, fcd->cmdToken, futureObj);
 	
 		casstcl_invoke_callback_with_argument (interp, fcd->callbackObj, futureObj);
 	
