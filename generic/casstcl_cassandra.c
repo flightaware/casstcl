@@ -381,11 +381,15 @@ int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName,
 			// now execute the code body
 			int evalReturnCode = Tcl_EvalObjEx(interp, codeObj, 0);
 			if ((evalReturnCode != TCL_OK) && (evalReturnCode != TCL_CONTINUE)) {
-				if (evalReturnCode == TCL_BREAK) {
-					tclReturn = TCL_BREAK;
-				}
-
-				if (evalReturnCode == TCL_ERROR) {
+				// if it's TCL_BREAK we fall through to the break; tclReturn
+				// is still TCL_OK so we don't have to change anything and
+				// we don't want to propogate TCL_BREAK or TCL_CONTINE;
+				// they are for us, not for our caller.  TCL_RETURN,
+				// on the other hand, is return for our caller as well.
+				//
+				if (evalReturnCode == TCL_RETURN) {
+					tclReturn = TCL_RETURN;
+				} else if (evalReturnCode == TCL_ERROR) {
 					char        msg[60];
 
 					tclReturn = TCL_ERROR;
@@ -411,10 +415,6 @@ int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName,
 
 	cass_statement_free(statement);
 	Tcl_UnsetVar (interp, arrayName, 0);
-
-	if (tclReturn == TCL_BREAK) {
-		tclReturn = TCL_OK;
-	}
 
 	return tclReturn;
 }

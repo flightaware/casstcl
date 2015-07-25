@@ -375,14 +375,19 @@ casstcl_iterate_over_future (casstcl_sessionClientData *ct, CassFuture *future, 
 		}
 
 		// now execute the code body (this version of eval does not
-		// require any reference count management of the object)
+		// require any reference count management of the object).
+		//
+		// as with the other place where we do this, TCL_BREAK and TCL_CONTINUE
+		// are for us, we want TCL_BREAK to break us out but return TCL_OK
+		// because our caller isn't to get a break.  TCL_RETURN, on the
+		// other hand, means a return even past our caller, so we pass that
+		// through.
+		//
 		int evalReturnCode = Tcl_EvalObjEx(interp, codeObj, 0);
 		if ((evalReturnCode != TCL_OK) && (evalReturnCode != TCL_CONTINUE)) {
-			if (evalReturnCode == TCL_BREAK) {
-				tclReturn = TCL_BREAK;
-			}
-
-			if (evalReturnCode == TCL_ERROR) {
+			if (evalReturnCode == TCL_RETURN) {
+				tclReturn = TCL_RETURN;
+			} else if (evalReturnCode == TCL_ERROR) {
 				char        msg[60];
 				tclReturn = TCL_ERROR;
 
