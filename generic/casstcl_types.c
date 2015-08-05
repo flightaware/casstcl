@@ -165,6 +165,14 @@ casstcl_cass_value_type_to_string (CassValueType valueType) {
       return "set";
     }
 
+    case CASS_VALUE_TYPE_UDT: {
+      return "udt";
+    }
+
+    case CASS_VALUE_TYPE_TUPLE: {
+      return "tuple";
+    }
+
     default:
       return "unknown";
   }
@@ -245,11 +253,13 @@ casstcl_string_to_cass_value_type (char *string) {
     case 't': {
       if (strcmp (string, "text") == 0) return CASS_VALUE_TYPE_TEXT;
       if (strcmp (string, "timestamp") == 0) return CASS_VALUE_TYPE_TIMESTAMP;
+      if (strcmp (string, "tuple") == 0) return CASS_VALUE_TYPE_TUPLE;
       if (strcmp (string, "timeuuid") == 0) return CASS_VALUE_TYPE_TIMEUUID;
       break;
     }
 
     case 'u': {
+      if (strcmp (string, "udt") == 0) return CASS_VALUE_TYPE_UDT;
       if (strcmp (string, "uuid") == 0) return CASS_VALUE_TYPE_UUID;
       if (strcmp (string, "unknown") == 0) return CASS_VALUE_TYPE_UNKNOWN;
       break;
@@ -260,13 +270,10 @@ casstcl_string_to_cass_value_type (char *string) {
       if (strcmp (string, "varint") == 0) return CASS_VALUE_TYPE_VARINT;
       break;
     }
-    return CASS_VALUE_TYPE_UNKNOWN;
   }
 
   return CASS_VALUE_TYPE_UNKNOWN;
 }
-
-
 
 /*
  *----------------------------------------------------------------------
@@ -749,6 +756,28 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
       *tclObj = NULL;
       return TCL_ERROR;
     }
+
+	case CASS_VALUE_TYPE_UDT: {
+      Tcl_ResetResult(interp);
+      Tcl_AppendResult(interp, "udt value type not yet implemented by casstcl", NULL);
+
+      *tclObj = NULL;
+      return TCL_ERROR;
+	}
+
+	case CASS_VALUE_TYPE_TUPLE: {
+      Tcl_ResetResult(interp);
+      Tcl_AppendResult(interp, "type value type not yet implemented by casstcl", NULL);
+
+      *tclObj = NULL;
+      return TCL_ERROR;
+	}
+
+	case CASS_VALUE_TYPE_LAST_ENTRY: {
+		// this isn't a real value type and shouldn't ever get picked but this instance
+		// silences a compiler warning
+		assert (0 == 1);
+	}
 
     case CASS_VALUE_TYPE_INET: {
       CassError cassError;
@@ -1498,24 +1527,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
       return TCL_ERROR;
     }
 
-    case CASS_VALUE_TYPE_CUSTOM: {
-      int length = 0;
-      unsigned char *value = Tcl_GetByteArrayFromObj (obj, &length);
-      cass_byte_t *copyBuffer = NULL;
-
-      if (name == NULL) {
-        cassError = cass_statement_bind_custom (statement, index, length, &copyBuffer);
-      } else {
-        cassError = cass_statement_bind_custom_by_name (statement, name, length, &copyBuffer);
-      }
-
-      if (cassError == CASS_OK) {
-        memcpy (copyBuffer, value, length);
-      }
-      break;
-    }
-
-
+    case CASS_VALUE_TYPE_CUSTOM:
     case CASS_VALUE_TYPE_BLOB: {
       int length = 0;
       unsigned char *value = Tcl_GetByteArrayFromObj (obj, &length);
