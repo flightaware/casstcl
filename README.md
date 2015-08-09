@@ -363,7 +363,7 @@ As of Cassandra 3.1 there is a limit on the maximum size of a batch in the vicin
 Note on batch performance
 ----
 
-A number of people have said that batching doesn't improve insert performance and puts a lot of load on the Cassandra coordinator handling the request.  The author has found with a single writer and a small cluster, at least, that batching does improve performance.  YMMV.
+Batching isn't for performance.  Google for details.  However since batching reduces the number of callbacks, casstcl can run faster with batches if it is heavily loaded.  A recent addition to the async and exec methods, **-error_only** specifies that completion callbacks are only done for errors and this improves casstcl throughput considerably when under heavy load.
 
 Note on logged versus unlogged batches
 ----
