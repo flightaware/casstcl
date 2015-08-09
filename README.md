@@ -383,7 +383,7 @@ Configuring SSL Connections
 
 * *$cassdb* **ssl_private_key** *$pemFormattedCertString $password*
 
- This sets the client-side private key.  This is by the server to authenticate the client.
+ This sets the client-side private key.  This is used by the server to authenticate the client.
 
 * *$cassdb* **add_trusted_cert** *$pemFormattedCertString*
 
@@ -402,7 +402,7 @@ Configuring SSL Connections
 Future Objects
 ---
 
-Future objects are created when casstcl's async method is invoked.  It is up to the user to ensure that the objects returned by the async method have their own methods invoked to enquire as to the status and ultimate disposition of their requests.  After you're finished with a future object, you should delete it.
+Future objects are created when casstcl's async or exec methods are invoked with a callback specified.  It is up to the user to ensure that the future objects returned have their methods invoked to enquire as to the status and ultimate disposition of their requests.  The results of selects, for instance, can be iterated using the object's **foreach** method.  After you're finished with a future object, you should delete it.
 
 ```tcl
 set future [$cassObj async "select * from wx_metar where airport = 'KHOU' order by time desc limit 1"]
@@ -428,7 +428,7 @@ $future delete
 
 * *$future* **wait** *?us?*
 
- Waits for the request to complete.  If the optional argument us is specified, times out after that number of microseconds.
+ Waits for the request to complete.  If the optional argument *us* is specified, times out and returns after that number of microseconds have elapsed without the request having completed.
 
 * *$future* **foreach** *rowArray code*
 
@@ -440,13 +440,13 @@ $future delete
 
 * *$future* **error_message**
 
- Return the cassandra error message for the future, empty string if none.
+ Return the cassandra error message for the future, or an empty string if none.
 
 * *$future* **delete**
 
- Delete the future.  Care should be taken to delete these when done with them to avoid leaking memory.
+ Delete the future.  Delete futures when you are done with them or you will leak memory.
 
-Exec and select kind of hide the future object to make things simpler.  Sometimes you may like to go synchronously because given the nature of your application you're willing to wait for the result and you don't want to jack around with callbacks, yadda.  Great.  Exec and select are normally pretty good for that but future objects have some capabilities you can't get with them so you can do an async without the callback then wait immediately on the future object.  Remember to delete your future objects when you're done with them.
+Exec and select can kind of hide the future object to make things simpler.  Sometimes you may like to go synchronously because given the nature of your application you're willing to wait for the result and you don't want to jack around with callbacks, yadda.  Great.  Exec and select are normally pretty good for that but future objects have some capabilities you can't get with them so you can do an async without the callback then wait immediately on the future object.  Remember to delete your future objects when you're done with them.
 
 ```tcl
 set future [$cassObj async "select * from wx_metar where airport = 'KHOU' order by time desc limit 1"]
