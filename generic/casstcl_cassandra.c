@@ -199,6 +199,8 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
 			ct->ssl = cass_ssl_new ();
 
 			ct->threadId = Tcl_GetCurrentThread();
+			ct->nPendingCallbacks = 0;
+			ct->pendingCallbackLimit = 0;
 
 			Tcl_CreateEventSource (casstcl_EventSetupProc, casstcl_EventCheckProc, NULL);
 
@@ -447,6 +449,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
         "connect",
 		"prepare",
 		"batch",
+		"pending_callbacks",
 		"keyspaces",
 		"tables",
 		"columns",
@@ -495,6 +498,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
         OPT_CONNECT,
 		OPT_PREPARE,
 		OPT_BATCH,
+		OPT_PENDING_CALLBACKS,
 		OPT_LIST_KEYSPACES,
 		OPT_LIST_TABLES,
 		OPT_LIST_COLUMNS,
@@ -889,6 +893,40 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			return casstcl_createBatchObjectCommand (ct, Tcl_GetString (objv[2]), cassBatchType);
+		}
+
+		case OPT_PENDING_CALLBACKS: {
+			if (objc > 4) {
+				Tcl_WrongNumArgs (interp, 1, objv, "?limit? ?count?");
+				return TCL_ERROR;
+			}
+
+			if (objc == 2) {
+				Tcl_SetObjResult (interp, Tcl_NewIntObj (ct->nPendingCallbacks));
+				break;
+			}
+
+			char *limitString = Tcl_GetString (objv[2]);
+			if (strcmp (limitString, "limit") != 0) {
+				Tcl_SetObjResult (interp, Tcl_NewStringObj ("arg 2 must be 'limit' if present", -1));
+				return TCL_ERROR;
+			}
+
+			if (objc == 4) {
+				int limit = 0;
+
+				if (Tcl_GetIntFromObj (interp, objv[3], &limit) == TCL_ERROR) {
+					Tcl_AppendResult (interp, " while converting limit value", NULL);
+					return TCL_ERROR;
+				}
+			}
+
+			// objc is either 3 in which case they want the current limit
+			// or it is 4 in which case we just set it.  either way, return
+			// the pending callback limit
+
+			Tcl_SetObjResult (interp, Tcl_NewIntObj (ct->pendingCallbackLimit));
+			break;
 		}
 
 		case OPT_LIST_KEYSPACES: {

@@ -52,6 +52,7 @@ casstcl_future_eventProc (Tcl_Event *tevPtr, int flags) {
 	// the second.
 
 	CassError rc = cass_future_error_code(fcd->future);
+	fcd->ct->nPendingCallbacks--;
 	
 	// Callback if we have an error OR if CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY not set
 	if ( ((fcd->flags & CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY) != CASSTCL_FUTURE_CALLBACK_ON_ERROR_ONLY ) || 
@@ -151,6 +152,23 @@ casstcl_createFutureObjectCommand (casstcl_sessionClientData *ct, CassFuture *fu
 
 	if (callbackObj != NULL) {
 		cass_future_set_callback (future, casstcl_future_callback, fcd);
+		ct->nPendingCallbacks++;
+
+		// if there is a pending callback limit,
+		//   if the number of pending callbacks is greater than the limit,
+		//     process events until at least half the pending events have
+		//     been processed, or until Tcl_DoOneEvent returns saying
+		//     it had nothing to do.
+
+		if (ct->pendingCallbackLimit > 0) {
+			if (ct->nPendingCallbacks >= ct->pendingCallbackLimit) {
+				while (ct->nPendingCallbacks > ct->pendingCallbackLimit / 2) {
+					if (!Tcl_DoOneEvent (TCL_ALL_EVENTS|TCL_DONT_WAIT)) {
+						break;
+					}
+				}
+			}
+		}
 	}
 
 	static unsigned long nextAutoCounter = 0;

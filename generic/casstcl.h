@@ -90,7 +90,8 @@ typedef struct casstcl_sessionClientData
 	CassSsl *ssl;
     Tcl_Command cmdToken;
 	Tcl_ThreadId threadId;
-	Tcl_Obj *loggingCallbackObj;
+	int nPendingCallbacks;
+	int pendingCallbackLimit;
 } casstcl_sessionClientData;
 
 typedef struct casstcl_futureClientData

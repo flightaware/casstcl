@@ -151,6 +151,16 @@ Here's an example of defining a prepared statement and a subsequent use of it to
     $::batch add -prepared $::positionsPrepped [array get row]
 ```
 
+* *$cassdb* **pending_callbacks** **?limit?** *?count?*
+
+With no arguments, returns a list of pending future callbacks, i.e. futures that have been created with a callback requested the results of which haven't been received yet.
+
+If **limit** is specified and count is not, the current limit for pending callbacks is returned.  If **limit** is specified along with a count value, that sets the pending callback limit.
+
+If a value is set for the pending callback limit, each time the program creates a new future object with an associated callback the number of pending callbacks is checked against the pending callback limit and if the limit is met, the caller is stalled until the number of pending callbacks falls to half the limit or below.  All other Tcl event types in the event queue along with the future callbacks will also be processed.
+
+The default value for the pending callback limit is 0, indicating that an unlimited number of pending callbacks are allowed.
+
 * *$cassdb* **keyspaces**
 
  Return a list of all of the keyspaces known to the cluster.
