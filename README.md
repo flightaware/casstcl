@@ -574,3 +574,8 @@ Bugs
 ---
 
 It seems to be working pretty well and we haven't found memory leaks in quite a while.  Still, the code is pretty new and hasn't gotten a ton of use.  Nonetheless, the workhorse functions **async**, **exec** and **select** seem to work pretty well.
+
+FlightAware
+---
+FlightAware has released over a dozen applications  (under the free and liberal BSD license) into the open source community. FlightAware's repositories are available on GitHub for public use, discussion, bug reports, and contribution. Read more at https://flightaware.com/about/code/
+
