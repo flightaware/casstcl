@@ -302,7 +302,7 @@ Here's an example of defining a prepared statement and a subsequent use of it to
 Batches
 ---
 
-Batching CQL can yield a huge performance increase.
+Batches are a way to provide atomicity, so if anything in a batch fails, none of the actions occur.
 
 While you can construct batches out of straight CQL with BEGIN BATCH and APPLY BATCH, casstcl provides batch objects to help you construct, manage and use batches.
 
