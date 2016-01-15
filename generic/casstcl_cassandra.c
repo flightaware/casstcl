@@ -270,6 +270,80 @@ casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
 }
 
 /*
+ *--------------------------------------------------------------
+ *
+ * casstcl_metrics -- obtain session metrics and return as a
+ *   list of key-value pairs.
+ *
+ * Results:
+ *      A list of metrics is returned.
+ *
+ * Side effects:
+ *      None.
+ *
+ *--------------------------------------------------------------
+ */
+int casstcl_metrics (Tcl_Interp *interp, CassSession *session) {
+	CassMetrics metrics;
+
+#define MAX_SESSION_METRICS 42
+	cass_session_get_metrics (session, &metrics);
+
+	Tcl_Obj *listObjv[MAX_SESSION_METRICS];
+
+	int i = 0;
+	listObjv[i++] = Tcl_NewStringObj ("requests.min", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.requests.min);
+	listObjv[i++] = Tcl_NewStringObj ("requests.max", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.requests.max);
+	listObjv[i++] = Tcl_NewStringObj ("requests.mean", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.requests.mean);
+	listObjv[i++] = Tcl_NewStringObj ("requests.stddev", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.requests.stddev);
+	listObjv[i++] = Tcl_NewStringObj ("requests.median", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.requests.median);
+	listObjv[i++] = Tcl_NewStringObj ("requests.percentile_75th", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.requests.percentile_75th);
+	listObjv[i++] = Tcl_NewStringObj ("requests.percentile_95th", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.requests.percentile_95th);
+	listObjv[i++] = Tcl_NewStringObj ("requests.percentile_98th", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.requests.percentile_98th);
+	listObjv[i++] = Tcl_NewStringObj ("requests.percentile_99th", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.requests.percentile_99th);
+	listObjv[i++] = Tcl_NewStringObj ("requests.percentile_999th", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.requests.percentile_999th);
+	listObjv[i++] = Tcl_NewStringObj ("requests.mean_rate", -1);
+	listObjv[i++] = Tcl_NewDoubleObj (metrics.requests.mean_rate);
+	listObjv[i++] = Tcl_NewStringObj ("requests.one_minute_rate", -1);
+	listObjv[i++] = Tcl_NewDoubleObj (metrics.requests.one_minute_rate);
+	listObjv[i++] = Tcl_NewStringObj ("requests.five_minute_rate", -1);
+	listObjv[i++] = Tcl_NewDoubleObj (metrics.requests.five_minute_rate);
+	listObjv[i++] = Tcl_NewStringObj ("requests.fifteen_minute_rate", -1);
+	listObjv[i++] = Tcl_NewDoubleObj (metrics.requests.fifteen_minute_rate);
+
+	listObjv[i++] = Tcl_NewStringObj ("stats.total_connections", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.stats.total_connections);
+	listObjv[i++] = Tcl_NewStringObj ("stats.available_connections", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.stats.available_connections);
+	listObjv[i++] = Tcl_NewStringObj ("stats.exceeded_pending_requests_water_mark", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.stats.exceeded_pending_requests_water_mark);
+	listObjv[i++] = Tcl_NewStringObj ("stats.exceeded_write_bytes_water_mark", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.stats.exceeded_write_bytes_water_mark);
+
+	listObjv[i++] = Tcl_NewStringObj ("errors.connection_timeouts", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.errors.connection_timeouts);
+	listObjv[i++] = Tcl_NewStringObj ("errors.pending_request_timeouts", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.errors.pending_request_timeouts);
+	listObjv[i++] = Tcl_NewStringObj ("errors.request_timeouts", -1);
+	listObjv[i++] = Tcl_NewWideIntObj (metrics.errors.request_timeouts);
+
+	assert (i <= MAX_SESSION_METRICS);
+
+	Tcl_SetObjResult (interp, Tcl_NewListObj (i, listObjv));
+	return TCL_OK;
+}
+
+/*
  *----------------------------------------------------------------------
  *
  * casstcl_select --
@@ -452,6 +526,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		"columns",
 		"columns_with_types",
 		"reimport_column_type_map",
+		"metrics",
         "contact_points",
         "port",
         "protocol_version",
@@ -500,6 +575,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		OPT_LIST_COLUMNS,
 		OPT_LIST_COLUMN_TYPES,
 		OPT_REIMPORT_COLUMN_TYPE_MAP,
+		OPT_METRICS,
         OPT_CONTACT_POINTS,
         OPT_PORT,
         OPT_PROTOCOL_VERSION,
@@ -946,6 +1022,16 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			resultCode = casstcl_reimport_column_type_map (ct);
+			break;
+		}
+
+		case OPT_METRICS: {
+			if (objc != 2) {
+				Tcl_WrongNumArgs (interp, 2, objv, "");
+				return TCL_ERROR;
+			}
+
+			resultCode = casstcl_metrics (interp, ct->session);
 			break;
 		}
 
