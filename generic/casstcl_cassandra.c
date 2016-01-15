@@ -1619,24 +1619,27 @@ casstcl_make_upsert_statement_from_objv (casstcl_sessionClientData *ct, int objc
  */
 int
 casstcl_list_keyspaces (casstcl_sessionClientData *ct, Tcl_Obj **objPtr) {
-	const CassSchema *schema = cass_session_get_schema(ct->session);
-	CassIterator *iterator = cass_iterator_from_schema(schema);
+	const CassSchemaMeta *schemaMeta = cass_session_get_schema_meta (ct->session);
+	CassIterator *iterator = cass_iterator_keyspaces_from_schema_meta (schemaMeta);
 	Tcl_Obj *listObj = Tcl_NewObj();
 	int tclReturn = TCL_OK;
 
 	while (cass_iterator_next(iterator)) {
-		CassString name;
-		const CassSchemaMeta *schemaMeta = cass_iterator_get_schema_meta (iterator);
+		const char *keyspaceName;
+		size_t keyspaceNameLength;
 
-		const CassSchemaMetaField* field = cass_schema_meta_get_field(schemaMeta, "keyspace_name");
-		cass_value_get_string(cass_schema_meta_field_value(field), &name.data, &name.length);
-		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
+		const CassKeyspaceMeta *keyspaceMeta = cass_iterator_get_keyspace_meta (iterator);
+
+		cass_keyspace_meta_name (keyspaceMeta, &keyspaceName, &keyspaceNameLength);
+
+		if (Tcl_ListObjAppendElement (ct->interp, listObj, Tcl_NewStringObj (keyspaceName, keyspaceNameLength)) == TCL_ERROR) {
 			tclReturn = TCL_ERROR;
 			break;
 		}
 	}
-	cass_iterator_free(iterator);
-	cass_schema_free(schema);
+
+	cass_iterator_free (iterator);
+	cass_schema_meta_free (schemaMeta);
 	*objPtr = listObj;
 	return tclReturn;
 }
@@ -1661,8 +1664,8 @@ casstcl_list_keyspaces (casstcl_sessionClientData *ct, Tcl_Obj **objPtr) {
  */
 int
 casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **objPtr) {
-	const CassSchema *schema = cass_session_get_schema(ct->session);
-	const CassSchemaMeta *keyspaceMeta = cass_schema_get_keyspace (schema, keyspace);
+	const CassSchemaMeta *schemaMeta = cass_session_get_schema_meta (ct->session);
+	const CassKeyspaceMeta *keyspaceMeta = cass_schema_meta_keyspace_by_name (schemaMeta, keyspace);
 	Tcl_Interp *interp = ct->interp;
 
 	if (keyspaceMeta == NULL) {
@@ -1671,26 +1674,25 @@ casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **ob
 		return TCL_ERROR;
 	}
 
-	CassIterator *iterator = cass_iterator_from_schema_meta (keyspaceMeta);
+	CassIterator *iterator = cass_iterator_tables_from_keyspace_meta (keyspaceMeta);
 	Tcl_Obj *listObj = Tcl_NewObj();
 	int tclReturn = TCL_OK;
 
 	while (cass_iterator_next(iterator)) {
-		CassString name;
-		const CassSchemaMeta *tableMeta = cass_iterator_get_schema_meta (iterator);
+		const char *tableName;
+		size_t tableNameLength;
 
-		assert (cass_schema_meta_type(tableMeta) == CASS_SCHEMA_META_TYPE_TABLE);
+		const CassTableMeta *tableMeta = cass_iterator_get_table_meta (iterator);
 
-		const CassSchemaMetaField* field = cass_schema_meta_get_field(tableMeta, "columnfamily_name");
-		assert (field != NULL);
-		cass_value_get_string(cass_schema_meta_field_value(field), &name.data, &name.length);
-		if (Tcl_ListObjAppendElement (interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
+		cass_table_meta_name (tableMeta, &tableName, &tableNameLength);
+
+		if (Tcl_ListObjAppendElement (interp, listObj, Tcl_NewStringObj (tableName, tableNameLength)) == TCL_ERROR) {
 			tclReturn = TCL_ERROR;
 			break;
 		}
 	}
-	cass_iterator_free(iterator);
-	cass_schema_free(schema);
+	cass_iterator_free (iterator);
+	cass_schema_meta_free (schemaMeta);
 	*objPtr = listObj;
 	return tclReturn;
 }
@@ -1714,11 +1716,11 @@ casstcl_list_tables (casstcl_sessionClientData *ct, char *keyspace, Tcl_Obj **ob
  */
 int
 casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table, int includeTypes, Tcl_Obj **objPtr) {
-	const CassSchema *schema = cass_session_get_schema(ct->session);
+	const CassSchemaMeta *schemaMeta = cass_session_get_schema_meta (ct->session);
 	Tcl_Interp *interp = ct->interp;
 
 	// locate the keyspace
-	const CassSchemaMeta *keyspaceMeta = cass_schema_get_keyspace (schema, keyspace);
+	const CassKeyspaceMeta *keyspaceMeta = cass_schema_meta_keyspace_by_name (schemaMeta, keyspace);
 
 	if (keyspaceMeta == NULL) {
 		Tcl_ResetResult (interp);
@@ -1727,7 +1729,7 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 	}
 
 	// locate the table within the keyspace
-	const CassSchemaMeta *tableMeta = cass_schema_meta_get_entry (keyspaceMeta, table);
+	const CassTableMeta *tableMeta = cass_keyspace_meta_table_by_name (keyspaceMeta, table);
 
 	if (tableMeta == NULL) {
 		Tcl_ResetResult (interp);
@@ -1736,84 +1738,42 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 	}
 
 	// prepare to iterate on the columns within the table
-	CassIterator *iterator = cass_iterator_from_schema_meta (tableMeta);
+	CassIterator *iterator = cass_iterator_columns_from_table_meta (tableMeta);
 	Tcl_Obj *listObj = Tcl_NewObj();
 	int tclReturn = TCL_OK;
 
 	// iterate on the columns within the table
 	while (cass_iterator_next(iterator)) {
-		CassString name;
-		const CassSchemaMeta *columnMeta = cass_iterator_get_schema_meta (iterator);
+		const char *columnName;
+		size_t columnNameLength;
 
-		assert (cass_schema_meta_type(columnMeta) == CASS_SCHEMA_META_TYPE_COLUMN);
+		const CassColumnMeta *columnMeta = cass_iterator_get_column_meta (iterator);
 
 		// get the field name and append it to the list we are creating
-		const CassSchemaMetaField* field = cass_schema_meta_get_field(columnMeta, "column_name");
-		assert (field != NULL);
-		const CassValue *fieldValue = cass_schema_meta_field_value(field);
-		CassValueType valueType = cass_value_type (fieldValue);
+		cass_column_meta_name (columnMeta, &columnName, &columnNameLength);
 
-		// it's a crash if you don't check the data type of valueType
-		// there's something fishy in system.IndexInfo, a field that
-		// doesn't  have a column name
-		if (valueType != CASS_VALUE_TYPE_VARCHAR) {
-			continue;
-		}
-		cass_value_get_string(fieldValue, &name.data, &name.length);
-		if (Tcl_ListObjAppendElement (interp, listObj, Tcl_NewStringObj (name.data, name.length)) == TCL_ERROR) {
+		if (Tcl_ListObjAppendElement (interp, listObj, Tcl_NewStringObj (columnName, columnNameLength)) == TCL_ERROR) {
 			tclReturn = TCL_ERROR;
 			break;
 		}
 		// if including types then get the data type and append it to the
 		// list too
 		if (includeTypes) {
-			CassString name;
-			const CassSchemaMetaField* field = cass_schema_meta_get_field (columnMeta, "validator");
-			assert (field != NULL);
+			const char *typeName;
+			size_t typeNameLength;
 
-			cass_value_get_string(cass_schema_meta_field_value(field), &name.data, &name.length);
+			CassColumnDataType *columnDataType = cass_column_meta_data_type (columnMeta);
+			cass_data_type_set_type_name_n (columnType, &typeName, &typeNameLength);
 
-			// check the cache array directly from C to avoid calling
-			// Tcl_Eval if possible
-			Tcl_Obj *elementObj = Tcl_GetVar2Ex (interp, "::casstcl::validatorTypeLookupCache", name.data, (TCL_GLOBAL_ONLY));
-
-			// not there, gotta call Tcl to do the heavy lifting
-			if (elementObj == NULL) {
-				Tcl_Obj *evalObjv[2];
-				// construct a call to our casstcl.tcl library function
-				// validator_to_type to translate the value to a cassandra
-				// data type to text/list
-				evalObjv[0] = Tcl_NewStringObj ("::casstcl::validator_to_type", -1);
-
-				evalObjv[1] = Tcl_NewStringObj (name.data, name.length);
-
-				Tcl_IncrRefCount (evalObjv[0]);
-				Tcl_IncrRefCount (evalObjv[1]);
-				tclReturn = Tcl_EvalObjv (interp, 2, evalObjv, (TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT));
-				Tcl_DecrRefCount(evalObjv[0]);
-				Tcl_DecrRefCount(evalObjv[1]);
-
-				if (tclReturn == TCL_ERROR) {
-					goto error;
-				}
-				tclReturn = TCL_OK;
-
-				elementObj = Tcl_GetObjResult (interp);
-			}
-
-			// we got here, either we found elementObj by looking it up
-			// from the ::casstcl::validatorTypeLookCache array or
-			// by invoking eval on ::casstcl::validator_to_type
-
-			if (Tcl_ListObjAppendElement (interp, listObj, elementObj) == TCL_ERROR) {
+			if (Tcl_ListObjAppendElement (interp, listObj, Tcl_NewStringObj (typeName, typeNameLength)) == TCL_ERROR) {
 				tclReturn = TCL_ERROR;
 				break;
 			}
 		}
 	}
   error:
-	cass_iterator_free(iterator);
-	cass_schema_free(schema);
+	cass_iterator_free (iterator);
+	cass_schema_meta_free (schemaMeta);
 	*objPtr = listObj;
 
 	if (tclReturn == TCL_OK) {
