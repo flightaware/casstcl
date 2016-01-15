@@ -530,6 +530,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
         "contact_points",
         "port",
         "protocol_version",
+        "heartbeat_interval",
 		"num_threads_io",
 		"queue_size_io",
 		"queue_size_event",
@@ -579,6 +580,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
         OPT_CONTACT_POINTS,
         OPT_PORT,
         OPT_PROTOCOL_VERSION,
+		OPT_HEARTBEAT_INTERVAL,
 		OPT_NUM_THREADS_IO,
 		OPT_QUEUE_SIZE_IO,
 		OPT_QUEUE_SIZE_EVENT,
@@ -1076,6 +1078,23 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_cluster_set_protocol_version(ct->cluster, protocolVersion);
+			break;
+		}
+
+		case OPT_HEARTBEAT_INTERVAL: {
+			int heartbeatInterval = 0;
+
+			if (objc != 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "heartbeatInterval");
+				return TCL_ERROR;
+			}
+
+			if (Tcl_GetIntFromObj (interp, objv[2], &heartbeatInterval) == TCL_ERROR) {
+				Tcl_AppendResult (interp, " while converting heartbeatInterval element", NULL);
+				return TCL_ERROR;
+			}
+
+			cass_cluster_set_connection_idle_timeout (ct->cluster, heartbeatInterval);
 			break;
 		}
 
