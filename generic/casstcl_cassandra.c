@@ -1759,19 +1759,16 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 		// if including types then get the data type and append it to the
 		// list too
 		if (includeTypes) {
-			const char *typeName;
-			size_t typeNameLength;
+			const CassDataType *columnDataType = cass_column_meta_data_type (columnMeta);
+			CassValueType valueType = cass_data_type_type (columnDataType);
+			const char *typeName = casstcl_cass_value_type_to_string (valueType);
 
-			CassColumnDataType *columnDataType = cass_column_meta_data_type (columnMeta);
-			cass_data_type_set_type_name_n (columnType, &typeName, &typeNameLength);
-
-			if (Tcl_ListObjAppendElement (interp, listObj, Tcl_NewStringObj (typeName, typeNameLength)) == TCL_ERROR) {
+			if (Tcl_ListObjAppendElement (interp, listObj, Tcl_NewStringObj (typeName, -1)) == TCL_ERROR) {
 				tclReturn = TCL_ERROR;
 				break;
 			}
 		}
 	}
-  error:
 	cass_iterator_free (iterator);
 	cass_schema_meta_free (schemaMeta);
 	*objPtr = listObj;
