@@ -531,6 +531,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
         "port",
         "protocol_version",
         "heartbeat_interval",
+        "whitelist_filtering",
 		"num_threads_io",
 		"queue_size_io",
 		"queue_size_event",
@@ -581,6 +582,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
         OPT_PORT,
         OPT_PROTOCOL_VERSION,
 		OPT_HEARTBEAT_INTERVAL,
+		OPT_WHITELIST_FILTERING,
 		OPT_NUM_THREADS_IO,
 		OPT_QUEUE_SIZE_IO,
 		OPT_QUEUE_SIZE_EVENT,
@@ -1097,6 +1099,22 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			cass_cluster_set_connection_idle_timeout (ct->cluster, heartbeatInterval);
 			break;
 		}
+
+		case OPT_WHITELIST_FILTERING: {
+			if (objc > 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "?hostList?");
+				return TCL_ERROR;
+			}
+
+			if (objc == 2) {
+				cass_cluster_set_whitelist_filtering (ct->cluster, "");
+				break;
+			}
+
+			cass_cluster_set_whitelist_filtering (ct->cluster, Tcl_GetString (objv[2]));
+			break;
+		}
+
 
 		case OPT_NUM_THREADS_IO: {
 			int numThreadsIO = 0;
