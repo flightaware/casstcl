@@ -187,6 +187,14 @@ Here's an example of defining a prepared statement and a subsequent use of it to
 
  Sets the protocol version. This will theoretically automatically downgrade to protocol version 1 if necessary.  The default value is 2.
 
+* *$cassdb* **heartbeat_interval** *heartbeatInterval*
+
+ To prevent intermediate network devices from disconnecting pooled connections due to inactivity, the driver periodically sends a lightweight heartbeat request, by default every 30 seconds.  This can be changed with this method; use zero to disable connection heartbeats.
+
+* *$cassdb* **whitelist_filtering** *?hostList?*
+
+ Limit cassandra host connection attempts to the set of hosts provided in *hostList*.  It's not a good idea to use this to limit connections to hosts in a local data center; please see the cpp-driver documentation for details.
+
 * *$cassdb* **num_threads_io** *$numThreads*
 
  Set the number of IO threads. This is the number of threads that will handle query requests.  The default is 1.
@@ -298,6 +306,34 @@ Here's an example of defining a prepared statement and a subsequent use of it to
 * *$cassdb* **close**
 
  Disconnect from the cluster.
+
+* *$cassdb* **metrics**
+
+ Obtain metrics from the cassandra cluster and return them as a list of key-value pairs.  The returned values and their meanings are as follows:
+
+|key|value
+----|-----
+requests.min|requests minimum in microseconds
+requests.max|requests maximum in microseconds
+requests.mean|requests mean in microseconds
+requests.stddev|requests standard deviation in microseconds
+requests.median|requests median in microseconds
+requests.percentile_75th|75th percentile in microseconds
+requests.percentile_95th|95th percentile in microseconds
+requests.percentile_98th|98th percentile in microseconds
+requests.percentile_99th|99th percentile in microseconds
+requests.percentile_999th|999th percentile in microseconds
+requests.mean_rate|mean rate in requests per second
+requests.one_minute_rate|one-minute rate in requests per second
+requests.five_minute_rate|five-minute rate in requests per second
+requests.fifteen_minute_rate|fifteen-minute rate in requests per second
+stats.total_connections|the total number of connections
+stats.available_connections|the number of connections available to take requests
+stats.exceeded_pending_requests_water_mark|occurrences when requests exceeded a pool's high water mark
+stats.exceeded_write_bytes_water_mark|occurrences when number of bytes exceeded a pool's high water mark
+errors.connection_timeouts|occurrences of a connection timeout
+errors.pending_request_timeouts|Occurrences of requests that timed out waiting for a connection
+errors.request_timeouts|Occurrences of requests that timed out waiting for a request to finish
 
 Batches
 ---
