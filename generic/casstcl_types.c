@@ -718,6 +718,8 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
       return TCL_OK;
     }
 
+    case CASS_VALUE_TYPE_TINY_INT:
+    case CASS_VALUE_TYPE_SMALL_INT:
     case CASS_VALUE_TYPE_INT: {
       cass_int32_t cassInt;
       CassError cassError;
@@ -773,6 +775,8 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
       return TCL_ERROR;
 	}
 
+	case CASS_VALUE_TYPE_DATE:
+	case CASS_VALUE_TYPE_TIME:
 	case CASS_VALUE_TYPE_LAST_ENTRY: {
 		// this isn't a real value type and shouldn't ever get picked but this instance
 		// silences a compiler warning
