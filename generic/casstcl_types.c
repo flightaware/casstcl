@@ -153,6 +153,22 @@ casstcl_cass_value_type_to_string (CassValueType valueType) {
       return "inet";
     }
 
+    case CASS_VALUE_TYPE_DATE: {
+      return "date";
+    }
+
+    case CASS_VALUE_TYPE_TIME: {
+      return "time";
+    }
+
+    case CASS_VALUE_TYPE_SMALL_INT: {
+      return "smallint";
+    }
+
+    case CASS_VALUE_TYPE_TINY_INT: {
+      return "tinyint";
+    }
+
     case CASS_VALUE_TYPE_LIST: {
       return "list";
     }
@@ -219,6 +235,7 @@ casstcl_string_to_cass_value_type (char *string) {
     }
 
     case 'd': {
+      if (strcmp (string, "date") == 0) return CASS_VALUE_TYPE_DATE;
       if (strcmp (string, "decimal") == 0) return CASS_VALUE_TYPE_DECIMAL;
       if (strcmp (string, "double") == 0) return CASS_VALUE_TYPE_DOUBLE;
       break;
@@ -247,12 +264,15 @@ casstcl_string_to_cass_value_type (char *string) {
 
     case 's': {
       if (strcmp (string, "set") == 0) return CASS_VALUE_TYPE_SET;
+      if (strcmp (string, "smallint") == 0) return CASS_VALUE_TYPE_SMALL_INT;
       break;
     }
 
     case 't': {
       if (strcmp (string, "text") == 0) return CASS_VALUE_TYPE_TEXT;
+      if (strcmp (string, "time") == 0) return CASS_VALUE_TYPE_TIME;
       if (strcmp (string, "timestamp") == 0) return CASS_VALUE_TYPE_TIMESTAMP;
+      if (strcmp (string, "tinyint") == 0) return CASS_VALUE_TYPE_TINY_INT;
       if (strcmp (string, "tuple") == 0) return CASS_VALUE_TYPE_TUPLE;
       if (strcmp (string, "timeuuid") == 0) return CASS_VALUE_TYPE_TIMEUUID;
       break;
@@ -630,6 +650,7 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
       return TCL_OK;
     }
 
+	case CASS_VALUE_TYPE_TIME:
     case CASS_VALUE_TYPE_COUNTER:
     case CASS_VALUE_TYPE_BIGINT: {
       cass_int64_t cassInt;
@@ -718,8 +739,35 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
       return TCL_OK;
     }
 
-    case CASS_VALUE_TYPE_TINY_INT:
-    case CASS_VALUE_TYPE_SMALL_INT:
+    case CASS_VALUE_TYPE_TINY_INT: {
+      cass_int8_t cassTiny;
+      CassError cassError;
+
+      cassError = cass_value_get_int8 (cassValue, &cassTiny);
+
+      if (cassError != CASS_OK) {
+        return casstcl_cass_error_to_tcl (ct, cassError);
+      }
+
+      *tclObj = Tcl_NewIntObj (cassTiny);
+      return TCL_OK;
+	}
+
+    case CASS_VALUE_TYPE_SMALL_INT: {
+      cass_int16_t cassSmall;
+      CassError cassError;
+
+      cassError = cass_value_get_int16 (cassValue, &cassSmall);
+
+      if (cassError != CASS_OK) {
+        return casstcl_cass_error_to_tcl (ct, cassError);
+      }
+
+      *tclObj = Tcl_NewIntObj (cassSmall);
+      return TCL_OK;
+	}
+
+	case CASS_VALUE_TYPE_DATE:
     case CASS_VALUE_TYPE_INT: {
       cass_int32_t cassInt;
       CassError cassError;
@@ -769,14 +817,12 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 
 	case CASS_VALUE_TYPE_TUPLE: {
       Tcl_ResetResult(interp);
-      Tcl_AppendResult(interp, "type value type not yet implemented by casstcl", NULL);
+      Tcl_AppendResult(interp, "tuple value type not yet implemented by casstcl", NULL);
 
       *tclObj = NULL;
       return TCL_ERROR;
 	}
 
-	case CASS_VALUE_TYPE_DATE:
-	case CASS_VALUE_TYPE_TIME:
 	case CASS_VALUE_TYPE_LAST_ENTRY: {
 		// this isn't a real value type and shouldn't ever get picked but this instance
 		// silences a compiler warning
