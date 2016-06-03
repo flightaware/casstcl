@@ -130,7 +130,9 @@ Methods of cassandra cluster interface object
 
  If **-consistency** is specified it is the consistency level to use for any created statement(s).  Cannot be used with **-batch**.
 
- If neither *-table*, *-array*, *-batch* or *-prepared* has been specified, the arguments to the right of the statement need to be alternating between data and data type, like *14 int 3.7 float*.  This is the simplest for casstcl but requires the code to be more intimate with the data types than it otherwise would be.  If you use this style and you change a data type in the schema you also have to change it in the code.  So we don't like it.
+ If **-upsert** is specified then the final argument is a list of key-value pairs where the key corresponds to the name of a column and the value corresponds to the new value for that column. The new values will be "upserted" into the table based on the primary key.
+
+ If none of *-table*, *-array*, *-batch*, *-upsert*, or *-prepared* have been specified, the arguments to the right of the statement need to be alternating between data and data type, like *14 int 3.7 float*.  This is the simplest for casstcl but requires the code to be more intimate with the data types than it otherwise would be.  If you use this style and you change a data type in the schema you also have to change it in the code.  So we don't like it.
 
  See also the future object.
 
