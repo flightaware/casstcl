@@ -52,6 +52,23 @@ Accessing from Tcl
 package require casstcl
 ```
 
+To connect to a cluster (example):
+
+```tcl
+set cass [::casstcl::cass create #auto]
+
+$cass contact_points $host
+$cass port $port ;# 9042
+$cass credentials $user $password
+$cass connect
+```
+
+Or a convenience one-liner:
+
+```tcl
+set cass [::casstcl::connect -host $host -port $port -user $user -password $password]
+```
+
 CassTcl objects
 ---
 
