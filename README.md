@@ -104,11 +104,15 @@ Methods of cassandra cluster interface object
 
  The callback routine will be invoked with a single argument, which is the name of the future object created (such as *::future17*) when the request was made.
 
-* *$cassdb* **exec** *?-callback callbackRoutine?* *?-head?* *?-error_only?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName?* *?-consistency consistencyLevel?* *$statement* *?arg...?*
+* *$cassdb* **exec** *?-callback callbackRoutine?* *?-head?* *?-error_only?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName?* *?-consistency consistencyLevel?* *$request* *?arg...?*
 
-* *$cassdb* **async** *?-callback callbackRoutine?* *?-head?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName?* *?-consistency consistencyLevel?* *?$statement?* *?arg...?*
+* *$cassdb* **async** *?-callback callbackRoutine?* *?-head?* *?-table tableName?* *?-array arrayName?* *?-prepared preparedObjectName?* *?-batch batchObjectName?* *?-consistency consistencyLevel?* *?$request?* *?arg...?*
 
- Perform the requested CQL statement.  Waits for it to complete if **exec** is used without **-callback** (synchronous).   Does not wait if **async** is used or **exec** is used with **-callback** (asynchronous).
+* *$cassdb* **exec** *?-callback callbackRoutine?* *?-head?* *?-error_only?* *-upsert* *?-mapunknown columnName?* *?-nocomplain?* *?-ifnotexists?* *tableName* *argList*
+
+* *$cassdb* **async** *?-callback callbackRoutine?* *?-head?* *-upsert* *?-mapunknown columnName?* *?-nocomplain?* *?-ifnotexists?* *tableName* *argList*
+
+ Perform a request.  The request is normally a CQL statement.  Waits for it to complete if **exec** is used without **-callback** (synchronous).   Does not wait if **async** is used or **exec** is used with **-callback** (asynchronous).
 
  If synchronous then tcl waits for the cassandra call to complete and gives you back an error if an error occurs.
 
@@ -122,7 +126,7 @@ Methods of cassandra cluster interface object
 
  **-error_only** instructs casstcl to only call the callback function on error.  If error-only is specified and the callback from the cassandra cpp-driver indicates the asynchronous request was successful, the future object is deleted and the callback is not taken.  Assuming most requests are succeeding this greatly reduces invocations of the Tcl interpreter, and can bring a major performance increase.
 
- If **-batch** is specified the argument is a batch object and that is used as the source of the statement(s).
+ If **-batch** is specified the request is a batch object and that is used as the source of the statement(s).
 
  If **-table** is specified it is the fully qualified name of a table and *-array* is also required, and vice versa.  These specify the affected table name and an array that the data elements will come from.  Args are zero or more arguments which are element names for the array and also legal column names for the table.  This technology will infer the data types and handle them behind your back as long as import_column_type_map has been run on the connection.
 
@@ -130,7 +134,13 @@ Methods of cassandra cluster interface object
 
  If **-consistency** is specified it is the consistency level to use for any created statement(s).  Cannot be used with **-batch**.
 
- If **-upsert** is specified then the final argument is a list of key-value pairs where the key corresponds to the name of a column and the value corresponds to the new value for that column. The new values will be "upserted" into the table based on the primary key.
+ If **-upsert** is specified then the final arguments are a table name and a list of key-value pairs where the key corresponds to the name of a column and the value corresponds to the new value for that column. The new values will be "upserted" into the table based on the primary key.
+
+ If **-mapunknown columnName** is specified then unknown arguments in the upsert key-value list will be mapped to a *map* column.
+
+ If **-nocomplain** is specified then unknown arguments in the upsert key-value list will be silently ignored.
+
+ If **-ifnotexists** is specified then the row is only inserted if it doesn't already exist.
 
  If none of *-table*, *-array*, *-batch*, *-upsert*, or *-prepared* have been specified, the arguments to the right of the statement need to be alternating between data and data type, like *14 int 3.7 float*.  This is the simplest for casstcl but requires the code to be more intimate with the data types than it otherwise would be.  If you use this style and you change a data type in the schema you also have to change it in the code.  So we don't like it.
 

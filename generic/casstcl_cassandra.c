@@ -716,7 +716,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 
 			// if we don't have at least three arguments, it's an error
 			if (objc < 3) {
-				Tcl_WrongNumArgs (interp, 2, objv, "?-callback n? ?-batch batchObject? ?-head? ?-array arrayName? ?-table tableName? ?-prepared preparedName? ?-consistency level? statement ?args? OR ?-upsert ?-mapunkown? ?-nocomplain? ?-ifnotexists??");
+				Tcl_WrongNumArgs (interp, 2, objv, "?-callback n? ?-batch batchObject? ?-head? ?-array arrayName? ?-table tableName? ?-prepared preparedName? ?-consistency level? statement ?args? OR ?-upsert ?-mapunkown columnname? ?-nocomplain? ?-ifnotexists? table args?");
 				return TCL_ERROR;
 			}
 
@@ -785,8 +785,8 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 	
 				}
 				
-                future = cass_session_execute (ct->session, statement);
-                cass_statement_free (statement);
+				future = cass_session_execute (ct->session, statement);
+				cass_statement_free (statement);
 
 			} else {
 				// it's a statement, possibly with arguments
