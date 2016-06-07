@@ -94,9 +94,9 @@ cass exec "insert into foo ..."
 Methods of cassandra cluster interface object
 ---
 
-* *$cassdb* **connect** *?-callback callbackRoutine?* *keyspaceName*
+* *$cassdb* **connect** *?-callback callbackRoutine?* *?keyspaceName?*
 
- Attempts to connect to the specified database, optionally setting the keyspace.
+ Attempts to connect to the specified database, optionally setting the keyspace. Since the keyspace can be changed in CQL, this is not tracked and not recommended ... always provide a fully qualified table name.
 
  If the **-callback** argument is specified then the next argument is a callback routine that will be invoked when successfully connected.
 
@@ -157,14 +157,6 @@ Methods of cassandra cluster interface object
  If the **-pagesize** argument is present then it should be followed by an integer which is the number of query results that should be returned "per pass".  Changing this should transparent to the caller but smaller pagesize numbers should allow greater concurrency in many cases by allowing the application to process some results while the cluster is still producing them.  The default pagesize is 100 rows.
 
  If the **-consistency** argument is present then it should be followed by a consistency level, which will be used when creating any statement(s).
-
-* *$cassdb* **connect** *?keyspace?*
-
- Connect to the cassandra cluster.  Use the specified keyspace if the keyspace argument is present.  Alternatively after connecting you can specify the keyspace to use with something like
-
-```tcl
-$cassdb exec "use wx;"
-```
 
 * *$cassdb* **prepare** *objName* *tableName* *$statement*
 
