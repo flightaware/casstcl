@@ -527,6 +527,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		"columns_with_types",
 		"reimport_column_type_map",
 		"metrics",
+        "cluster_version",
         "contact_points",
         "port",
         "protocol_version",
@@ -578,6 +579,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		OPT_LIST_COLUMN_TYPES,
 		OPT_REIMPORT_COLUMN_TYPE_MAP,
 		OPT_METRICS,
+        OPT_CLUSTER_VERSION,
         OPT_CONTACT_POINTS,
         OPT_PORT,
         OPT_PROTOCOL_VERSION,
@@ -1036,6 +1038,45 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			resultCode = casstcl_metrics (interp, ct->session);
+			break;
+		}
+
+		case OPT_CLUSTER_VERSION: {
+		#if CASS_VERSION_MAJOR > 2 || \
+			(CASS_VERSION_MAJOR == 2 && (CASS_VERSION_MINOR > 3 || \
+			(CASS_VERSION_MINOR == 3 && \
+			CASS_VERSION_PATCH >= 0)))
+			CassVersion version;
+			const CassSchemaMeta *schema_meta;
+			Tcl_Obj *pResultStr = NULL;
+		#endif
+
+			if (objc != 2) {
+				Tcl_WrongNumArgs (interp, 2, objv, "");
+				return TCL_ERROR;
+			}
+
+		#if CASS_VERSION_MAJOR > 2 || \
+			(CASS_VERSION_MAJOR == 2 && (CASS_VERSION_MINOR > 3 || \
+			(CASS_VERSION_MINOR == 3 && \
+			CASS_VERSION_PATCH >= 0)))
+			// Getting the connected cluster's Cassandra version
+			// CPP Driver for Cassandra required >= v2.3.0
+			schema_meta = cass_session_get_schema_meta (ct->session);
+			version = cass_schema_meta_version(schema_meta);
+
+			pResultStr = Tcl_NewListObj(0, NULL);
+			Tcl_ListObjAppendElement(interp, pResultStr, Tcl_NewIntObj(version.major_version));
+			Tcl_ListObjAppendElement(interp, pResultStr, Tcl_NewIntObj(version.minor_version));
+			Tcl_ListObjAppendElement(interp, pResultStr, Tcl_NewIntObj(version.patch_version));
+
+			cass_schema_meta_free (schema_meta);
+
+			Tcl_SetObjResult(interp, pResultStr);
+		#else
+			Tcl_SetObjResult(interp, Tcl_NewStringObj("This version does not support", -1));
+			return TCL_ERROR;
+		#endif
 			break;
 		}
 
