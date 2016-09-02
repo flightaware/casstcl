@@ -1046,20 +1046,16 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			(CASS_VERSION_MAJOR == 2 && (CASS_VERSION_MINOR > 3 || \
 			(CASS_VERSION_MINOR == 3 && \
 			CASS_VERSION_PATCH >= 0)))
+
 			CassVersion version;
 			const CassSchemaMeta *schema_meta;
 			Tcl_Obj *pResultStr = NULL;
-		#endif
 
 			if (objc != 2) {
 				Tcl_WrongNumArgs (interp, 2, objv, "");
 				return TCL_ERROR;
 			}
 
-		#if CASS_VERSION_MAJOR > 2 || \
-			(CASS_VERSION_MAJOR == 2 && (CASS_VERSION_MINOR > 3 || \
-			(CASS_VERSION_MINOR == 3 && \
-			CASS_VERSION_PATCH >= 0)))
 			// Getting the connected cluster's Cassandra version
 			// CPP Driver for Cassandra required >= v2.3.0
 			schema_meta = cass_session_get_schema_meta (ct->session);
@@ -1073,11 +1069,11 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			cass_schema_meta_free (schema_meta);
 
 			Tcl_SetObjResult(interp, pResultStr);
+			break;
 		#else
-			Tcl_SetObjResult(interp, Tcl_NewStringObj("This version does not support", -1));
+			Tcl_SetObjResult(interp, Tcl_NewStringObj("Need CPP driver >= v2.3.0 for cluster_version", -1));
 			return TCL_ERROR;
 		#endif
-			break;
 		}
 
 		case OPT_CONTACT_POINTS: {

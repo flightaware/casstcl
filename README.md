@@ -172,6 +172,12 @@ Here's an example of defining a prepared statement and a subsequent use of it to
     $::batch add -prepared $::positionsPrepped [array get row]
 ```
 
+* *$cassdb* **cluster_version**
+
+ Return the Cassandra cluster version as a list of {major minor patchlevel}.
+
+ Requires CPP driver >= v2.3.0
+
 * *$cassdb* **keyspaces**
 
  Return a list of all of the keyspaces known to the cluster.
