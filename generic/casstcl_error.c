@@ -145,7 +145,7 @@ const char *casstcl_cass_error_to_errorcode_string (CassError cassError)
 		case CASS_ERROR_SERVER_UNPREPARED:
 			return "CASS_ERROR_SERVER_UNPREPARED";
 
-		case CASS_ERROR_SSL_INVALID_CERT:;
+		case CASS_ERROR_SSL_INVALID_CERT:
 			return "CASS_ERROR_SSL_INVALID_CERT";
 
 		case CASS_ERROR_SSL_INVALID_PRIVATE_KEY:
