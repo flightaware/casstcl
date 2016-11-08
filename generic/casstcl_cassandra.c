@@ -1921,11 +1921,37 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
 		if (includeTypes) {
 			const CassDataType *columnDataType = cass_column_meta_data_type (columnMeta);
 			CassValueType valueType = cass_data_type_type (columnDataType);
-			const char *typeName = casstcl_cass_value_type_to_string (valueType);
 
-			if (Tcl_ListObjAppendElement (interp, listObj, Tcl_NewStringObj (typeName, -1)) == TCL_ERROR) {
+			if (valueType == CASS_VALUE_TYPE_LIST || valueType == CASS_VALUE_TYPE_SET || valueType == CASS_VALUE_TYPE_MAP) {
+				Tcl_Obj *newListObj[3];
+				Tcl_Obj *newList;
+				const CassDataType *subType = NULL;
+				CassValueType subValueType;
+
+				newListObj[0] = Tcl_NewStringObj (casstcl_cass_value_type_to_string (valueType), -1);
+				subType = cass_data_type_sub_data_type (columnDataType, 0);
+				assert (subType != NULL);
+				subValueType = cass_data_type_type (subType);
+				newListObj[1] = Tcl_NewStringObj (casstcl_cass_value_type_to_string (subValueType), -1);
+				if (valueType == CASS_VALUE_TYPE_MAP) {
+					subType = cass_data_type_sub_data_type (columnDataType, 1);
+					assert (subType != NULL);
+					subValueType = cass_data_type_type (subType);
+					newListObj[2] = Tcl_NewStringObj (casstcl_cass_value_type_to_string (subValueType), -1);
+					newList = Tcl_NewListObj (3, newListObj);
+				} else {
+					newList = Tcl_NewListObj (2, newListObj);
+				}
+				if (Tcl_ListObjAppendElement (interp, listObj, newList) == TCL_ERROR) {
 				tclReturn = TCL_ERROR;
-				break;
+				}
+			} else {
+				const char *typeName = casstcl_cass_value_type_to_string (valueType);
+
+				if (Tcl_ListObjAppendElement (interp, listObj, Tcl_NewStringObj (typeName, -1)) == TCL_ERROR) {
+					tclReturn = TCL_ERROR;
+					break;
+				}
 			}
 		}
 	}

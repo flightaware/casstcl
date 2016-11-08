@@ -125,7 +125,7 @@ casstcl_bind_names_from_prepared (casstcl_preparedClientData *pcd, int objc, Tcl
 		tclReturn = casstcl_typename_obj_to_cass_value_types (interp, table, objv[i], &typeInfo);
 
 		if (tclReturn == TCL_ERROR) {
-//printf ("error from casstcl_obj_to_compound_cass_value_types\n");
+//printf ("error from casstcl_bind_names_from_prepared\n");
 			masterReturn = TCL_ERROR;
 			break;
 		}

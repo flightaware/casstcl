@@ -580,7 +580,7 @@ casstcl_typename_obj_to_cass_value_types (Tcl_Interp *interp, char *table, Tcl_O
   casstcl_cassTypeInfo *typeInfo = (casstcl_cassTypeInfo *)&typeObj->internalRep.otherValuePtr;
   *typeInfoPtr = *typeInfo; // structure copy
 
-// printf("casstcl_typename_obj_to_cass_value_types took table '%s' type '%s' and produced %x, %x, %x\n", table, Tcl_GetString (typenameObj), *valueType, *valueSubType1, *valueSubType2);
+// printf("casstcl_typename_obj_to_cass_value_types took table '%s' type '%s' and produced %x, %x, %x\n", table, Tcl_GetString (typenameObj), typeInfo->cassValueType, typeInfo->valueSubType1, typeInfo->valueSubType2);
   return TCL_OK;
 }
 
@@ -1018,10 +1018,30 @@ casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, c
   char *string = Tcl_GetString (tclObj);
   CassValueType valueType = casstcl_string_to_cass_value_type (string);
 
-  if (valueType != CASS_VALUE_TYPE_UNKNOWN) {
-    typeInfo->cassValueType = valueType;
-    return TCL_OK;
+// printf("casstcl_obj_to_compound_cass_value_types converting '%s'\n", string);
+
+  switch (valueType) {
+	  case CASS_VALUE_TYPE_UNKNOWN:
+		  break;
+
+	  case CASS_VALUE_TYPE_LIST:
+	  case CASS_VALUE_TYPE_SET:
+		  Tcl_ResetResult (interp);
+		  Tcl_AppendResult (interp, "cassandra ", string, " type must specify exactly one additional type value, contains none", NULL);
+		  return TCL_ERROR;
+
+	  case CASS_VALUE_TYPE_MAP:
+		  Tcl_ResetResult (interp);
+		  Tcl_AppendResult (interp, "cassandra map type must specify exactly two additional type values, contains none", NULL);
+		  return TCL_ERROR;
+
+	  default:
+		typeInfo->cassValueType = valueType;
+		// printf("casstcl_obj_to_compound_cass_value_types took '%s' and made %d\n", string, typeInfo->cassValueType);
+		return TCL_OK;
   }
+
+// printf("casstcl_obj_to_compound_cass_value_types got unknown doing '%s', looking deeper...\n", string);
 
   if (Tcl_ListObjGetElements (interp, tclObj, &listObjc, &listObjv) == TCL_ERROR) {
     Tcl_AppendResult (interp, " while parsing cassandra data type", NULL);
@@ -1048,13 +1068,13 @@ casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, c
   if (valueType == CASS_VALUE_TYPE_MAP) {
     if (listObjc != 3) {
       Tcl_ResetResult (interp);
-      Tcl_AppendResult (interp, "cassandra map type must contain three type values", NULL);
+      Tcl_AppendResult (interp, "cassandra map type must specify exactly two additional type values", NULL);
       return TCL_ERROR;
     }
   } else {
     if (listObjc != 2) {
       Tcl_ResetResult (interp);
-      Tcl_AppendResult (interp, "cassandra ", string, " type ('", Tcl_GetString (tclObj), "') must contain two values", NULL);
+      Tcl_AppendResult (interp, "cassandra ", string, " type ('", Tcl_GetString (tclObj), "') must specify exactly one additional type value", NULL);
       return TCL_ERROR;
     }
   }
@@ -1819,25 +1839,32 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
       }
 
 // printf("map collection accumulation started, %d elements\n", listObjc);
-      CassCollection *collection = cass_collection_new (CASS_COLLECTION_TYPE_MAP, listObjc);
+      CassCollection *collection = cass_collection_new (CASS_COLLECTION_TYPE_MAP, listObjc / 2);
 
       for (i = 0; i < listObjc; i += 2) {
         cassError = casstcl_append_tcl_obj_to_collection (ct, collection, typeInfo->valueSubType1, listObjv[i]);
         if (cassError != CASS_OK) {
-          break;
+		  casstcl_cass_error_to_tcl (ct, cassError);
+		  Tcl_AppendResult(interp, "while converting map key element '", Tcl_GetString (listObjv[i]), "' of type '", casstcl_cass_value_type_to_string (typeInfo->valueSubType1), "'", NULL);
+		  cass_collection_free (collection);
+          return TCL_ERROR;
         }
 
         cassError = casstcl_append_tcl_obj_to_collection (ct, collection, typeInfo->valueSubType2, listObjv[i+1]);
         if (cassError != CASS_OK) {
-          break;
+		  casstcl_cass_error_to_tcl (ct, cassError);
+		  Tcl_AppendResult(interp, "while converting map value element '", Tcl_GetString (listObjv[i]), "' of type '", casstcl_cass_value_type_to_string (typeInfo->valueSubType2), "'", NULL);
+		  cass_collection_free (collection);
+          return TCL_ERROR;
         }
       }
 
-      if (name == NULL) {
-        cassError = cass_statement_bind_collection (statement, index, collection);
-      } else {
-        cassError = cass_statement_bind_collection_by_name (statement, name, collection);
-      }
+	  if (name == NULL) {
+		cassError = cass_statement_bind_collection (statement, index, collection);
+	  } else {
+		cassError = cass_statement_bind_collection_by_name (statement, name, collection);
+	  }
+
       cass_collection_free (collection);
 
 // printf("bound map collection of %d elements as to statement index %d\n", listObjc, index);
@@ -1916,6 +1943,7 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
 
   for (i = 0; i < objc; i += 2) {
     tclReturn = casstcl_obj_to_compound_cass_value_types (interp, objv[i+1], &typeInfo);
+    Tcl_AppendResult(interp, " while attempting to bind column '", Tcl_GetString (objv[i]), "'", NULL);
 
     if (tclReturn == TCL_ERROR) {
       masterReturn = TCL_ERROR;
