@@ -1354,8 +1354,8 @@ void UpdateCassTypeString (Tcl_Obj *obj) {
  * You create a map by appending successions of key elements and value
  * elements to it.
  *
- * They have a specified datatype for sets and lists; for keys there is
- * one for the key and one for the value so for instance the keys can
+ * They have a specified datatype for sets and lists; for maps there is
+ * one for the key and one for the value, so for instance the keys can
  * be integers and the values can be strings or whatever.
  *
  * Results:
