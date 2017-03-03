@@ -159,7 +159,7 @@ casstcl_createFutureObjectCommand (casstcl_sessionClientData *ct, CassFuture *fu
 	int    baseNameLength;
 
 #define FUTURESTRING "future"
-	baseNameLength = sizeof(FUTURESTRING) + snprintf (NULL, 0, "%lu", nextAutoCounter) + 1;
+	baseNameLength = sizeof(FUTURESTRING) + 8 * sizeof(nextAutoCounter) + 1; // Allocate way more space than needed
 	commandName = ckalloc (baseNameLength);
 	snprintf (commandName, baseNameLength, "%s%lu", FUTURESTRING, nextAutoCounter++);
 
