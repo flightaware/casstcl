@@ -45,6 +45,7 @@ casstcl_future_eventProc (Tcl_Event *tevPtr, int flags) {
 
 	casstcl_futureEvent *evPtr = (casstcl_futureEvent *)tevPtr;
 	casstcl_futureClientData *fcd = evPtr->fcd;
+	assert (fcd->cass_future_magic == CASS_FUTURE_MAGIC);
 	Tcl_Interp *interp = fcd->ct->interp;
 
 	// eval the command.  it should be the callback we were told as the
