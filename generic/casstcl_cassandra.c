@@ -1067,6 +1067,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			Tcl_ListObjAppendElement(interp, pResultStr, Tcl_NewIntObj(version.patch_version));
 
 			cass_schema_meta_free (schema_meta);
+			Tcl_IncrRefCount(pResultStr);
 
 			Tcl_SetObjResult(interp, pResultStr);
 			break;
