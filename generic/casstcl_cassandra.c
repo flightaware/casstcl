@@ -364,7 +364,7 @@ int casstcl_metrics (Tcl_Interp *interp, CassSession *session) {
  *----------------------------------------------------------------------
  */
 
-int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName, Tcl_Obj *codeObj, int pagingSize, CassConsistency *consistencyPtr) {
+int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName, Tcl_Obj *codeObj, int pagingSize, CassConsistency *consistencyPtr, int withNulls) {
 	CassStatement* statement = NULL;
 	int tclReturn = TCL_OK;
 	Tcl_Interp *interp = ct->interp;
@@ -433,22 +433,29 @@ int casstcl_select (casstcl_sessionClientData *ct, char *query, char *arrayName,
 				columnValue = cass_row_get_column (row, i);
 
 				if (cass_value_is_null (columnValue)) {
-					Tcl_UnsetVar2 (interp, arrayName, columnName, 0);
-					continue;
-				}
-
-				if (casstcl_cass_value_to_tcl_obj (ct, columnValue, &newObj) == TCL_ERROR) {
-					tclReturn = TCL_ERROR;
-					break;
-				}
-
-				if (newObj == NULL) {
-					Tcl_UnsetVar2 (interp, arrayName, columnName, 0);
+					if(!withNulls) {
+						Tcl_UnsetVar2 (interp, arrayName, columnName, 0);
+						continue;
+					}
 				} else {
-					if (Tcl_SetVar2Ex (interp, arrayName, columnName, newObj, (TCL_LEAVE_ERR_MSG)) == NULL) {
+					if(casstcl_cass_value_to_tcl_obj (ct, columnValue, &newObj) == TCL_ERROR) {
 						tclReturn = TCL_ERROR;
 						break;
 					}
+				}
+
+				if (newObj == NULL) {
+					if(withNulls) {
+						newObj = Tcl_NewObj();
+					} else {
+						Tcl_UnsetVar2 (interp, arrayName, columnName, 0);
+						continue;
+					}
+				}
+
+				if (Tcl_SetVar2Ex (interp, arrayName, columnName, newObj, (TCL_LEAVE_ERR_MSG)) == NULL) {
+					tclReturn = TCL_ERROR;
+					break;
 				}
 			}
 
@@ -638,24 +645,20 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			int pagingSize = 100;
 			int arg = 2;
 			int      subOptIndex;
+			int withNulls = 0;
 
 			static CONST char *subOptions[] = {
 				"-pagesize",
 				"-consistency",
+				"-withnulls",
 				NULL
 			};
 
 			enum subOptions {
 				SUBOPT_PAGESIZE,
-				SUBOPT_CONSISTENCY
+				SUBOPT_CONSISTENCY,
+				SUBOPT_WITHNULLS
 			};
-
-			// if we don't have at least five arguments and an odd number
-			// of arguments at that, it's an error
-			if ((objc < 5) || ((objc & 1) == 0)) {
-				Tcl_WrongNumArgs (interp, 2, objv, "?-pagesize n? query arrayName code");
-				return TCL_ERROR;
-			}
 
 			while (arg + 3 < objc) {
 				if (Tcl_GetIndexFromObj (interp, objv[arg++], subOptions, "subOption", TCL_EXACT, &subOptIndex) != TCL_OK) {
@@ -678,14 +681,23 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 						}
 						break;
 					}
+					case SUBOPT_WITHNULLS: {
+						withNulls = 1;
+						break;
+					}
 				}
+			}
+
+			if(objc - arg != 3) {
+				Tcl_WrongNumArgs (interp, 2, objv, "?-pagesize n? ?-consistency consistencyLevel? ?-withnulls? query arrayName code");
+				return TCL_ERROR;
 			}
 
 			query = Tcl_GetString (objv[arg++]);
 			arrayName = Tcl_GetString (objv[arg++]);
 			code = objv[arg++];
 
-			return casstcl_select (ct, query, arrayName, code, pagingSize, (consistencyObj != NULL) ? &consistency : NULL);
+			return casstcl_select (ct, query, arrayName, code, pagingSize, (consistencyObj != NULL) ? &consistency : NULL, withNulls);
 		}
 
 		case OPT_EXEC:
