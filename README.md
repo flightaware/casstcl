@@ -146,11 +146,11 @@ Methods of cassandra cluster interface object
 
  See also the future object.
 
-* *$cassdb* **select** *?-pagesize n?* *?-consistency consistencyLevel?* **$statement array code**
+* *$cassdb* **select** *?-pagesize n?* *?-consistency consistencyLevel?* *?-withnulls?* **$statement array code**
 
  Iterate filling array with results of the select statement and executing code upon it.  break, continue and return from the code is supported.
 
- Null values are unset from the array, so you have to use info exists to see if a value is not null.
+ Unless you specify *-withnulls*, null values are unset from the array, so you have to use info exists to see if a value is not null.
 
  The array is cleared each iteration for you automatically so you don't neeed to jack with unset.
 
