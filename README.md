@@ -254,7 +254,7 @@ Here's an example of defining a prepared statement and a subsequent use of it to
 
  Sets the threshold for the maximum number of concurrent requests in-flight on a connection before creating a new connection.  The number of new connections created will not exceed max_connections_per_host.  Default 100.
 
-* *$cassdb* **max_requests_per_flush* *$numRequests*
+* *$cassdb* **max_requests_per_flush** *$numRequests*
 
  Set the maximum number of requests processed by an I/O worker per flush.  Default 128.
 
