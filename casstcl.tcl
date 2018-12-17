@@ -318,8 +318,36 @@ proc interact {cassHandle} {
 			return
 		}
 
-		if {$line == "exit"} {
-			return
+		# Handle builtin commands, first line only.
+		if {$query eq ""} {
+			set builtin_args [lassign $line builtin]
+			switch -- [string tolower $builtin] {
+				cluster_version -
+				keyspaces -
+				tables -
+				columns -
+				columns_with_types {
+					if {[catch {set result [$::cass $builtin {*}$builtin_args]} catchResult]} {
+						puts $catchResult
+						puts "$::errorCode"
+					} else {
+						puts $result
+					}
+					continue
+				}
+				schema {
+					puts_schema {*}$builtin_args
+					continue
+				}
+				exit {
+					return
+				}
+				? -
+				help {
+					puts "cluster_version, keyspaces, tables, columns, columns_with_types, schema, help, exit, or cql command"
+					continue
+				}
+			}
 		}
 
 		if {[assemble_statement query $line]} {
@@ -333,6 +361,25 @@ proc interact {cassHandle} {
 			}
 			set query ""
 		}
+	}
+}
+
+proc puts_schema {keyspace args} {
+	if {![llength $args]} {
+		if {[string match "*.*" $keyspace]} {
+			set args [lassign [split $keyspace "."] keyspace]
+		} else {
+			set args [$::cass tables $keyspace]
+		}
+	}
+	foreach table $args {
+		set l [$::cass columns_with_types $keyspace $table]
+		if {![llength $l]} { continue }
+		puts "table $keyspace.$table ("
+		foreach {col type} $l {
+			puts "\t$col\t$type,"
+		}
+		puts ")\n"
 	}
 }
 
