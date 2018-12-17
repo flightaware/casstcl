@@ -336,7 +336,10 @@ proc interact {cassHandle} {
 					continue
 				}
 				schema {
-					puts_schema {*}$builtin_args
+					if {[catch {puts_schema {*}$builtin_args} catchResult]} {
+						puts $catchResult
+						puts "$::errorCode"
+					}
 					continue
 				}
 				exit {
