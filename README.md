@@ -620,7 +620,7 @@ The library functions such as *download_schema*, *list_schema*, *list_tables*, e
 
 * **interact** *cassdb*
 
- Enter a primitive cqlsh-like shell.  Provides a prompt of *tcqlsh>* when no partial command has been entered or *......>* when a partial command is present.  Once a semicolon is seen via one input line or multiple, the command is executed.  "exit" to exit the interact proc.
+ Enter a primitive cqlsh-like shell.  Provides a prompt of *tcqlsh>* when no partial command has been entered or *......>* when a partial command is present.  Once a semicolon is seen via one input line or multiple, the command is executed.  "help" for meta-commands.  "exit" to exit the interact proc.
 
 errorCode
 ---

@@ -302,6 +302,7 @@ proc run_file {cassHandle file} {
 #
 proc interact {cassHandle} {
 	set query ""
+	set style parray
 
 	while true {
 		# emit prompt
@@ -320,7 +321,11 @@ proc interact {cassHandle} {
 
 		# Handle builtin commands, first line only.
 		if {$query eq ""} {
-			set builtin_args [lassign $line builtin]
+			if {[catch {set builtin_args [lassign $line builtin]} catchResult]} {
+				puts $catchResult
+				puts "$::errorCode"
+				continue
+			}
 			switch -- [string tolower $builtin] {
 				cluster_version -
 				keyspaces -
@@ -342,27 +347,56 @@ proc interact {cassHandle} {
 					}
 					continue
 				}
+				style {
+					if {[llength $builtin_args]} {
+						set style [lindex $builtin_args 0]
+					} else {
+						puts $style
+					}
+					continue
+				}
 				exit {
 					return
 				}
 				? -
 				help {
-					puts "cluster_version, keyspaces, tables, columns, columns_with_types, schema, help, exit, or cql command"
+					puts "cluster_version, keyspaces, tables, columns, columns_with_types, schema, style, help, exit, or cql command"
 					continue
 				}
 			}
 		}
 
 		if {[assemble_statement query $line]} {
-			if {[catch {$cassHandle select $query row {
-				parray row
-				puts ""
-				}
-			} catchResult] == 1} {
+			if {[catch {perform_select $style $cassHandle $query} catchResult] == 1} {
 				puts "$catchResult"
 				puts "$::errorCode"
 			}
 			set query ""
+		}
+	}
+}
+
+proc perform_select {style cassHandle query} {
+	switch -exact $style {
+		cols -
+		columns {
+			$cassHandle select -withnulls $query row {
+				if {![info exists headers]} {
+					set headers [lsort [array names row]]
+					puts [join $headers "|"]
+				}
+				unset -nocomplain result
+				foreach column $headers {
+					lappend result $row($column)
+				}
+				puts [join $result "|"]
+			}
+		}
+		default {
+			$cassHandle select $query row {
+				parray row
+				puts ""
+			}
 		}
 	}
 }
