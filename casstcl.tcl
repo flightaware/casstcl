@@ -327,7 +327,7 @@ proc interact {cassHandle} {
 				tables -
 				columns -
 				columns_with_types {
-					if {[catch {set result [$::cass $builtin {*}$builtin_args]} catchResult]} {
+					if {[catch {set result [$cassHandle $builtin {*}$builtin_args]} catchResult]} {
 						puts $catchResult
 						puts "$::errorCode"
 					} else {
@@ -336,7 +336,7 @@ proc interact {cassHandle} {
 					continue
 				}
 				schema {
-					if {[catch {puts_schema {*}$builtin_args} catchResult]} {
+					if {[catch {puts_schema $cassHandle {*}$builtin_args} catchResult]} {
 						puts $catchResult
 						puts "$::errorCode"
 					}
@@ -367,16 +367,16 @@ proc interact {cassHandle} {
 	}
 }
 
-proc puts_schema {keyspace args} {
+proc puts_schema {cassHandle keyspace args} {
 	if {![llength $args]} {
 		if {[string match "*.*" $keyspace]} {
 			set args [lassign [split $keyspace "."] keyspace]
 		} else {
-			set args [$::cass tables $keyspace]
+			set args [$cassHandle tables $keyspace]
 		}
 	}
 	foreach table $args {
-		set l [$::cass columns_with_types $keyspace $table]
+		set l [$cassHandle columns_with_types $keyspace $table]
 		if {![llength $l]} { continue }
 		puts "table $keyspace.$table ("
 		foreach {col type} $l {
