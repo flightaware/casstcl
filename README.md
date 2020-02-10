@@ -270,7 +270,7 @@ Here's an example of defining a prepared statement and a subsequent use of it to
 
  Sets the high water mark for the number of requests queued waiting for a connection in a connection pool.  Disables writes to a host on an IO worker if the number of requests queued exceeds this value.  Default is 128 * max_connections_per_host.
 
-* *$cassdb* **wpending_requests_low_water_mark** *$lowWaterMark*
+* *$cassdb* **pending_requests_low_water_mark** *$lowWaterMark*
 
  Sets the low water mark for the number of requests queued waiting for a connection in a connection pool.  After exceeding high water mark requests, writes to a host will only resume once the number of requests falls below this value.  Default is 64 * max_connections_per_host.
 
