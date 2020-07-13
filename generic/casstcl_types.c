@@ -189,6 +189,10 @@ casstcl_cass_value_type_to_string (CassValueType valueType) {
       return "tuple";
     }
 
+    case CASS_VALUE_TYPE_DURATION: {
+      return "duration";
+    }
+
     default:
       return "unknown";
   }
@@ -238,6 +242,7 @@ casstcl_string_to_cass_value_type (char *string) {
       if (strcmp (string, "date") == 0) return CASS_VALUE_TYPE_DATE;
       if (strcmp (string, "decimal") == 0) return CASS_VALUE_TYPE_DECIMAL;
       if (strcmp (string, "double") == 0) return CASS_VALUE_TYPE_DOUBLE;
+      if (strcmp (string, "duration") == 0) return CASS_VALUE_TYPE_DURATION;
       break;
     }
 
@@ -647,6 +652,26 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
       }
 
       *tclObj = casstcl_NewTimestampObj (cassInt);
+      return TCL_OK;
+    }
+
+    case CASS_VALUE_TYPE_DURATION: {
+	cass_int32_t months;
+	cass_int32_t days;
+	cass_int64_t nanos;
+	CassError cassError;
+      Tcl_Obj *listObjv[3];
+
+	CassError = cass_value_get_duration (cassValue, &months, &days, &nanos);
+
+      if (cassError != CASS_OK) {
+        return casstcl_cass_error_to_tcl (ct, cassError);
+      }
+
+      listObjv[0] = Tcl_NewIntObj(months);
+      listObjv[1] = Tcl_NewintObj(days);
+      *tclObjv[2] = Tcl_NewWideIntObj (nanos);
+      *tclObj = Tcl_NewListObj(3, listObjv);
       return TCL_OK;
     }
 
@@ -1641,6 +1666,47 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
       }
       break;
     }
+
+    case CASS_VALUE_TYPE_DURATION: {
+      int listObjc;
+      Tcl_Obj **listObjv;
+	cass_int32_t months;
+	cass_int32_t days;
+	cass_int64_t nanos;
+
+      if (Tcl_ListObjGetElements (interp, obj, &listObjc, &listObjv) == TCL_ERROR) {
+        Tcl_AppendResult (interp, " while getting duration elements", NULL);
+        return TCL_ERROR;
+      }
+
+      if (listObjc != 3) {
+        Tcl_ResetResult(interp);
+        Tcl_AppendResult(interp, "duration requires exactly three elements", NULL);
+        return TCL_ERROR;
+      }
+
+      if (Tcl_GetIntFromObj(interp, listObjv[0], &months) != TCL_OK) {
+        Tcl_AppendResult (interp, " while extracting months", NULL);
+        return TCL_ERROR;
+      }
+
+      if (Tcl_GetIntFromObj(interp, listObjv[1], &days) != TCL_OK) {
+        Tcl_AppendResult (interp, " while extracting days", NULL);
+        return TCL_ERROR;
+      }
+      if (Tcl_GetWideIntFromObj(interp, listObjv[2], &nanos) != TCL_OK) {
+        Tcl_AppendResult (interp, " while extracting nanos", NULL);
+        return TCL_ERROR;
+      }
+
+      if (name == NULL) {
+        cassError = cass_statement_bind_duration(statement, index, months, days, nanos);
+      } else {
+        cassError = cass_statement_bind_duration_by_name (statement, name, months, days, nanos);
+      }
+      break;
+    }
+
 
     case CASS_VALUE_TYPE_BIGINT:
     case CASS_VALUE_TYPE_COUNTER: {
