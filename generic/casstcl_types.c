@@ -1679,24 +1679,35 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
         return TCL_ERROR;
       }
 
-      if (listObjc != 3) {
-        Tcl_ResetResult(interp);
-        Tcl_AppendResult(interp, "duration requires exactly three elements", NULL);
-        return TCL_ERROR;
-      }
+      switch (listObjc) {
+	default: {
+          Tcl_ResetResult(interp);
+          Tcl_AppendResult(interp, "duration requires exactly three elements", NULL);
+          return TCL_ERROR;
+	}
+	case 1: {
+	  if (casstcl_GetDurationFromObj(interp, listObjv[0], &months, &days, &nanos) != TCL_OK) {
+	    return TCL_ERROR;
+	  }
+	  break;
+	}
+	case 3: {
+	  if (Tcl_GetIntFromObj(interp, listObjv[0], &months) != TCL_OK) {
+	    Tcl_AppendResult (interp, " while extracting months", NULL);
+	    return TCL_ERROR;
+	  }
 
-      if (Tcl_GetIntFromObj(interp, listObjv[0], &months) != TCL_OK) {
-        Tcl_AppendResult (interp, " while extracting months", NULL);
-        return TCL_ERROR;
-      }
+	  if (Tcl_GetIntFromObj(interp, listObjv[1], &days) != TCL_OK) {
+	    Tcl_AppendResult (interp, " while extracting days", NULL);
+	    return TCL_ERROR;
+	  }
 
-      if (Tcl_GetIntFromObj(interp, listObjv[1], &days) != TCL_OK) {
-        Tcl_AppendResult (interp, " while extracting days", NULL);
-        return TCL_ERROR;
-      }
-      if (Tcl_GetWideIntFromObj(interp, listObjv[2], &nanos) != TCL_OK) {
-        Tcl_AppendResult (interp, " while extracting nanos", NULL);
-        return TCL_ERROR;
+	  if (Tcl_GetWideIntFromObj(interp, listObjv[2], &nanos) != TCL_OK) {
+	    Tcl_AppendResult (interp, " while extracting nanos", NULL);
+	    return TCL_ERROR;
+	  }
+	  break;
+	}
       }
 
       if (name == NULL) {
@@ -2031,6 +2042,133 @@ casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int o
   return masterReturn;
 }
 
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_GetDurationFromObj --
+ *
+ *   Attempt to convert a string in one of the formats Cassandra expects
+ *      as a duration into months, days, and nanoseconds
+ *
+ * Results:
+ *   A standard Tcl result.
+ *
+ * Side Effects:
+ *
+ *   None.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_GetDurationFromObj(
+    Tcl_Interp *interp, /* Used for error reporting if not NULL. */
+    Tcl_Obj *objPtr,  /* The object from which to get an Inet. */
+    cass_int32_t *monthp, /* resulting months. */
+    cass_int32_t *dayp,   /* resulting days. */
+    cass_int64_t *nanop)  /* Resulting nanoseconds. */
+{
+  const char *string = Tcl_GetString(objPtr);
+  cass_int64_t value = 0;
+  cass_int32_t months = 0;
+  cass_int32_t days = 0;
+  cass_int64_t nanos = 0;
+  char c;
+  
+  // TODO parse ISO8601 formats
+  while(c = *string++) {
+    switch c {
+      case '0': case '1': case '2': case '3': case '4':
+      case '5': case '6': case '7': case '8': case '9': {
+	value = value * 10 + *string - '0';
+	break;
+      }
+      case 'y': {
+	months = months + 12 * value;
+	value = 0;
+	break;
+      }
+      // mo (months), ms (milliseconds), or m (minutes)
+      case 'm': {
+	switch (*string) {
+	  'o': {
+	    months = months + value;
+	    value = 0;
+	    string++;
+	    break;
+	  }
+	  's': {
+	    nanos = nanos + 1000000ull * value;
+	    value = 0;
+	    string++;
+	    break;
+	  }
+	  default: {
+	    nanos = nanos + 60000000000ull * value;
+	    value = 0;
+	    break;
+	  }
+	}
+	break;
+      }
+      case 'w': {
+	days = days + 7 * value;
+	value = 0;
+	break;
+      }
+      case 'h': {
+	nanos = nanos + 3600000000000ull * value;
+	value = 0;
+	break;
+      }
+      case 's': {
+	nanos = nanos + 1000000000ull * value;
+	value = 0;
+	break;
+      }
+      // us (microseconds)
+      case 'u': {
+	if (*string != 's') goto badparse;
+	nanos = nanos + 1000ull * value;
+	value = 0;
+	string++;
+	break;
+      }
+      // Look for µs.
+      case '\302': {
+	if (*string != '\265') goto badparse;
+	string++;
+	if (*string != 's') goto badparse;
+	nanos = nanos + 1000ull * value;
+	value = 0;
+	string++;
+	break;
+      }
+      // ns (nanoseconds)
+      case 'n': {
+	if (*string != 's') goto badparse;
+	nanos = nanos + value;
+	value = 0;
+	string++;
+	break;
+      }
+      default: {
+badparse:
+	Tcl_ResetResult(interp);
+	Tcl_AppendResult(interp, "badly formatted duration", msg, NULL);
+	return TCL_ERROR;
+      }
+    }
+  }
 
+  // Check for trailing numbers.
+  if(value) {
+    goto badparse;
+  }
+
+  *nanop = nanos;
+  *dayp = days;
+  *monthp = months;
+  return TCL_OK;
+}
 
 /* vim: set ts=4 sw=4 sts=4 noet : */
