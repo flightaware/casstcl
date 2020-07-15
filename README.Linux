@@ -1,0 +1,6 @@
+
+autoreconf
+./configure --mandir=/usr/share/man "$@"
+
+# Add "--enable-symbols" if you want debugging.
+

@@ -662,15 +662,15 @@ int casstcl_cass_value_to_tcl_obj (casstcl_sessionClientData *ct, const CassValu
 	CassError cassError;
       Tcl_Obj *listObjv[3];
 
-	CassError = cass_value_get_duration (cassValue, &months, &days, &nanos);
+	cassError = cass_value_get_duration (cassValue, &months, &days, &nanos);
 
       if (cassError != CASS_OK) {
         return casstcl_cass_error_to_tcl (ct, cassError);
       }
 
       listObjv[0] = Tcl_NewIntObj(months);
-      listObjv[1] = Tcl_NewintObj(days);
-      *tclObjv[2] = Tcl_NewWideIntObj (nanos);
+      listObjv[1] = Tcl_NewIntObj(days);
+      listObjv[2] = Tcl_NewWideIntObj (nanos);
       *tclObj = Tcl_NewListObj(3, listObjv);
       return TCL_OK;
     }
