@@ -2075,8 +2075,8 @@ casstcl_GetDurationFromObj(
   char c;
   
   // TODO parse ISO8601 formats
-  while(c = *string++) {
-    switch c {
+  while((c = *string++)) {
+    switch (c) {
       case '0': case '1': case '2': case '3': case '4':
       case '5': case '6': case '7': case '8': case '9': {
 	value = value * 10 + *string - '0';
@@ -2090,13 +2090,13 @@ casstcl_GetDurationFromObj(
       // mo (months), ms (milliseconds), or m (minutes)
       case 'm': {
 	switch (*string) {
-	  'o': {
+	  case 'o': {
 	    months = months + value;
 	    value = 0;
 	    string++;
 	    break;
 	  }
-	  's': {
+	  case 's': {
 	    nanos = nanos + 1000000ull * value;
 	    value = 0;
 	    string++;
@@ -2154,7 +2154,7 @@ casstcl_GetDurationFromObj(
       default: {
 badparse:
 	Tcl_ResetResult(interp);
-	Tcl_AppendResult(interp, "badly formatted duration", msg, NULL);
+	Tcl_AppendResult(interp, "badly formatted duration '", Tcl_GetString(objPtr), "'.", NULL);
 	return TCL_ERROR;
       }
     }
