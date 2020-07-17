@@ -624,6 +624,9 @@ if {[llength [info commands cass_test_get_dummy_value]] == 0} then {
           }
         }
       }
+      duration {
+	return [list 0 0 0]
+      }
       default {
         if {[regexp -nocase -- {^list\s*<.+>$} $type] || \
             [regexp -nocase -- {^map\s*<.+>$} $type] || \
@@ -729,7 +732,8 @@ if {![info exists cass_test_cql]} then {
       value20 timestamp,
       value21 timeuuid,
       value22 uuid,
-      value23 varchar
+      value23 varchar,
+      value24 duration
     );
   }
 
