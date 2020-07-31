@@ -2110,6 +2110,11 @@ casstcl_GetDurationFromObj(
 	}
 	break;
       }
+      case 'd': {
+	days = days + value;
+	value = 0;
+	break;
+      }
       case 'w': {
 	days = days + 7 * value;
 	value = 0;
@@ -2154,7 +2159,7 @@ casstcl_GetDurationFromObj(
       default: {
 badparse:
 	Tcl_ResetResult(interp);
-	Tcl_AppendResult(interp, "badly formatted duration '", Tcl_GetString(objPtr), "'.", NULL);
+	Tcl_AppendResult(interp, "badly formatted duration '", Tcl_GetString(objPtr), "' at '", --string, "'.", NULL);
 	return TCL_ERROR;
       }
     }
