@@ -13,6 +13,8 @@
 set tcltestVersion [package require tcltest]
 namespace import -force tcltest::*
 
+# tcltest::configure -verbose {body pass skip error}
+
 tcltest::testsDirectory [file dir [info script]]
 tcltest::runAllTests
 

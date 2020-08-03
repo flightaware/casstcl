@@ -438,4 +438,29 @@ casstcl_GetInetFromObj(
     Tcl_Obj *objPtr,  /* The object from which to get an Inet. */
     CassInet *inetPtr);  /* Place to store resulting Inet. */
 
+/*
+ *----------------------------------------------------------------------
+ *
+ * casstcl_GetDurationFromObj --
+ *
+ *   Attempt to convert a string in one of the formats Cassandra expects
+ *      as a duration into months, days, and nanoseconds
+ *
+ * Results:
+ *   A standard Tcl result.
+ *
+ * Side Effects:
+ *
+ *   None.
+ *
+ *----------------------------------------------------------------------
+ */
+int
+casstcl_GetDurationFromObj(
+    Tcl_Interp *interp, /* Used for error reporting if not NULL. */
+    Tcl_Obj *objPtr,  /* The object from which to get an Inet. */
+    cass_int32_t *monthp, /* resulting months. */
+    cass_int32_t *dayp,   /* resulting days. */
+    cass_int64_t *nanop);  /* Resulting nanoseconds. */
+
 /* vim: set ts=4 sw=4 sts=4 noet : */
