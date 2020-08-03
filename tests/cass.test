@@ -624,6 +624,9 @@ if {[llength [info commands cass_test_get_dummy_value]] == 0} then {
           }
         }
       }
+      duration {
+	return [list 0 0 0]
+      }
       default {
         if {[regexp -nocase -- {^list\s*<.+>$} $type] || \
             [regexp -nocase -- {^map\s*<.+>$} $type] || \
@@ -729,7 +732,8 @@ if {![info exists cass_test_cql]} then {
       value20 timestamp,
       value21 timeuuid,
       value22 uuid,
-      value23 varchar
+      value23 varchar,
+      value24 duration
     );
   }
 
@@ -754,6 +758,17 @@ if {![info exists cass_test_cql]} then {
 
   set cass_test_cql(10) {
     INSERT INTO $keyspace.main (key01) VALUES (?);
+  }
+
+  set cass_test_cql(11) {
+    CREATE TABLE $keyspace.main (
+      key00 int PRIMARY KEY,
+      key01 duration
+    );
+  }
+
+  set cass_test_cql(12) {
+    INSERT INTO $keyspace.main (key00, key01) VALUES (?, ?);
   }
 
   set cass_test_cql(drop) {
@@ -2355,6 +2370,58 @@ test cass-14.3 {automatic scaling of timestamp data type} -body {
 (4294967295LL) while converting 'timestamp' element while attempting to\
 bind field name of 'key01' of type 'timestamp' referencing table\
 '$keyspace.main'}]]
+
+###############################################################################
+
+test cass-14.4 {duration data type} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(11)]
+    $cmd reimport_column_type_map
+    set prepared [$cmd prepare #auto \
+        [appendArgs $keyspace .main] \
+        [cass_test_subst $cass_test_cql(12)]]
+    cass_test_exec $cmd -prepared $prepared [list key00 1 key01 {1 1 0}]
+    set result [list]
+    $cmd select [cass_test_subst $cass_test_cql(8)] row {
+      lappend result [lsortStride2 [array get row]]
+    }
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain keyspace svc row prepared cmd errMsg
+} -result {0 {{key00 1 key01 {1 1 0}}}}
+
+###############################################################################
+
+test cass-14.4 {automatic conversion of duration data type} -body {
+  list [catch {
+    set keyspace [cass_test_get_keyspace]
+    cass_test_connect cmd
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(0)]
+    cass_test_exec $cmd [cass_test_subst $cass_test_cql(11)]
+    $cmd reimport_column_type_map
+    set prepared [$cmd prepare #auto \
+        [appendArgs $keyspace .main] \
+        [cass_test_subst $cass_test_cql(12)]]
+    cass_test_exec $cmd -prepared $prepared [list key00 1 key01 1mo1d]
+    set result [list]
+    $cmd select [cass_test_subst $cass_test_cql(8)] row {
+      lappend result [lsortStride2 [array get row]]
+    }
+    set result
+  } errMsg] $errMsg
+} -cleanup {
+  cass_test_service_events svc
+  cass_test_cleanup_session cmd true true
+
+  unset -nocomplain keyspace svc row prepared cmd errMsg
+} -result {0 {{key00 1 key01 {1 1 0}}}}
 
 ###############################################################################
 

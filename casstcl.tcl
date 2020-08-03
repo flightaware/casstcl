@@ -29,6 +29,7 @@ namespace eval ::casstcl {
 		"org.apache.cassandra.db.marshal.TimeType"          time      \
 		"org.apache.cassandra.db.marshal.DateType"          timestamp \
 		"org.apache.cassandra.db.marshal.TimestampType"     timestamp \
+		"org.apache.cassandra.db.marshal.DurationType"      duration  \
 		"org.apache.cassandra.db.marshal.TimeUUIDType"      timeuuid  \
 		"org.apache.cassandra.db.marshal.UUIDType"          uuid      \
 		"org.apache.cassandra.db.marshal.IntegerType"       varint    \
