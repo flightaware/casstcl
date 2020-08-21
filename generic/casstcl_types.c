@@ -1773,10 +1773,22 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
       cassDecimal.scale = scale;
       cassDecimal.varint = cassBytes;
 
-      if (name == NULL) {
-        cassError = cass_statement_bind_decimal (statement, index, cassDecimal.varint.data, cassDecimal.varint.size, cassDecimal.scale);
+      cass_byte_t *data;
+      cass_size_t size;
+
+      if (cassDecimal.varint.size == 0) {
+	static cass_byte_t one_byte[1] = { 0 };
+	data = one_byte;
+	size = 1;
       } else {
-        cassError = cass_statement_bind_decimal_by_name (statement, name, cassDecimal.varint.data, cassDecimal.varint.size, cassDecimal.scale);
+	data = cassDecimal.varint.data;
+	size = cassDecimal.varint.size;
+      }
+
+      if (name == NULL) {
+        cassError = cass_statement_bind_decimal (statement, index, data, size, cassDecimal.scale);
+      } else {
+        cassError = cass_statement_bind_decimal_by_name (statement, name, data, size, cassDecimal.scale);
       }
       ckfree((char *) cassBytes.data);
       break;
