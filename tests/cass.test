@@ -2230,7 +2230,7 @@ test cass-13.3 {reading of data types with placeholder values} -body {
 } -result {0 {{key01 1 value01 {} value02 0 value03 {} value04 0 value05 {0 0}\
 value06 0.0 value07 0.0 value08 0.0.0.0 value09 0 value19 {} value20 0 value21\
 0b01e530-cc49-11e4-8830-0800200c9a66 value22\
-00000000-0000-0000-0000-000000000000 value23 {}}}}
+00000000-0000-0000-0000-000000000000 value23 {} value24 {0 0 0}}}}
 
 ###############################################################################
 
