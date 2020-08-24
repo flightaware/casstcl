@@ -325,10 +325,12 @@ int casstcl_metrics (Tcl_Interp *interp, CassSession *session) {
 	listObjv[i++] = Tcl_NewWideIntObj (metrics.stats.total_connections);
 	listObjv[i++] = Tcl_NewStringObj ("stats.available_connections", -1);
 	listObjv[i++] = Tcl_NewWideIntObj (metrics.stats.available_connections);
+#if (CASS_VERSION_MAJOR < 2 || (CASS_VERSION_MAJOR == 2 && CASS_VERSION_MINOR < 8))
 	listObjv[i++] = Tcl_NewStringObj ("stats.exceeded_pending_requests_water_mark", -1);
 	listObjv[i++] = Tcl_NewWideIntObj (metrics.stats.exceeded_pending_requests_water_mark);
 	listObjv[i++] = Tcl_NewStringObj ("stats.exceeded_write_bytes_water_mark", -1);
 	listObjv[i++] = Tcl_NewWideIntObj (metrics.stats.exceeded_write_bytes_water_mark);
+#endif
 
 	listObjv[i++] = Tcl_NewStringObj ("errors.connection_timeouts", -1);
 	listObjv[i++] = Tcl_NewWideIntObj (metrics.errors.connection_timeouts);
@@ -1322,6 +1324,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		}
 
 		case OPT_WRITE_BYTES_HIGH_WATER_MARK: {
+#if (CASS_VERSION_MAJOR < 2 || (CASS_VERSION_MAJOR == 2 && CASS_VERSION_MINOR < 8))
 			int writeBytesHighWaterMark = 0;
 
 			if (objc != 3) {
@@ -1335,10 +1338,12 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_cluster_set_write_bytes_high_water_mark (ct->cluster, writeBytesHighWaterMark);
+#endif
 			break;
 		}
 
 		case OPT_WRITE_BYTES_LOW_WATER_MARK: {
+#if (CASS_VERSION_MAJOR < 2 || (CASS_VERSION_MAJOR == 2 && CASS_VERSION_MINOR < 8))
 			int writeBytesLowWaterMark = 0;
 
 			if (objc != 3) {
@@ -1352,10 +1357,12 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_cluster_set_write_bytes_low_water_mark (ct->cluster, writeBytesLowWaterMark);
+#endif
 			break;
 		}
 
 		case OPT_PENDING_REQUESTS_HIGH_WATER_MARK: {
+#if (CASS_VERSION_MAJOR < 2 || (CASS_VERSION_MAJOR == 2 && CASS_VERSION_MINOR < 8))
 			int pendingRequestsHighWaterMark = 0;
 
 			if (objc != 3) {
@@ -1369,10 +1376,12 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_cluster_set_pending_requests_high_water_mark (ct->cluster, pendingRequestsHighWaterMark);
+#endif
 			break;
 		}
 
 		case OPT_PENDING_REQUESTS_LOW_WATER_MARK: {
+#if (CASS_VERSION_MAJOR < 2 || (CASS_VERSION_MAJOR == 2 && CASS_VERSION_MINOR < 8))
 			int pendingRequestsLowWaterMark = 0;
 
 			if (objc != 3) {
@@ -1386,6 +1395,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_cluster_set_pending_requests_low_water_mark (ct->cluster, pendingRequestsLowWaterMark);
+#endif
 			break;
 		}
 
