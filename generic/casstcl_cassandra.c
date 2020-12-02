@@ -325,7 +325,7 @@ int casstcl_metrics (Tcl_Interp *interp, CassSession *session) {
 	listObjv[i++] = Tcl_NewWideIntObj (metrics.stats.total_connections);
 	listObjv[i++] = Tcl_NewStringObj ("stats.available_connections", -1);
 	listObjv[i++] = Tcl_NewWideIntObj (metrics.stats.available_connections);
-#if (CASS_VERSION_MAJOR < 2 || (CASS_VERSION_MAJOR == 2 && CASS_VERSION_MINOR < 8))
+#ifdef CASS_PRE_2_8
 	listObjv[i++] = Tcl_NewStringObj ("stats.exceeded_pending_requests_water_mark", -1);
 	listObjv[i++] = Tcl_NewWideIntObj (metrics.stats.exceeded_pending_requests_water_mark);
 	listObjv[i++] = Tcl_NewStringObj ("stats.exceeded_write_bytes_water_mark", -1);
@@ -1056,11 +1056,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		}
 
 		case OPT_CLUSTER_VERSION: {
-		#if CASS_VERSION_MAJOR > 2 || \
-			(CASS_VERSION_MAJOR == 2 && (CASS_VERSION_MINOR > 3 || \
-			(CASS_VERSION_MINOR == 3 && \
-			CASS_VERSION_PATCH >= 0)))
-
+		#ifdef CASS_POST_2_3_0
 			CassVersion version;
 			const CassSchemaMeta *schema_meta;
 			Tcl_Obj *pResultStr = NULL;
@@ -1203,6 +1199,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		}
 
 		case OPT_QUEUE_SIZE_EVENT: {
+#ifdef CASS_PRE_2_10
 			int queueSizeEvent = 0;
 
 			if (objc != 3) {
@@ -1217,6 +1214,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 
 			cass_cluster_set_queue_size_event(ct->cluster, queueSizeEvent);
 			break;
+#endif
 		}
 
 		case OPT_QUEUE_SIZE_LOG: {
@@ -1256,6 +1254,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		}
 
 		case OPT_MAX_CONNECTIONS_PER_HOST: {
+#ifdef CASS_PRE_2_10
 			int maxConnectionsPerHost = 0;
 
 			if (objc != 3) {
@@ -1269,10 +1268,12 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_cluster_set_max_connections_per_host (ct->cluster, maxConnectionsPerHost);
+#endif
 			break;
 		}
 
 		case OPT_MAX_CONCURRENT_CREATION: {
+#ifdef CASS_PRE_2_10
 			int maxConcurrentCreation = 0;
 
 			if (objc != 3) {
@@ -1286,10 +1287,12 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_cluster_set_max_concurrent_creation (ct->cluster, maxConcurrentCreation);
+#endif
 			break;
 		}
 
 		case OPT_MAX_CONCURRENT_REQUESTS_THRESHOLD: {
+#ifdef CASS_PRE_2_10
 			int maxConcurrentRequestsThreshold = 0;
 
 			if (objc != 3) {
@@ -1303,10 +1306,12 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_cluster_set_max_concurrent_requests_threshold (ct->cluster, maxConcurrentRequestsThreshold);
+#endif
 			break;
 		}
 
 		case OPT_MAX_REQUESTS_PER_FLUSH: {
+#ifdef CASS_PRE_2_10
 			int maxRequestsPerFlush = 0;
 
 			if (objc != 3) {
@@ -1320,11 +1325,12 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_cluster_set_max_requests_per_flush (ct->cluster, maxRequestsPerFlush);
+#endif
 			break;
 		}
 
 		case OPT_WRITE_BYTES_HIGH_WATER_MARK: {
-#if (CASS_VERSION_MAJOR < 2 || (CASS_VERSION_MAJOR == 2 && CASS_VERSION_MINOR < 8))
+#ifdef CASS_PRE_2_8
 			int writeBytesHighWaterMark = 0;
 
 			if (objc != 3) {
@@ -1343,7 +1349,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		}
 
 		case OPT_WRITE_BYTES_LOW_WATER_MARK: {
-#if (CASS_VERSION_MAJOR < 2 || (CASS_VERSION_MAJOR == 2 && CASS_VERSION_MINOR < 8))
+#ifdef CASS_PRE_2_8
 			int writeBytesLowWaterMark = 0;
 
 			if (objc != 3) {
@@ -1362,7 +1368,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		}
 
 		case OPT_PENDING_REQUESTS_HIGH_WATER_MARK: {
-#if (CASS_VERSION_MAJOR < 2 || (CASS_VERSION_MAJOR == 2 && CASS_VERSION_MINOR < 8))
+#ifdef CASS_PRE_2_8
 			int pendingRequestsHighWaterMark = 0;
 
 			if (objc != 3) {
@@ -1381,7 +1387,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		}
 
 		case OPT_PENDING_REQUESTS_LOW_WATER_MARK: {
-#if (CASS_VERSION_MAJOR < 2 || (CASS_VERSION_MAJOR == 2 && CASS_VERSION_MINOR < 8))
+#ifdef CASS_PRE_2_8
 			int pendingRequestsLowWaterMark = 0;
 
 			if (objc != 3) {
@@ -1434,6 +1440,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 		}
 
 		case OPT_RECONNECT_WAIT_TIME: {
+#ifdef CASS_PRE_2_10
 			int waitMS = 0;
 
 			if (objc != 3) {
@@ -1447,6 +1454,7 @@ casstcl_cassObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj
 			}
 
 			cass_cluster_set_reconnect_wait_time (ct->cluster, waitMS);
+#endif
 			break;
 		}
 
