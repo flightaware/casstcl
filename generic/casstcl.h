@@ -20,6 +20,21 @@
 #include <sys/types.h>
 #include <cassandra.h>
 
+#if (CASS_VERSION_MAJOR < 2 || (CASS_VERSION_MAJOR == 2 && CASS_VERSION_MINOR < 8))
+#define CASS_PRE_2_8
+#endif
+
+#if (CASS_VERSION_MAJOR < 2 || (CASS_VERSION_MAJOR == 2 && CASS_VERSION_MINOR < 10))
+#define CASS_PRE_2_10
+#endif
+
+#if CASS_VERSION_MAJOR > 2 || \
+	(CASS_VERSION_MAJOR == 2 && (CASS_VERSION_MINOR > 3 || \
+	(CASS_VERSION_MINOR == 3 && \
+	CASS_VERSION_PATCH >= 0)))
+#define CASS_POST_2_3_0
+#endif
+
 /*
  * NOTE: If we are using Tcl 8.5, there are several new or modified
  *       things we use from Tcl 8.6 that require slight workarounds.
