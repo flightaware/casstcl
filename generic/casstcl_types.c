@@ -1345,7 +1345,7 @@ void UpdateCassTypeString (Tcl_Obj *obj) {
 
   if (cassType != CASS_VALUE_TYPE_MAP && cassType != CASS_VALUE_TYPE_SET && cassType != CASS_VALUE_TYPE_LIST) {
     char *newString = ckalloc (len + 1);
-    strncpy (newString, string, len);
+    strncpy (newString, string, len + 1);
     obj->bytes = newString;
     obj->length = len;
     return;
@@ -1360,7 +1360,7 @@ void UpdateCassTypeString (Tcl_Obj *obj) {
     char *newString = ckalloc (newStringSize);
     strncpy (newString, string, len);
     newString[len] = ' ';
-    strncpy (&newString[len+1], subString1, len1);
+    strncpy (&newString[len+1], subString1, len1 + 1);
 
     obj->bytes = newString;
     obj->length = newStringSize - 1;
@@ -1375,7 +1375,7 @@ void UpdateCassTypeString (Tcl_Obj *obj) {
   newString[len] = ' ';
   strncpy (&newString[len+1], subString1, len1);
   newString[len+1+len1] = ' ';
-  strncpy (&newString[len+1+len1+1], subString2, len2);
+  strncpy (&newString[len+1+len1+1], subString2, len2 + 1);
 
   obj->bytes = newString;
   obj->length = newStringSize - 1;
