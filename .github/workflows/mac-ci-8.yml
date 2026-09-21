@@ -21,6 +21,7 @@ jobs:
         brew install libuv openssl zlib cmake
         git clone https://github.com/apache/cassandra-cpp-driver.git
         cd cassandra-cpp-driver
+        sed -i '' -e '149s/this/(void *)this/' src/md5.cpp
         mkdir build
         cd build
         cmake ..

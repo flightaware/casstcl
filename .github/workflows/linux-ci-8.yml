@@ -27,7 +27,6 @@ jobs:
         sudo apt-get install -y libuv1-dev libssl-dev zlib1g-dev build-essential cmake
         git clone https://github.com/apache/cassandra-cpp-driver.git
         cd cassandra-cpp-driver
-        sed -i '' '149s/this/(void *)this/' src/md5.cpp
         mkdir build
         cd build
         cmake ..
