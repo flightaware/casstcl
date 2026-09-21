@@ -186,7 +186,7 @@ casstcl_createFutureObjectCommand (casstcl_sessionClientData *ct, CassFuture *fu
 int
 casstcl_futureObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[])
 {
-    int         optIndex;
+    Tcl_Size         optIndex;
 	casstcl_futureClientData *fcd = (casstcl_futureClientData *)cData;
 	int resultCode = TCL_OK;
 

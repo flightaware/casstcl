@@ -1031,7 +1031,7 @@ casstcl_GetInetFromObj(
  */
 int
 casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, casstcl_cassTypeInfo *typeInfo) {
-  int listObjc;
+  Tcl_Size listObjc;
   Tcl_Obj **listObjv;
 
   typeInfo->cassValueType = CASS_VALUE_TYPE_UNKNOWN;
@@ -1668,7 +1668,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
     }
 
     case CASS_VALUE_TYPE_DURATION: {
-      int listObjc;
+      Tcl_Size listObjc;
       Tcl_Obj **listObjv;
 	cass_int32_t months;
 	cass_int32_t days;
@@ -1737,7 +1737,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
     }
 
     case CASS_VALUE_TYPE_DECIMAL: {
-      int listObjc;
+      Tcl_Size listObjc;
       Tcl_Obj **listObjv;
       int scale;
       mp_int mpVal;
@@ -1881,7 +1881,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 
     case CASS_VALUE_TYPE_SET:
     case CASS_VALUE_TYPE_LIST: {
-      int listObjc;
+      Tcl_Size listObjc;
       Tcl_Obj **listObjv;
       int i;
 
@@ -1912,7 +1912,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
     }
 
     case CASS_VALUE_TYPE_MAP: {
-      int listObjc;
+      Tcl_Size listObjc;
       Tcl_Obj **listObjv;
       int i;
 

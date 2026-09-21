@@ -86,11 +86,11 @@ casstcl_cassObjectDelete (ClientData clientData)
  */
 int
 casstcl_invoke_callback_with_argument (Tcl_Interp *interp, Tcl_Obj *callbackObj, Tcl_Obj *argumentObj) {
-	int callbackListObjc;
+	Tcl_Size callbackListObjc;
 	Tcl_Obj **callbackListObjv;
 	int tclReturnCode;
 
-	int evalObjc;
+	Tcl_Size evalObjc;
 	Tcl_Obj **evalObjv;
 
 	int i;
