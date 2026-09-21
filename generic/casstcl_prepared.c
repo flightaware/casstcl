@@ -141,7 +141,7 @@ casstcl_bind_names_from_prepared (casstcl_preparedClientData *pcd, int objc, Tcl
 
 		// get the value out of the list
 		Tcl_Obj *valueObj = objv[i+1];
-                int name_length = 0;
+                Tcl_Size name_length = 0;
 		char *name = Tcl_GetStringFromObj (objv[i], &name_length);
 
 // printf("requesting bind by name for '%s', valueType %d\n", name, typeInfo.cassValueTYpe);

@@ -557,7 +557,7 @@ int mp_read_unsigned_bin (mp_int * a, const unsigned char *b, int c)
  */
 int
 casstcl_typename_obj_to_cass_value_types (Tcl_Interp *interp, char *table, Tcl_Obj *typenameObj, casstcl_cassTypeInfo *typeInfoPtr) {
-  int varNameSize = 0;
+  Tcl_Size varNameSize = 0;
   char *varName = Tcl_GetStringFromObj (typenameObj, &varNameSize);
   // add two bytes, one for a period and one for a null byte
   int typeIndexSize = strlen (table) + 2 + varNameSize;
@@ -1417,7 +1417,7 @@ int casstcl_append_tcl_obj_to_collection (casstcl_sessionClientData *ct, CassCol
     case CASS_VALUE_TYPE_ASCII:
     case CASS_VALUE_TYPE_TEXT:
     case CASS_VALUE_TYPE_VARCHAR: {
-      int length = 0;
+      Tcl_Size length = 0;
       char *value = Tcl_GetStringFromObj (obj, &length);
 
       cassError = cass_collection_append_string_n (collection, value, length);
@@ -1431,7 +1431,7 @@ int casstcl_append_tcl_obj_to_collection (casstcl_sessionClientData *ct, CassCol
     }
 
     case CASS_VALUE_TYPE_BLOB: {
-      int length = 0;
+      Tcl_Size length = 0;
       unsigned char *value = Tcl_GetByteArrayFromObj (obj, &length);
 
       cassError = cass_collection_append_bytes (collection, value, length);
@@ -1605,7 +1605,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
     case CASS_VALUE_TYPE_ASCII:
     case CASS_VALUE_TYPE_TEXT:
     case CASS_VALUE_TYPE_VARCHAR: {
-      int length = 0;
+      Tcl_Size length = 0;
       char *value = Tcl_GetStringFromObj (obj, &length);
 
       if (name == NULL) {
@@ -1624,7 +1624,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 
     case CASS_VALUE_TYPE_CUSTOM:
     case CASS_VALUE_TYPE_BLOB: {
-      int length = 0;
+      Tcl_Size length = 0;
       unsigned char *value = Tcl_GetByteArrayFromObj (obj, &length);
 
       if (name == NULL) {
