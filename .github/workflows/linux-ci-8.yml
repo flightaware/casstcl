@@ -1,4 +1,4 @@
-# This is a basic workflow to help you get started with Actions	
+# This is a basic workflow to help you get started with Actions
 
 name: Linux TCL8 build
 
@@ -27,11 +27,11 @@ jobs:
         sudo apt-get install -y libuv1-dev libssl-dev zlib1g-dev build-essential cmake
         git clone https://github.com/apache/cassandra-cpp-driver.git
         cd cassandra-cpp-driver
-	mkdir build
-	cd build
-	cmake ..
-	make
-	make install
+        mkdir build
+        cd build
+        cmake ..
+        make
+        make install
     - name: configure
       run: |
         autoreconf -vi
