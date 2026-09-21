@@ -18,7 +18,7 @@ jobs:
         brew update
         brew install autoconf
         brew reinstall tcl-tk@8
-	brew install libuv openssl zlib cmake
+        brew install libuv openssl zlib cmake
         git clone https://github.com/apache/cassandra-cpp-driver.git
         cd cassandra-cpp-driver
         mkdir build
