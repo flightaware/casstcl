@@ -18,6 +18,7 @@ jobs:
         brew update
         brew reinstall tcl-tk@8
         brew install autoconf
+        brew install cassandra-cpp-driver
     - name: configure
       run: |
         autoreconf -vi
