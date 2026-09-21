@@ -32,7 +32,7 @@ int
 casstcl_obj_to_cass_log_level (Tcl_Interp *interp, Tcl_Obj *tclObj, CassLogLevel *cassLogLevel) {
     int                 logIndex;
 
-    static CONST char *logLevels[] = {
+    static const char *logLevels[] = {
         "disabled",
         "critical",
         "error",

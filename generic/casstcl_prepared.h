@@ -69,7 +69,7 @@ void casstcl_preparedObjectDelete (ClientData clientData);
 int casstcl_bind_names_from_prepared (
 	casstcl_preparedClientData *pcd, 
 	int objc, 
-	Tcl_Obj *CONST objv[], 
+	Tcl_Obj *const objv[], 
 	CassConsistency *consistencyPtr, 
 	CassStatement **statementPtr);
 /*
@@ -85,6 +85,6 @@ int casstcl_bind_names_from_prepared (
  *
  *----------------------------------------------------------------------
  */
-int casstcl_preparedObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
+int casstcl_preparedObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]);
 
 /* vim: set ts=4 sw=4 sts=4 noet : */

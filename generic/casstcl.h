@@ -157,7 +157,7 @@ extern "C" {
 #endif
 
 extern int
-casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[]);
+casstcl_cassObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objvp[]);
 
 extern casstcl_futureClientData *
 casstcl_future_command_to_futureClientData (Tcl_Interp *interp, char *futureCommandName);

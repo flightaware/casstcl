@@ -1161,7 +1161,7 @@ casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, c
  *----------------------------------------------------------------------
  */
 int
-casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char *query, char *tclArray, int objc, Tcl_Obj *CONST objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
+casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char *query, char *tclArray, int objc, Tcl_Obj *const objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
 {
   int i;
   int masterReturn = TCL_OK;
@@ -1239,7 +1239,7 @@ casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char 
  *----------------------------------------------------------------------
  */
 int
-casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *query, int objc, Tcl_Obj *CONST objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
+casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *query, int objc, Tcl_Obj *const objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
 {
   int i;
   int masterReturn = TCL_OK;
@@ -2008,7 +2008,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
  *----------------------------------------------------------------------
  */
 int
-casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int objc, Tcl_Obj *CONST objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
+casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int objc, Tcl_Obj *const objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
 {
   int i;
   int masterReturn = TCL_OK;

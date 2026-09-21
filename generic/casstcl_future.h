@@ -92,7 +92,7 @@ int casstcl_futureObjectObjCmd(
 	ClientData cData, 
 	Tcl_Interp *interp, 
 	int objc, 
-	Tcl_Obj *CONST objv[]);
+	Tcl_Obj *const objv[]);
 
 
 /*

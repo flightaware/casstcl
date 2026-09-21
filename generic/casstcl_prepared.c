@@ -100,7 +100,7 @@ casstcl_prepared_command_to_preparedClientData (Tcl_Interp *interp, char *prepar
  *----------------------------------------------------------------------
  */
 int
-casstcl_bind_names_from_prepared (casstcl_preparedClientData *pcd, int objc, Tcl_Obj *CONST objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
+casstcl_bind_names_from_prepared (casstcl_preparedClientData *pcd, int objc, Tcl_Obj *const objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
 {
 	Tcl_Interp *interp = pcd->ct->interp;
 	CassStatement *statement = cass_prepared_bind (pcd->prepared);
@@ -179,13 +179,13 @@ casstcl_bind_names_from_prepared (casstcl_preparedClientData *pcd, int objc, Tcl
  *----------------------------------------------------------------------
  */
 int
-casstcl_preparedObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+casstcl_preparedObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[])
 {
     int         optIndex;
 	casstcl_preparedClientData *pcd = (casstcl_preparedClientData *)cData;
 	int resultCode = TCL_OK;
 
-    static CONST char *options[] = {
+    static const char *options[] = {
         "statement",
         "delete",
         NULL

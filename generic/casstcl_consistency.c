@@ -70,7 +70,7 @@ int
 casstcl_obj_to_cass_consistency(casstcl_sessionClientData *ct, Tcl_Obj *tclObj, CassConsistency *cassConsistency) {
     int                 conIndex;
 
-    static CONST char *consistencies[] = {
+    static const char *consistencies[] = {
         "any",
         "one",
         "two",
