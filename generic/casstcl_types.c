@@ -1370,7 +1370,7 @@ void UpdateCassTypeString (Tcl_Obj *obj) {
   const char *subString2 = casstcl_cass_value_type_to_string (typeInfo->valueSubType2);
   int len2 = strlen(subString2);
   int newStringSize = len + 1 + len1 + 1 + len2 + 1;
-  char *newString = ckalloc (newStringSize);
+  char *newString = ckalloc (newStringSize + 1);
   strncpy (newString, string, len);
   newString[len] = ' ';
   strncpy (&newString[len+1], subString1, len1);
