@@ -16,8 +16,16 @@ jobs:
     - name: Install dependencies
       run: |
         brew update
-        brew install autoconf cassandra-cpp-driver
+        brew install autoconf
         brew reinstall tcl-tk@8
+	brew install libuv openssl zlib cmake
+        git clone https://github.com/apache/cassandra-cpp-driver.git
+        cd cassandra-cpp-driver
+        mkdir build
+        cd build
+        cmake ..
+        make
+        sudo make install
     - name: configure
       run: |
         autoreconf -vi
