@@ -326,10 +326,10 @@ casstcl_InitCassBytesFromBignum(
     unsigned long outlen;
     int status;
 
-    outlen = mp_ubin_size(a);
+    outlen = TclBN_mp_unsigned_bin_size(a);
     data = (cass_byte_t *) ckalloc(outlen);
 
-    status = mp_to_ubin(a, data, &outlen);
+    status = TclBN_mp_to_unsigned_bin_n(a, data, &outlen);
 
     if (status != MP_OKAY) {
   if (interp != NULL) {
@@ -368,7 +368,7 @@ casstcl_InitBignumFromCassBytes(
     mp_int *a,      /* Bignum to initialize */
     CassBytes *v)   /* Initial value */
 {
-    int status = mp_init(a);
+    int status = TclBN_mp_init(a);
 
     if (status != MP_OKAY) {
   if (interp != NULL) {
@@ -510,17 +510,17 @@ int mp_read_unsigned_bin (mp_int * a, const unsigned char *b, int c)
 
   /* make sure there are at least two digits */
   if (a->alloc < 2) {
-     if ((res = mp_grow(a, 2)) != MP_OKAY) {
+     if ((res = TclBN_mp_grow(a, 2)) != MP_OKAY) {
         return res;
      }
   }
 
   /* zero the int */
-  mp_zero (a);
+  TclBN_mp_zero (a);
 
   /* read the bytes in */
   while (c-- > 0) {
-    if ((res = mp_mul_2d (a, 8, a)) != MP_OKAY) {
+    if ((res = TclBN_mp_mul_2d (a, 8, a)) != MP_OKAY) {
       return res;
     }
 
@@ -533,7 +533,7 @@ int mp_read_unsigned_bin (mp_int * a, const unsigned char *b, int c)
       a->used += 2;
 #endif
   }
-  mp_clamp (a);
+  TclBN_mp_clamp (a);
   return MP_OKAY;
 }
 
