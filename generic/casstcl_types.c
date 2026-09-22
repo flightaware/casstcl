@@ -329,7 +329,7 @@ casstcl_InitCassBytesFromBignum(
     outlen = mp_ubin_size(a);
     data = (cass_byte_t *) ckalloc(outlen);
 
-    status = mp_to_unsigned_bin_n(a, data, &outlen);
+    status = mp_to_ubin(a, data, outlen, &outlen);
 
     if (status != MP_OKAY) {
       if (interp != NULL) {
