@@ -32,7 +32,7 @@ jobs:
     - name: configure
       run: |
         export LDFLAGS="-L/opt/homebrew/opt/zlib/lib -L/opt/homebrew/Cellar/libtommath/lib $LDFLAGS"
-        export CPPFLAGS="-I/opt/homebrew/opt/zlib/include -L/opt/homebrew/Cellar/libtommath/include $CPPFLAGS"
+        export CPPFLAGS="-I/opt/homebrew/opt/zlib/include -I/opt/homebrew/Cellar/libtommath/include $CPPFLAGS"
         autoreconf -vi
         PREFIX=/opt/homebrew/opt/tcl-tk@9
         ./configure --with-tcl=$PREFIX/lib --prefix=$PREFIX
