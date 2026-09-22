@@ -1781,7 +1781,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 	data = one_byte;
 	size = 1;
       } else {
-	data = cassDecimal.varint.data;
+	data = (cass_byte_t *)cassDecimal.varint.data;
 	size = cassDecimal.varint.size;
       }
 
