@@ -37,9 +37,6 @@ jobs:
         PREFIX=/opt/homebrew/opt/tcl-tk@9
         ./configure --with-tcl=$PREFIX/lib --prefix=$PREFIX
     - name: make
-      run: |
-        #export LDFLAGS="-L/opt/homebrew/opt/zlib/lib -L/opt/homebrew/opt/libtommath/lib $LDFLAGS"
-        #export CPPFLAGS="-I/opt/homebrew/opt/zlib/include -L/opt/homebrew/opt/libtommath/include $CPPFLAGS"
-        make
+      run: make
     - name: install
       run: sudo make install
