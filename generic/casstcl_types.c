@@ -326,18 +326,18 @@ casstcl_InitCassBytesFromBignum(
     unsigned long outlen;
     int status;
 
-    outlen = mp_unsigned_bin_size(a);
+    outlen = mp_ubin_size(a);
     data = (cass_byte_t *) ckalloc(outlen);
 
-    status = mp_to_unsigned_bin_n(a, data, &outlen);
+    status = mp_to_unsigned_bin(a, data, outlen, &outlen);
 
     if (status != MP_OKAY) {
-  if (interp != NULL) {
-      Tcl_ResetResult(interp);
-      Tcl_AppendResult(interp, "could not init bytes", NULL);
-  }
-  ckfree((char *)data);
-  return TCL_ERROR;
+      if (interp != NULL) {
+        Tcl_ResetResult(interp);
+        Tcl_AppendResult(interp, "could not init bytes", NULL);
+      }
+      ckfree((char *)data);
+      return TCL_ERROR;
     }
 
     v->data = data;
@@ -371,21 +371,21 @@ casstcl_InitBignumFromCassBytes(
     int status = TclBN_mp_init(a);
 
     if (status != MP_OKAY) {
-  if (interp != NULL) {
-      Tcl_ResetResult(interp);
-      Tcl_AppendResult(interp, "could not init bignum", NULL);
-  }
-  return TCL_ERROR;
+      if (interp != NULL) {
+        Tcl_ResetResult(interp);
+        Tcl_AppendResult(interp, "could not init bignum", NULL);
+      }
+      return TCL_ERROR;
     }
 
     status = mp_read_unsigned_bin(a, v->data, v->size);
 
     if (status != MP_OKAY) {
-  if (interp != NULL) {
-      Tcl_ResetResult(interp);
-      Tcl_AppendResult(interp, "could not read bignum", NULL);
-  }
-  return TCL_ERROR;
+      if (interp != NULL) {
+        Tcl_ResetResult(interp);
+        Tcl_AppendResult(interp, "could not read bignum", NULL);
+      }
+      return TCL_ERROR;
     }
 
     return TCL_OK;
