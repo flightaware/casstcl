@@ -18,8 +18,9 @@ jobs:
         brew update
         brew install autoconf
         brew uninstall tcl-tk@8
-        brew reinstall tcl-tk@9
-        brew install libuv openssl zlib cmake libtommath
+        brew install tcl-tk@9
+        brew reinstall libuv openssl cmake libtommath
+        brew install zlib
         git clone https://github.com/apache/cassandra-cpp-driver.git
         cd cassandra-cpp-driver
         sed -i '' -e '149s/this/(void *)this/' src/md5.cpp
@@ -30,10 +31,14 @@ jobs:
         sudo make install
     - name: configure
       run: |
+        export LDFLAGS="-L/opt/homebrew/opt/zlib/lib $LDFLAGS"
+        export CPPFLAGS="-I/opt/homebrew/opt/zlib/include $CPPFLAGS"
         autoreconf -vi
         PREFIX=/opt/homebrew/opt/tcl-tk@9
         ./configure --with-tcl=$PREFIX/lib --prefix=$PREFIX
     - name: make
+        export LDFLAGS="-L/opt/homebrew/opt/zlib/lib -L/opt/homebrew/opt/libtommath/lib $LDFLAGS"
+        export CPPFLAGS="-I/opt/homebrew/opt/zlib/include -L/opt/homebrew/opt/libtommath/include $CPPFLAGS"
       run: make
     - name: install
       run: sudo make install
