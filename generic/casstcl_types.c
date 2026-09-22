@@ -326,10 +326,10 @@ casstcl_InitCassBytesFromBignum(
     unsigned long outlen;
     int status;
 
-    outlen = TclBN_mp_unsigned_bin_size(a);
+    outlen = mp_unsigned_bin_size(a);
     data = (cass_byte_t *) ckalloc(outlen);
 
-    status = TclBN_mp_to_unsigned_bin_n(a, data, &outlen);
+    status = mp_to_unsigned_bin_n(a, data, &outlen);
 
     if (status != MP_OKAY) {
   if (interp != NULL) {

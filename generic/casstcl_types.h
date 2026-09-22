@@ -8,6 +8,11 @@
  * for details.
  */
 
+// Only used in casstcl_types.c and seems to be gated in tcl.
+#ifndef STRINGIFY
+#  define STRINGIFY(x) STRINGIFY1(x)
+#  define STRINGIFY1(x) #x
+#endif
 
 /*
  *--------------------------------------------------------------
