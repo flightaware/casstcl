@@ -1702,10 +1702,13 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 	    return TCL_ERROR;
 	  }
 
-	  if (Tcl_GetWideIntFromObj(interp, listObjv[2], &nanos) != TCL_OK) {
+	  // temporary trampoline because Tcl_WideInt is *at least* 64 bits, but cass_int64_t is *exactly* 64 bits.
+	  Tcl_WideInt tmp;
+	  if (Tcl_GetWideIntFromObj(interp, listObjv[2], &tmp) != TCL_OK) {
 	    Tcl_AppendResult (interp, " while extracting nanos", NULL);
 	    return TCL_ERROR;
 	  }
+	  nanos = tmp;
 	  break;
 	}
       }
