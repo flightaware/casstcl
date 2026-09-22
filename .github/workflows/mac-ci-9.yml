@@ -19,7 +19,7 @@ jobs:
         brew install autoconf
         brew uninstall tcl-tk@8
         brew reinstall tcl-tk@9
-        brew install libuv openssl zlib cmake
+        brew install libuv openssl zlib cmake libtommath
         git clone https://github.com/apache/cassandra-cpp-driver.git
         cd cassandra-cpp-driver
         sed -i '' -e '149s/this/(void *)this/' src/md5.cpp
