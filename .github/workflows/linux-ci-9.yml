@@ -38,5 +38,7 @@ jobs:
         ./configure --with-tcl=/usr/lib/tcl9.0
     - name: make
       run: make
+    - name: test
+      run: make test
     - name: install
       run: sudo make install
