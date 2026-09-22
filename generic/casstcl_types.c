@@ -364,7 +364,7 @@ casstcl_InitCassBytesFromBignum(
  *----------------------------------------------------------------------
  */
 
-int mp_read_unsigned_bin (mp_int * a, const unsigned char *b, int c)
+int mp_read_unsigned_bin_imported (mp_int * a, const unsigned char *b, int c)
 {
   int     res;
 
@@ -429,7 +429,7 @@ casstcl_InitBignumFromCassBytes(
       return TCL_ERROR;
     }
 
-    status = mp_read_unsigned_bin(a, v->data, v->size);
+    status = mp_read_unsigned_bin_imported(a, v->data, v->size);
 
     if (status != MP_OKAY) {
       if (interp != NULL) {
