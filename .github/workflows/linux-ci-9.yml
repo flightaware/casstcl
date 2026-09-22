@@ -39,6 +39,8 @@ jobs:
     - name: make
       run: make
     - name: test
-      run: make test
+      run: |
+        export LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+        make test
     - name: install
       run: sudo make install
