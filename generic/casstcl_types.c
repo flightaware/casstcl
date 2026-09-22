@@ -329,7 +329,7 @@ casstcl_InitCassBytesFromBignum(
     outlen = mp_ubin_size(a);
     data = (cass_byte_t *) ckalloc(outlen);
 
-    status = mp_to_unsigned_bin(a, data, outlen, &outlen);
+    status = mp_to_unsigned_bin_n(a, data, &outlen);
 
     if (status != MP_OKAY) {
       if (interp != NULL) {
@@ -345,6 +345,57 @@ casstcl_InitCassBytesFromBignum(
     return TCL_OK;
 }
 
+/*
+ *----------------------------------------------------------------------
+ *
+ * mp_read_unsigned_bin --
+ *
+ *  Read a binary encoded 'bignum' from the specified buffer.  It
+ *  must have been initialized first.  This routine was borrowed
+ *  directly from the Tcl 8.6 source code (i.e. because we needed
+ *  it and it was not available as an export).
+ *
+ * Results:
+ *  A standard LibTomMath result.
+ *
+ * Side effects:
+ *  None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int mp_read_unsigned_bin (mp_int * a, const unsigned char *b, int c)
+{
+  int     res;
+
+  /* make sure there are at least two digits */
+  if (a->alloc < 2) {
+     if ((res = TclBN_mp_grow(a, 2)) != MP_OKAY) {
+        return res;
+     }
+  }
+
+  /* zero the int */
+  TclBN_mp_zero (a);
+
+  /* read the bytes in */
+  while (c-- > 0) {
+    if ((res = TclBN_mp_mul_2d (a, 8, a)) != MP_OKAY) {
+      return res;
+    }
+
+#ifndef MP_8BIT
+      a->dp[0] |= *b++;
+      a->used += 1;
+#else
+      a->dp[0] = (*b & MP_MASK);
+      a->dp[1] |= ((*b++ >> 7U) & 1);
+      a->used += 2;
+#endif
+  }
+  TclBN_mp_clamp (a);
+  return MP_OKAY;
+}
 
 /*
  *----------------------------------------------------------------------
@@ -484,59 +535,6 @@ Tcl_Obj *casstcl_NewTimestampObj(
     return Tcl_NewDoubleObj((double)milliseconds / 1000.0);
   }
 }
-
-/*
- *----------------------------------------------------------------------
- *
- * mp_read_unsigned_bin --
- *
- *  Read a binary encoded 'bignum' from the specified buffer.  It
- *  must have been initialized first.  This routine was borrowed
- *  directly from the Tcl 8.6 source code (i.e. because we needed
- *  it and it was not available as an export).
- *
- * Results:
- *  A standard LibTomMath result.
- *
- * Side effects:
- *  None.
- *
- *----------------------------------------------------------------------
- */
-
-int mp_read_unsigned_bin (mp_int * a, const unsigned char *b, int c)
-{
-  int     res;
-
-  /* make sure there are at least two digits */
-  if (a->alloc < 2) {
-     if ((res = TclBN_mp_grow(a, 2)) != MP_OKAY) {
-        return res;
-     }
-  }
-
-  /* zero the int */
-  TclBN_mp_zero (a);
-
-  /* read the bytes in */
-  while (c-- > 0) {
-    if ((res = TclBN_mp_mul_2d (a, 8, a)) != MP_OKAY) {
-      return res;
-    }
-
-#ifndef MP_8BIT
-      a->dp[0] |= *b++;
-      a->used += 1;
-#else
-      a->dp[0] = (*b & MP_MASK);
-      a->dp[1] |= ((*b++ >> 7U) & 1);
-      a->used += 2;
-#endif
-  }
-  TclBN_mp_clamp (a);
-  return MP_OKAY;
-}
-
 
 
 /*
