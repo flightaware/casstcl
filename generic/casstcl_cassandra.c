@@ -2023,7 +2023,7 @@ casstcl_list_columns (casstcl_sessionClientData *ct, char *keyspace, char *table
  */
 int
 casstcl_make_upsert_statement (casstcl_sessionClientData *ct, char *tableName, Tcl_Obj *listObj, CassConsistency *consistencyPtr, CassStatement **statementPtr, char *mapUnknown, int dropUnknown, int ifNotExists) {
-	int listObjc;
+	Tcl_Size listObjc;
 	Tcl_Obj **listObjv;
 	Tcl_Interp *interp = ct->interp;
 	int tclReturn = TCL_OK;
@@ -2381,7 +2381,7 @@ casstcl_make_statement_from_objv (casstcl_sessionClientData *ct, int objc, Tcl_O
 
 		// locate the prepared statement structure we created earlier
 		casstcl_preparedClientData * pcd = casstcl_prepared_command_to_preparedClientData (interp, preparedName);
-		int listObjc = 0;
+		Tcl_Size listObjc = 0;
 		Tcl_Obj **listObjv = NULL;
 
 		if (pcd == NULL) {
