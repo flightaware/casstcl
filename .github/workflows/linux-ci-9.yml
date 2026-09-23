@@ -38,9 +38,14 @@ jobs:
         ./configure --with-tcl=/usr/lib/tcl9.0
     - name: make
       run: make
+    - name: install
+      run: sudo make install
     - name: test
+      services:
+        cassandra:
+          image: cassandra
+          ports:
+            - 9042:9042
       run: |
         export LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
         make test
-    - name: install
-      run: sudo make install
