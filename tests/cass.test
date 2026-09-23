@@ -341,7 +341,7 @@ if {[llength [info commands cass_test_exec]] == 0} then {
       eval lappend command $otherArgs
     }
 
-    # cass_test_output "EXEC $command"
+    cass_test_output "EXEC $command"
     return [uplevel 1 $command]
   }
 }
