@@ -11,9 +11,15 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  build-test:
 
     runs-on: ubuntu-26.04
+
+    services:
+      cassandra:
+        image: cassandra
+        ports:
+          - 9042:9042
 
     steps:
     - uses: actions/checkout@v4
@@ -41,11 +47,6 @@ jobs:
     - name: install
       run: sudo make install
     - name: test
-      services:
-        cassandra:
-          image: cassandra
-          ports:
-            - 9042:9042
       run: |
         export LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
         make test
