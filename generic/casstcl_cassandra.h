@@ -77,7 +77,7 @@ int casstcl_invoke_callback_with_argument (Tcl_Interp *interp, Tcl_Obj *callback
 int casstcl_make_upsert_statement_from_objv (
 	casstcl_sessionClientData *ct, 
 	int objc, 
-	Tcl_Obj *CONST objv[], 
+	Tcl_Obj *const objv[], 
 	CassConsistency *consistencyPtr, 
 	CassStatement **statementPtr);
 
@@ -103,7 +103,7 @@ int casstcl_cassObjCmd(
 	ClientData clientData, 
 	Tcl_Interp *interp, 
 	int objc, 
-	Tcl_Obj *CONST objv[]);
+	Tcl_Obj *const objv[]);
 
 
 /*
@@ -170,7 +170,7 @@ int casstcl_make_upsert_statement (
  */
 int casstcl_make_statement_from_objv (
 	casstcl_sessionClientData *ct, 
-	int objc, Tcl_Obj *CONST objv[], 
+	int objc, Tcl_Obj *const objv[], 
 	int argOffset, 
 	CassStatement **statementPtr);
 

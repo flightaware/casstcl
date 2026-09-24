@@ -8,6 +8,11 @@
  * for details.
  */
 
+// Only used in casstcl_types.c and seems to be gated in tcl.
+#ifndef STRINGIFY
+#  define STRINGIFY(x) STRINGIFY1(x)
+#  define STRINGIFY1(x) #x
+#endif
 
 /*
  *--------------------------------------------------------------
@@ -229,7 +234,7 @@ int casstcl_bind_names_from_array (
   char *query, 
   char *tclArray, 
   int objc, 
-  Tcl_Obj *CONST objv[], 
+  Tcl_Obj *const objv[], 
   CassConsistency *consistencyPtr, 
   CassStatement **statementPtr);
 
@@ -257,7 +262,7 @@ casstcl_bind_names_from_list (
   char *table, 
   char *query, 
   int objc, 
-  Tcl_Obj *CONST objv[], 
+  Tcl_Obj *const objv[], 
   CassConsistency *consistencyPtr, 
   CassStatement **statementPtr);
 
@@ -411,7 +416,7 @@ casstcl_bind_values_and_types (
   casstcl_sessionClientData *ct, 
   char *query, 
   int objc, 
-  Tcl_Obj *CONST objv[], 
+  Tcl_Obj *const objv[], 
   CassConsistency *consistencyPtr, 
   CassStatement **statementPtr);
 

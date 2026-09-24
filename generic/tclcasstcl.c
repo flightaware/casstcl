@@ -37,19 +37,16 @@ EXTERN int
 Casstcl_Init(Tcl_Interp *interp)
 {
     Tcl_Namespace *namespace;
-    /*
-     * This may work with 8.0, but we are using strictly stubs here,
-     * which requires 8.1.
-     */
-    if (Tcl_InitStubs(interp, "8.1", 0) == NULL) {
+
+    if (Tcl_InitStubs(interp, "8.5-", 0) == NULL) {
 		return TCL_ERROR;
     }
 
-    if (Tcl_TomMath_InitStubs(interp, "8.5") == NULL) {
+    if (Tcl_TomMath_InitStubs(interp, "8.5-") == NULL) {
 		return TCL_ERROR;
     }
 
-    if (Tcl_PkgRequire(interp, "Tcl", "8.1", 0) == NULL) {
+    if (Tcl_PkgRequire(interp, "Tcl", "8.5-", 0) == NULL) {
 		return TCL_ERROR;
     }
 
@@ -57,7 +54,7 @@ Casstcl_Init(Tcl_Interp *interp)
 		return TCL_ERROR;
     }
 
-	Tcl_RegisterObjType(&casstcl_cassTypeTclType);
+    Tcl_RegisterObjType(&casstcl_cassTypeTclType);
 
     namespace = Tcl_CreateNamespace (interp, "::casstcl", NULL, NULL);
 

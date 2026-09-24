@@ -341,7 +341,9 @@ if {[llength [info commands cass_test_exec]] == 0} then {
       eval lappend command $otherArgs
     }
 
-    # cass_test_output "EXEC $command"
+    if {$::cass_test_debug} {
+      cass_test_output "EXEC $command"
+    }
     return [uplevel 1 $command]
   }
 }
@@ -649,6 +651,12 @@ if {[llength [info commands cass_test_get_dummy_value]] == 0} then {
 
     return ""
   }
+}
+
+###############################################################################
+
+if {![info exists ::cass_test_debug]} {
+  set ::cass_test_debug [getEnvVar CASSTCL_DEBUG 0]
 }
 
 ###############################################################################

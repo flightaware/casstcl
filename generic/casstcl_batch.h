@@ -85,7 +85,7 @@ int casstcl_createBatchObjectCommand (casstcl_sessionClientData *ct, char *comma
  *
  *----------------------------------------------------------------------
  */
-int casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
+int casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]);
 
 /*
  *--------------------------------------------------------------

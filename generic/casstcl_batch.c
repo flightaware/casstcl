@@ -62,7 +62,7 @@ int
 casstcl_obj_to_cass_batch_type (Tcl_Interp *interp, Tcl_Obj *tclObj, CassBatchType *cassBatchType) {
     int                 batchTypeIndex;
 
-    static CONST char *batchTypes[] = {
+    static const char *batchTypes[] = {
         "logged",
         "unlogged",
         "counter",
@@ -227,13 +227,13 @@ casstcl_createBatchObjectCommand (casstcl_sessionClientData *ct, char *commandNa
  *----------------------------------------------------------------------
  */
 int
-casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+casstcl_batchObjectObjCmd(ClientData cData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[])
 {
     int         optIndex;
 	casstcl_batchClientData *bcd = (casstcl_batchClientData *)cData;
 	int resultCode = TCL_OK;
 
-    static CONST char *options[] = {
+    static const char *options[] = {
         "add",
 		"upsert",
 		"count",

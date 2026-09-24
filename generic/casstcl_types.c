@@ -326,18 +326,18 @@ casstcl_InitCassBytesFromBignum(
     unsigned long outlen;
     int status;
 
-    outlen = TclBN_mp_unsigned_bin_size(a);
+    outlen = mp_ubin_size(a);
     data = (cass_byte_t *) ckalloc(outlen);
 
-    status = TclBN_mp_to_unsigned_bin_n(a, data, &outlen);
+    status = mp_to_ubin(a, data, outlen, &outlen);
 
     if (status != MP_OKAY) {
-  if (interp != NULL) {
-      Tcl_ResetResult(interp);
-      Tcl_AppendResult(interp, "could not init bytes", NULL);
-  }
-  ckfree((char *)data);
-  return TCL_ERROR;
+      if (interp != NULL) {
+        Tcl_ResetResult(interp);
+        Tcl_AppendResult(interp, "could not init bytes", NULL);
+      }
+      ckfree((char *)data);
+      return TCL_ERROR;
     }
 
     v->data = data;
@@ -345,6 +345,57 @@ casstcl_InitCassBytesFromBignum(
     return TCL_OK;
 }
 
+/*
+ *----------------------------------------------------------------------
+ *
+ * mp_read_unsigned_bin --
+ *
+ *  Read a binary encoded 'bignum' from the specified buffer.  It
+ *  must have been initialized first.  This routine was borrowed
+ *  directly from the Tcl 8.6 source code (i.e. because we needed
+ *  it and it was not available as an export).
+ *
+ * Results:
+ *  A standard LibTomMath result.
+ *
+ * Side effects:
+ *  None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int mp_read_unsigned_bin_imported (mp_int * a, const unsigned char *b, int c)
+{
+  int     res;
+
+  /* make sure there are at least two digits */
+  if (a->alloc < 2) {
+     if ((res = TclBN_mp_grow(a, 2)) != MP_OKAY) {
+        return res;
+     }
+  }
+
+  /* zero the int */
+  TclBN_mp_zero (a);
+
+  /* read the bytes in */
+  while (c-- > 0) {
+    if ((res = TclBN_mp_mul_2d (a, 8, a)) != MP_OKAY) {
+      return res;
+    }
+
+#ifndef MP_8BIT
+      a->dp[0] |= *b++;
+      a->used += 1;
+#else
+      a->dp[0] = (*b & MP_MASK);
+      a->dp[1] |= ((*b++ >> 7U) & 1);
+      a->used += 2;
+#endif
+  }
+  TclBN_mp_clamp (a);
+  return MP_OKAY;
+}
 
 /*
  *----------------------------------------------------------------------
@@ -371,21 +422,21 @@ casstcl_InitBignumFromCassBytes(
     int status = TclBN_mp_init(a);
 
     if (status != MP_OKAY) {
-  if (interp != NULL) {
-      Tcl_ResetResult(interp);
-      Tcl_AppendResult(interp, "could not init bignum", NULL);
-  }
-  return TCL_ERROR;
+      if (interp != NULL) {
+        Tcl_ResetResult(interp);
+        Tcl_AppendResult(interp, "could not init bignum", NULL);
+      }
+      return TCL_ERROR;
     }
 
-    status = mp_read_unsigned_bin(a, v->data, v->size);
+    status = mp_read_unsigned_bin_imported(a, v->data, v->size);
 
     if (status != MP_OKAY) {
-  if (interp != NULL) {
-      Tcl_ResetResult(interp);
-      Tcl_AppendResult(interp, "could not read bignum", NULL);
-  }
-  return TCL_ERROR;
+      if (interp != NULL) {
+        Tcl_ResetResult(interp);
+        Tcl_AppendResult(interp, "could not read bignum", NULL);
+      }
+      return TCL_ERROR;
     }
 
     return TCL_OK;
@@ -485,59 +536,6 @@ Tcl_Obj *casstcl_NewTimestampObj(
   }
 }
 
-/*
- *----------------------------------------------------------------------
- *
- * mp_read_unsigned_bin --
- *
- *  Read a binary encoded 'bignum' from the specified buffer.  It
- *  must have been initialized first.  This routine was borrowed
- *  directly from the Tcl 8.6 source code (i.e. because we needed
- *  it and it was not available as an export).
- *
- * Results:
- *  A standard LibTomMath result.
- *
- * Side effects:
- *  None.
- *
- *----------------------------------------------------------------------
- */
-
-int mp_read_unsigned_bin (mp_int * a, const unsigned char *b, int c)
-{
-  int     res;
-
-  /* make sure there are at least two digits */
-  if (a->alloc < 2) {
-     if ((res = TclBN_mp_grow(a, 2)) != MP_OKAY) {
-        return res;
-     }
-  }
-
-  /* zero the int */
-  TclBN_mp_zero (a);
-
-  /* read the bytes in */
-  while (c-- > 0) {
-    if ((res = TclBN_mp_mul_2d (a, 8, a)) != MP_OKAY) {
-      return res;
-    }
-
-#ifndef MP_8BIT
-      a->dp[0] |= *b++;
-      a->used += 1;
-#else
-      a->dp[0] = (*b & MP_MASK);
-      a->dp[1] |= ((*b++ >> 7U) & 1);
-      a->used += 2;
-#endif
-  }
-  TclBN_mp_clamp (a);
-  return MP_OKAY;
-}
-
-
 
 /*
  *----------------------------------------------------------------------
@@ -557,7 +555,7 @@ int mp_read_unsigned_bin (mp_int * a, const unsigned char *b, int c)
  */
 int
 casstcl_typename_obj_to_cass_value_types (Tcl_Interp *interp, char *table, Tcl_Obj *typenameObj, casstcl_cassTypeInfo *typeInfoPtr) {
-  int varNameSize = 0;
+  Tcl_Size varNameSize = 0;
   char *varName = Tcl_GetStringFromObj (typenameObj, &varNameSize);
   // add two bytes, one for a period and one for a null byte
   int typeIndexSize = strlen (table) + 2 + varNameSize;
@@ -1031,7 +1029,7 @@ casstcl_GetInetFromObj(
  */
 int
 casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, casstcl_cassTypeInfo *typeInfo) {
-  int listObjc;
+  Tcl_Size listObjc;
   Tcl_Obj **listObjv;
 
   typeInfo->cassValueType = CASS_VALUE_TYPE_UNKNOWN;
@@ -1161,7 +1159,7 @@ casstcl_obj_to_compound_cass_value_types (Tcl_Interp *interp, Tcl_Obj *tclObj, c
  *----------------------------------------------------------------------
  */
 int
-casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char *query, char *tclArray, int objc, Tcl_Obj *CONST objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
+casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char *query, char *tclArray, int objc, Tcl_Obj *const objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
 {
   int i;
   int masterReturn = TCL_OK;
@@ -1239,7 +1237,7 @@ casstcl_bind_names_from_array (casstcl_sessionClientData *ct, char *table, char 
  *----------------------------------------------------------------------
  */
 int
-casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *query, int objc, Tcl_Obj *CONST objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
+casstcl_bind_names_from_list (casstcl_sessionClientData *ct, char *table, char *query, int objc, Tcl_Obj *const objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
 {
   int i;
   int masterReturn = TCL_OK;
@@ -1417,7 +1415,7 @@ int casstcl_append_tcl_obj_to_collection (casstcl_sessionClientData *ct, CassCol
     case CASS_VALUE_TYPE_ASCII:
     case CASS_VALUE_TYPE_TEXT:
     case CASS_VALUE_TYPE_VARCHAR: {
-      int length = 0;
+      Tcl_Size length = 0;
       char *value = Tcl_GetStringFromObj (obj, &length);
 
       cassError = cass_collection_append_string_n (collection, value, length);
@@ -1431,7 +1429,7 @@ int casstcl_append_tcl_obj_to_collection (casstcl_sessionClientData *ct, CassCol
     }
 
     case CASS_VALUE_TYPE_BLOB: {
-      int length = 0;
+      Tcl_Size length = 0;
       unsigned char *value = Tcl_GetByteArrayFromObj (obj, &length);
 
       cassError = cass_collection_append_bytes (collection, value, length);
@@ -1605,7 +1603,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
     case CASS_VALUE_TYPE_ASCII:
     case CASS_VALUE_TYPE_TEXT:
     case CASS_VALUE_TYPE_VARCHAR: {
-      int length = 0;
+      Tcl_Size length = 0;
       char *value = Tcl_GetStringFromObj (obj, &length);
 
       if (name == NULL) {
@@ -1624,7 +1622,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 
     case CASS_VALUE_TYPE_CUSTOM:
     case CASS_VALUE_TYPE_BLOB: {
-      int length = 0;
+      Tcl_Size length = 0;
       unsigned char *value = Tcl_GetByteArrayFromObj (obj, &length);
 
       if (name == NULL) {
@@ -1668,7 +1666,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
     }
 
     case CASS_VALUE_TYPE_DURATION: {
-      int listObjc;
+      Tcl_Size listObjc;
       Tcl_Obj **listObjv;
 	cass_int32_t months;
 	cass_int32_t days;
@@ -1702,10 +1700,13 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 	    return TCL_ERROR;
 	  }
 
-	  if (Tcl_GetWideIntFromObj(interp, listObjv[2], &nanos) != TCL_OK) {
+	  // temporary trampoline because Tcl_WideInt is *at least* 64 bits, but cass_int64_t is *exactly* 64 bits.
+	  Tcl_WideInt tmp;
+	  if (Tcl_GetWideIntFromObj(interp, listObjv[2], &tmp) != TCL_OK) {
 	    Tcl_AppendResult (interp, " while extracting nanos", NULL);
 	    return TCL_ERROR;
 	  }
+	  nanos = tmp;
 	  break;
 	}
       }
@@ -1737,7 +1738,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
     }
 
     case CASS_VALUE_TYPE_DECIMAL: {
-      int listObjc;
+      Tcl_Size listObjc;
       Tcl_Obj **listObjv;
       int scale;
       mp_int mpVal;
@@ -1781,7 +1782,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 	data = one_byte;
 	size = 1;
       } else {
-	data = cassDecimal.varint.data;
+	data = (cass_byte_t *)cassDecimal.varint.data;
 	size = cassDecimal.varint.size;
       }
 
@@ -1881,7 +1882,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
 
     case CASS_VALUE_TYPE_SET:
     case CASS_VALUE_TYPE_LIST: {
-      int listObjc;
+      Tcl_Size listObjc;
       Tcl_Obj **listObjv;
       int i;
 
@@ -1912,7 +1913,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
     }
 
     case CASS_VALUE_TYPE_MAP: {
-      int listObjc;
+      Tcl_Size listObjc;
       Tcl_Obj **listObjv;
       int i;
 
@@ -2008,7 +2009,7 @@ int casstcl_bind_tcl_obj (casstcl_sessionClientData *ct, CassStatement *statemen
  *----------------------------------------------------------------------
  */
 int
-casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int objc, Tcl_Obj *CONST objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
+casstcl_bind_values_and_types (casstcl_sessionClientData *ct, char *query, int objc, Tcl_Obj *const objv[], CassConsistency *consistencyPtr, CassStatement **statementPtr)
 {
   int i;
   int masterReturn = TCL_OK;
